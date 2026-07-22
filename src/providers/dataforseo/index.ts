@@ -1,6 +1,6 @@
 import type { AiPrompt, Backlink, Competitor, DomainId, Keyword, PositionBucket, RankSnapshot, ReferringDomain } from "@/lib/types";
 import type { OnPageResult } from "@/lib/live";
-import { DOMAIN_MAP } from "@/data/domains";
+import { DOMAINS, DOMAIN_MAP } from "@/data/domains";
 import { TRACKED_AI_PROMPTS } from "@/data/ai-prompts";
 import { isoDate } from "@/lib/dates";
 import { ENDPOINTS, locationFor, readConfig } from "./config";
@@ -251,11 +251,25 @@ export async function probeDataForSeo(): Promise<{
   configured: boolean;
   spend?: Awaited<ReturnType<DataForSeoClient["guardStatus"]>>;
   models?: number;
+  locations?: Record<string, { locationCode?: number; languageCode?: string; error?: string }>;
   error?: string;
 }> {
   const cfg = readConfig();
   if (!cfg) return { configured: false };
   const client = new DataForSeoClient(cfg, makeGuard(cfg.monthlyBudgetUsd));
+  const locations = Object.fromEntries(
+    DOMAINS.map((domain) => {
+      try {
+        const location = locationFor(domain.id);
+        return [
+          domain.id,
+          { locationCode: location.location_code, languageCode: location.language_code },
+        ];
+      } catch (error) {
+        return [domain.id, { error: error instanceof Error ? error.message : String(error) }];
+      }
+    }),
+  );
   try {
     const models = await client.getMeta<unknown>(ENDPOINTS.aiLlmModels);
     let spend: Awaited<ReturnType<DataForSeoClient["guardStatus"]>> | undefined;
@@ -264,8 +278,8 @@ export async function probeDataForSeo(): Promise<{
     } catch {
       spend = undefined;
     }
-    return { configured: true, spend, models: models.length };
+    return { configured: true, spend, models: models.length, locations };
   } catch (err) {
-    return { configured: true, error: err instanceof Error ? err.message : String(err) };
+    return { configured: true, locations, error: err instanceof Error ? err.message : String(err) };
   }
 }

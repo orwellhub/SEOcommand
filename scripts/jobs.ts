@@ -12,6 +12,7 @@
  * Manual/ad-hoc pulls use POST /api/sync (full pull by default, or ?tier=...).
  */
 import { syncAll, scheduledTiers } from "../src/sync/engine";
+import { deliverDueReports } from "../src/reports/delivery";
 
 async function main() {
   if (!process.env.DATABASE_URL) {
@@ -41,6 +42,12 @@ async function main() {
   console.log(
     `[orwell-jobs] Complete. ${report.domains.length} domains, ` +
       `${report.startedAt} → ${report.completedAt}.`,
+  );
+
+  const deliveries = await deliverDueReports();
+  console.log(
+    `[orwell-jobs] Reports: ${deliveries.due} due, ${deliveries.delivered} delivered, ` +
+      `${deliveries.failed} failed, ${deliveries.skipped} awaiting webhook configuration.`,
   );
 }
 

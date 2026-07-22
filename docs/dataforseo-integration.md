@@ -1,7 +1,7 @@
 # DataForSEO integration
 
 The live DataForSEO adapter is implemented. This document is the operator/engineer
-reference for how it works and how to switch the app from demo to live.
+reference for the live adapter and its operating controls.
 
 ## What was built
 
@@ -18,7 +18,7 @@ src/providers/dataforseo/
 
 API routes:
 - `GET /api/health/dataforseo` — verifies credentials (zero-cost models call) and returns
-  the monthly-spend guardrail status. Reports `configured: false` in demo mode.
+  the monthly-spend guardrail status. Reports `configured: false` when credentials are absent.
 - `GET /api/usage` — month-to-date spend vs the $200 ceiling (feeds the Settings meter).
 
 ## Authentication
@@ -54,8 +54,9 @@ Also used (direct siblings on the same verified APIs — verify field paths agai
 payloads on first run): `dataforseo_labs/.../ranked_keywords/live`,
 `.../competitors_domain/live`, `backlinks/backlinks/live`, `backlinks/referring_domains/live`.
 
-Location/language codes (`config.ts`): UAE `2784`/`en`, UK `2826`/`en` (EU cities + route
-countries to be added).
+Location/language codes (`config.ts`) are explicit per domain or provided through
+`DATAFORSEO_LOCATION_<DOMAIN_ID>`. Multi-market domains never silently fall back to the
+UK; a missing priority market produces a visible sync error.
 
 ## Error handling
 
@@ -75,8 +76,8 @@ domain_rank_overview → visibility + position buckets). OnPage crawls are poste
 resumed across runs via their stored task id — a slow crawl never blocks or double-pays.
 
 Sync triggers:
-- **Daily cron** (orwell-jobs, 06:00 UTC) — full portfolio sync; crawls run first-time
-  and on Sundays (or `SYNC_INCLUDE_CRAWL=1`).
+- **Daily cron** (orwell-jobs, 06:00 UTC) — Google daily, DataForSEO light datasets on
+  Mondays and crawl/AI datasets on the first of each month.
 - **On-demand** — the cron's "Trigger Run" button, or `POST /api/sync` with
   `Authorization: Bearer $SYNC_TOKEN` (refused entirely while `SYNC_TOKEN` is unset).
 - AI prompt checks run only for domains configured in `src/data/ai-prompts.ts`.

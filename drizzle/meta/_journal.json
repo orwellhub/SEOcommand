@@ -22,6 +22,20 @@
       "when": 1784723434757,
       "tag": "0002_steep_raider",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784745283701,
+      "tag": "0003_productive_molten_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784745556547,
+      "tag": "0004_cold_kinsey_walden",
+      "breakpoints": true
     }
   ]
 }

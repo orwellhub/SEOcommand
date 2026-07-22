@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LogOut } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/nav";
 import { cn } from "@/lib/cn";
 import { useLivePortfolio } from "@/lib/use-live";
@@ -9,12 +11,38 @@ import { SyncBadge } from "@/components/ui/sync-badge";
 
 export function TopNav() {
   const pathname = usePathname();
+  const [user, setUser] = useState<{ name: string | null; email: string | null; role: string | null } | null>(null);
   const { data: pm, loading } = useLivePortfolio();
   const lastSync =
     pm?.domains.reduce<string | null>(
       (acc, d) => (d.lastSync && (!acc || d.lastSync > acc) ? d.lastSync : acc),
       null,
     ) ?? null;
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/auth/session")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body: { user?: { name: string | null; email: string | null; role: string | null } } | null) => {
+        if (active && body?.user) setUser(body.user);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function signOut() {
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
+    window.location.assign("/login");
+  }
+
+  const initials = (user?.name || user?.email || "Orwell Admin")
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
 
   return (
     <div className="flex h-11 items-center justify-between bg-nav px-2 text-white">
@@ -41,13 +69,22 @@ export function TopNav() {
         <SyncBadge lastSync={lastSync} loading={loading} className="hidden sm:inline-flex" />
         <div className="flex items-center gap-2 rounded-md px-2 py-1">
           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-purple text-2xs font-semibold">
-            OA
+            {initials || "OA"}
           </div>
           <div className="hidden leading-tight sm:block">
-            <div className="text-2xs font-medium">Orwell Admin</div>
-            <div className="text-[10px] text-white/40">admin</div>
+            <div className="max-w-32 truncate text-2xs font-medium">{user?.name || user?.email || "Orwell user"}</div>
+            <div className="text-[10px] text-white/40">{user?.role?.replace(/_/g, " ") || "signed in"}</div>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={signOut}
+          className="rounded-md p-1.5 text-white/50 transition-colors hover:bg-rail-selected hover:text-white"
+          title="Sign out"
+          aria-label="Sign out"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+        </button>
       </div>
     </div>
   );

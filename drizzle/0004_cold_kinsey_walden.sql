@@ -1,0 +1,1 @@
+ALTER TABLE "ranking_snapshots" ALTER COLUMN "mode" SET DEFAULT 'live';

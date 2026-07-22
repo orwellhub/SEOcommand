@@ -1,7 +1,7 @@
 /**
  * Canonical internal models for the Orwell SEO Command Centre.
  *
- * Provider adapters (DataForSEO, Google Search Console, GA4, demo) normalise
+ * Provider adapters (DataForSEO, Google Search Console and GA4) normalise
  * their raw responses into these shapes. UI and business logic only ever touch
  * these types — never a vendor payload shape. See docs/provider-contracts.md.
  */
@@ -24,6 +24,9 @@ export interface Domain {
   gscSite: string;
   /** GA4 numeric property id, or null when not yet mapped. */
   ga4PropertyId: string | null;
+  /** Explicit DataForSEO location. Null means an env override is required. */
+  dataForSeoLocationCode: number | null;
+  dataForSeoLanguageCode: string;
   gscConnected: boolean;
   ga4Connected: boolean;
   dataForSeoConnected: boolean;
@@ -31,6 +34,7 @@ export interface Domain {
 
 /** Where a displayed dataset came from and how fresh it is. */
 export type ProviderSource =
+  // Retained for backwards-compatible historical rows; current syncs write live sources.
   | "demo"
   | "dataforseo"
   | "google-search-console"

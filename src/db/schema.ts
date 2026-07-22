@@ -16,10 +16,8 @@ import {
 /**
  * Orwell SEO Command Centre — production data model (Drizzle / PostgreSQL).
  *
- * The demo build runs entirely off deterministic seed modules in src/data so
- * the app builds and runs with no database. These tables define the shape the
- * live product persists into once providers are connected: provider sync runs
- * write immutable snapshots here, and the UI reads through the provider layer.
+ * Provider syncs write canonical snapshots here; workflow and reporting APIs
+ * persist operator decisions alongside the analytical data.
  *
  * Run `npm run db:generate` to emit migrations and `npm run db:migrate` to apply.
  */
@@ -213,7 +211,7 @@ export const rankingSnapshots = pgTable(
     position: integer("position"),
     url: text("url"),
     device: deviceEnum("device").notNull(),
-    mode: dataModeEnum("mode").notNull().default("demo"),
+    mode: dataModeEnum("mode").notNull().default("live"),
     serpFeatures: jsonb("serp_features").$type<string[]>().default([]),
   },
   (t) => ({
@@ -430,6 +428,36 @@ export const taskStatusHistory = pgTable("task_status_history", {
   changedAt: timestamp("changed_at").defaultNow().notNull(),
 });
 
+/**
+ * Runtime workflow state keyed by the registry's stable domain slug. This table
+ * is deliberately FK-free so recommendation decisions work with the live
+ * snapshot pipeline without requiring the legacy relational seed bootstrap.
+ */
+export const workflowItems = pgTable(
+  "workflow_items",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    domainSlug: text("domain_slug").notNull(),
+    recommendationKey: text("recommendation_key").notNull(),
+    decision: text("decision").notNull(), // approved | dismissed
+    title: text("title").notNull(),
+    module: text("module").notNull(),
+    effort: text("effort").notNull(),
+    priorityScore: integer("priority_score").notNull(),
+    status: text("status"), // approved | in_progress | done (null when dismissed)
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    uniqDecision: uniqueIndex("uniq_workflow_recommendation").on(
+      t.domainSlug,
+      t.recommendationKey,
+    ),
+    domainIdx: index("workflow_domain_idx").on(t.domainSlug, t.updatedAt),
+  }),
+);
+
 /* -------------------------------- Reports ------------------------------- */
 
 export const reports = pgTable("reports", {
@@ -451,6 +479,30 @@ export const reportSchedules = pgTable("report_schedules", {
   nextRun: timestamp("next_run"),
   recipients: jsonb("recipients").$type<string[]>().default([]),
 });
+
+/** Live report schedules, also registry-slug based and independent of seed rows. */
+export const reportDeliverySchedules = pgTable(
+  "report_delivery_schedules",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    domainSlug: text("domain_slug"), // null = portfolio
+    templateId: text("template_id").notNull(),
+    templateName: text("template_name").notNull(),
+    cadence: text("cadence").notNull(),
+    recipients: jsonb("recipients").$type<string[]>().notNull().default([]),
+    format: text("format").notNull().default("PDF"),
+    enabled: boolean("enabled").notNull().default(true),
+    nextRun: timestamp("next_run").notNull(),
+    lastDelivered: timestamp("last_delivered"),
+    lastError: text("last_error"),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    dueIdx: index("report_delivery_due_idx").on(t.enabled, t.nextRun),
+  }),
+);
 
 /* --------------------------- Dataset snapshots -------------------------- */
 

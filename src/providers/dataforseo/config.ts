@@ -29,24 +29,28 @@ export function basicAuthHeader(cfg: DataForSeoConfig): string {
   return `Basic ${token}`;
 }
 
-/**
- * DataForSEO location/language codes, derived from each domain's primary market.
- * Operator-confirmed: UAE 2784, UK 2826, US 2840. Falls back to UK for
- * unmatched markets; override per domain as EU cities / route countries are added.
- */
-const MARKET_LOCATION: { match: string; location_code: number }[] = [
-  { match: "united arab", location_code: 2784 },
-  { match: "uae", location_code: 2784 },
-  { match: "united states", location_code: 2840 },
-  { match: "usa", location_code: 2840 },
-  { match: "kingdom", location_code: 2826 },
-];
-
 export function locationFor(domainId: DomainId): { location_code: number; language_code: string } {
   const domain = DOMAIN_MAP[domainId];
-  const market = (domain?.primaryMarket ?? "").toLowerCase();
-  const hit = MARKET_LOCATION.find((m) => market.includes(m.match));
-  return { location_code: hit?.location_code ?? 2826, language_code: "en" };
+  if (!domain) throw new Error(`Unknown domain "${domainId}".`);
+
+  const suffix = domainId.toUpperCase();
+  const rawOverride = process.env[`DATAFORSEO_LOCATION_${suffix}`];
+  const override = rawOverride ? Number(rawOverride) : null;
+  const locationCode = Number.isInteger(override) && Number(override) > 0
+    ? Number(override)
+    : domain.dataForSeoLocationCode;
+
+  if (!locationCode) {
+    throw new Error(
+      `No DataForSEO location configured for ${domain.name}. ` +
+        `Set DATAFORSEO_LOCATION_${suffix} to the priority market's DataForSEO location code.`,
+    );
+  }
+
+  return {
+    location_code: locationCode,
+    language_code: process.env[`DATAFORSEO_LANGUAGE_${suffix}`] || domain.dataForSeoLanguageCode,
+  };
 }
 
 /**

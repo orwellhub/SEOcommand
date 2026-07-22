@@ -64,5 +64,5 @@ this is recomputed from the underlying metric deltas the recommendation is deriv
 
 ## Provenance, not just scores
 
-Every score is displayed alongside its provenance (source, freshness, demo/live mode) so
-users always know whether a number is seeded, cached or live.
+Every score is displayed alongside its provenance (source, freshness, cached/live mode) so
+users always know whether a number is cached or freshly collected.

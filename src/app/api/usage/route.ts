@@ -7,8 +7,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * Month-to-date DataForSEO spend against the app-owned monthly guardrail.
- * Works in demo mode (shows $0 of the configured limit). Feeds the Settings
- * usage meter once wired to live data.
+ * Returns defaults when no durable spend records exist yet.
  */
 export async function GET() {
   const limitUsd = Number(process.env.MONTHLY_BUDGET_USD ?? "200");

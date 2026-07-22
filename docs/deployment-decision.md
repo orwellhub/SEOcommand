@@ -29,16 +29,16 @@ reliable and cheap to operate.
 
 1. **orwell-db** — managed PostgreSQL 16.
 2. **orwell-web** — the Next.js web service (`npm ci && npm run build` → `npm run start`),
-   health-checked at `/portfolio`, `DATABASE_URL` injected from the database, secrets as
+   health-checked at `/api/healthz`, `DATABASE_URL` injected from the database, secrets as
    `sync: false` env vars entered in the dashboard, and a generated `AUTH_SECRET`.
-3. **orwell-jobs** — a cron worker (`npm run jobs`) running the idempotent daily sync;
-   a safe no-op in demo mode.
+3. **orwell-jobs** — a cron worker (`npm run jobs`) running the split-cadence live sync and
+   due report delivery handoffs.
 
 ## Cost posture
 
 Start on Render's low-cost Starter web plan + a small Postgres instance. The app itself
-runs fine in demo mode with no provider spend; the $200/month DataForSEO guardrail governs
-API cost once live (see `docs/cost-controls.md`).
+runs with no provider spend until credentials are configured; the $200/month DataForSEO
+guardrail governs paid API cost (see `docs/cost-controls.md`).
 
 ## Operator setup
 

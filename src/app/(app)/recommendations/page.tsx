@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   CheckCircle2,
@@ -31,25 +31,28 @@ const CONFIDENCE_COLOR: Record<RecConfidence, string> = {
   low: "text-muted",
 };
 
-type LocalTaskStatus = "approved" | "in_progress" | "done";
+type WorkflowStatus = "approved" | "in_progress" | "done";
 
-/** A session-local task created by approving a recommendation. Not persisted. */
-interface LocalTask {
-  recId: string;
+interface WorkflowItem {
+  id: string;
+  recommendationKey: string;
+  decision: "approved" | "dismissed";
   title: string;
   module: string;
   effort: RecEffort;
   priorityScore: number;
-  status: LocalTaskStatus;
+  status: WorkflowStatus | null;
 }
 
-const BOARD_COLUMNS: { status: LocalTaskStatus; label: string }[] = [
+type WorkflowTask = WorkflowItem & { status: WorkflowStatus };
+
+const BOARD_COLUMNS: { status: WorkflowStatus; label: string }[] = [
   { status: "approved", label: "Approved" },
   { status: "in_progress", label: "In progress" },
   { status: "done", label: "Done" },
 ];
 
-const NEXT_STATUS: Partial<Record<LocalTaskStatus, LocalTaskStatus>> = {
+const NEXT_STATUS: Partial<Record<WorkflowStatus, WorkflowStatus>> = {
   approved: "in_progress",
   in_progress: "done",
 };
@@ -60,9 +63,8 @@ export default function RecommendationsPage() {
   const { data: bundle, loading, error } = useLiveDomain(domain.id);
 
   const [selected, setSelected] = useState<DerivedRecommendation | null>(null);
-  // Session-local workflow state — cleared on reload; task persistence has not shipped yet.
-  const [tasks, setTasks] = useState<LocalTask[]>([]);
-  const [dismissed, setDismissed] = useState<string[]>([]);
+  const [workflowItems, setWorkflowItems] = useState<WorkflowItem[]>([]);
+  const [workflowError, setWorkflowError] = useState<string | null>(null);
 
   const ds = bundle?.datasets.recommendations;
 
@@ -71,8 +73,37 @@ export default function RecommendationsPage() {
     [ds],
   );
 
+  useEffect(() => {
+    let active = true;
+    setWorkflowError(null);
+    fetch(`/api/workflow/tasks?domain=${encodeURIComponent(domain.id)}`)
+      .then(async (response) => {
+        const body = (await response.json()) as { items?: WorkflowItem[]; error?: string };
+        if (!response.ok) throw new Error(body.error || "Could not load workflow tasks.");
+        if (active) setWorkflowItems(body.items ?? []);
+      })
+      .catch((err) => {
+        if (active) setWorkflowError(err instanceof Error ? err.message : "Could not load workflow tasks.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [domain.id]);
+
+  const tasks = useMemo(
+    () =>
+      workflowItems.filter(
+        (item): item is WorkflowTask => item.decision === "approved" && item.status !== null,
+      ),
+    [workflowItems],
+  );
+  const dismissed = useMemo(
+    () => workflowItems.filter((item) => item.decision === "dismissed").map((item) => item.recommendationKey),
+    [workflowItems],
+  );
+
   const queue = useMemo(() => {
-    const decided = new Set([...tasks.map((t) => t.recId), ...dismissed]);
+    const decided = new Set([...tasks.map((t) => t.recommendationKey), ...dismissed]);
     return recs.filter((r) => !decided.has(r.id));
   }, [recs, tasks, dismissed]);
 
@@ -90,44 +121,45 @@ export default function RecommendationsPage() {
   }, [queue]);
 
   const board = useMemo(() => {
-    const map: Record<LocalTaskStatus, LocalTask[]> = { approved: [], in_progress: [], done: [] };
+    const map: Record<WorkflowStatus, WorkflowTask[]> = { approved: [], in_progress: [], done: [] };
     for (const t of tasks) map[t.status].push(t);
     return map;
   }, [tasks]);
 
-  const approve = (rec: DerivedRecommendation) => {
-    setTasks((prev) =>
-      prev.some((t) => t.recId === rec.id)
-        ? prev
-        : [
-            ...prev,
-            {
-              recId: rec.id,
-              title: rec.title,
-              module: rec.module,
-              effort: rec.effort,
-              priorityScore: rec.priorityScore,
-              status: "approved",
-            },
-          ],
-    );
-    setSelected(null);
-  };
+  async function decide(rec: DerivedRecommendation, action: "approve" | "dismiss") {
+    setWorkflowError(null);
+    try {
+      const response = await fetch("/api/workflow/tasks", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ domainId: domain.id, action, recommendation: rec }),
+      });
+      const body = (await response.json()) as { item?: WorkflowItem; error?: string };
+      if (!response.ok || !body.item) throw new Error(body.error || "Could not save the workflow decision.");
+      setWorkflowItems((prev) => [body.item!, ...prev.filter((item) => item.id !== body.item!.id)]);
+      setSelected(null);
+    } catch (err) {
+      setWorkflowError(err instanceof Error ? err.message : "Could not save the workflow decision.");
+    }
+  }
 
-  const dismiss = (rec: DerivedRecommendation) => {
-    setDismissed((prev) => (prev.includes(rec.id) ? prev : [...prev, rec.id]));
-    setSelected(null);
-  };
-
-  const advance = (recId: string) => {
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.recId !== recId) return t;
-        const next = NEXT_STATUS[t.status];
-        return next ? { ...t, status: next } : t;
-      }),
-    );
-  };
+  async function advance(item: WorkflowTask) {
+    const next = NEXT_STATUS[item.status];
+    if (!next) return;
+    setWorkflowError(null);
+    try {
+      const response = await fetch("/api/workflow/tasks", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: item.id, status: next }),
+      });
+      const body = (await response.json()) as { item?: WorkflowItem; error?: string };
+      if (!response.ok || !body.item) throw new Error(body.error || "Could not update the task.");
+      setWorkflowItems((prev) => prev.map((current) => (current.id === body.item!.id ? body.item! : current)));
+    } catch (err) {
+      setWorkflowError(err instanceof Error ? err.message : "Could not update the task.");
+    }
+  }
 
   const header = (
     <PageHeader
@@ -189,6 +221,11 @@ export default function RecommendationsPage() {
     <div className="animate-in space-y-5">
       {header}
       {scopeNote}
+      {workflowError && (
+        <p role="alert" className="rounded-md border border-critical/20 bg-critical/10 px-3 py-2 text-xs text-critical">
+          {workflowError}
+        </p>
+      )}
 
       {/* Provenance / policy banner */}
       <Card className="flex items-start gap-3 border-[color:var(--accent)]/30 bg-[color:var(--accent-soft)] p-4">
@@ -229,7 +266,7 @@ export default function RecommendationsPage() {
           </span>
           {dismissed.length > 0 && (
             <span className="ml-auto text-2xs text-muted tnum">
-              {dismissed.length} dismissed this session
+              {dismissed.length} dismissed
             </span>
           )}
         </div>
@@ -289,13 +326,13 @@ export default function RecommendationsPage() {
         )}
       </Card>
 
-      {/* Task board — session-local only */}
+      {/* Persisted task board */}
       <Card className="p-4">
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <ClipboardList className="h-4 w-4 text-[color:var(--accent)]" />
           <h3 className="text-sm font-semibold text-ink">Task board</h3>
           <span className="text-2xs text-muted">
-            Session-local until task persistence ships — approved tasks reset on reload
+            Decisions and status changes are stored in Postgres
           </span>
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -325,7 +362,7 @@ export default function RecommendationsPage() {
                       const next = NEXT_STATUS[t.status];
                       return (
                         <div
-                          key={t.recId}
+                          key={t.id}
                           className="rounded-md border border-border bg-card p-2.5 shadow-card"
                         >
                           <div className="text-xs font-medium leading-snug text-ink">{t.title}</div>
@@ -343,7 +380,7 @@ export default function RecommendationsPage() {
                               Priority {t.priorityScore}
                             </span>
                             {next ? (
-                              <Button variant="ghost" size="sm" onClick={() => advance(t.recId)}>
+                              <Button variant="ghost" size="sm" onClick={() => advance(t)}>
                                 {next === "in_progress" ? "Start" : "Mark done"}
                                 <ArrowRight className="h-3 w-3" />
                               </Button>
@@ -373,12 +410,12 @@ export default function RecommendationsPage() {
         footer={
           selected ? (
             <div className="flex items-center justify-between gap-2">
-              <span className="text-2xs text-muted">Tasks are session-local for now</span>
+              <span className="text-2xs text-muted">The decision is saved to the shared workflow</span>
               <div className="flex items-center gap-2">
-                <Button variant="secondary" size="sm" onClick={() => dismiss(selected)}>
+                <Button variant="secondary" size="sm" onClick={() => decide(selected, "dismiss")}>
                   <XCircle className="h-3.5 w-3.5" /> Dismiss
                 </Button>
-                <Button variant="primary" size="sm" onClick={() => approve(selected)}>
+                <Button variant="primary" size="sm" onClick={() => decide(selected, "approve")}>
                   <CheckCircle2 className="h-3.5 w-3.5" /> Approve &amp; create task
                 </Button>
               </div>
@@ -412,8 +449,8 @@ export default function RecommendationsPage() {
             </DrawerField>
             <p className="pt-2 text-2xs text-muted">
               Derived from live measured signals at the last sync. Approving creates a
-              session-local task on the board below — it is not persisted and no change is made to
-              the live site.
+              persisted task on the shared board below. No change is made automatically to the live
+              site.
             </p>
           </div>
         )}

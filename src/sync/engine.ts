@@ -24,6 +24,7 @@ import {
   fetchReferringDomains,
 } from "@/providers/dataforseo";
 import { BudgetExceededError, DailyLimitError } from "@/providers/dataforseo/errors";
+import { locationFor } from "@/providers/dataforseo/config";
 import { isoDate } from "@/lib/dates";
 import { readLatestSnapshots, writeSnapshot } from "./store";
 
@@ -129,7 +130,15 @@ export async function syncDomain(
 
   /* ------------------------- DataForSEO datasets ------------------------- */
 
-  const dfsProv = () => prov("dataforseo", domain.primaryMarket);
+  let dfsLocation = "location-independent dataset";
+  try {
+    const location = locationFor(domainId);
+    dfsLocation = `DataForSEO location ${location.location_code} / ${location.language_code}`;
+  } catch {
+    // Backlink datasets remain valid without a SERP market. Location-dependent
+    // collectors call locationFor themselves and surface the configuration error.
+  }
+  const dfsProv = () => prov("dataforseo", dfsLocation);
 
   const collectors: Collector[] = [
     () =>
