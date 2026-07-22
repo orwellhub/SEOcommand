@@ -1,0 +1,107 @@
+# Render Blueprint — Orwell SEO Command Centre
+# Deploy: push this repo, then in Render → "New +" → "Blueprint" and point at it.
+# Docs: https://render.com/docs/blueprint-spec
+#
+# What this provisions:
+#   1. orwell-db   — managed PostgreSQL (holds live snapshots once providers connect)
+#   2. orwell-web  — the Next.js web service (the dashboard itself)
+#   3. orwell-jobs — a scheduled cron worker for daily/weekly SEO sync jobs
+#
+# Secrets (DataForSEO / Google / auth) are declared with `sync: false` so their
+# VALUES are entered in the Render dashboard, never committed to git.
+
+databases:
+  - name: orwell-db
+    databaseName: orwell
+    user: orwell
+    plan: basic-256mb # upgrade as data volume grows
+    postgresMajorVersion: "16"
+
+services:
+  # ------------------------------------------------------------------ web ---
+  - type: web
+    name: orwell-web
+    runtime: node
+    plan: starter
+    region: frankfurt # closest to UAE/EU pilot markets; change if desired
+    branch: claude/seo-dashboard-dataforseo-112fbm
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    healthCheckPath: /portfolio
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22.22.2"
+      - key: PORT
+        value: "10000"
+      # Start in demo mode. Flip to "dataforseo" only after credentials are set
+      # AND the DataForSEO adapter is implemented.
+      - key: SEO_PROVIDER
+        value: demo
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      - key: MONTHLY_BUDGET_USD
+        value: "200"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: orwell-db
+          property: connectionString
+      # --- Secrets: set values in the Render dashboard (never in git) ---
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: DATAFORSEO_LOGIN
+        sync: false
+      - key: DATAFORSEO_PASSWORD
+        sync: false
+      - key: DATAFORSEO_BASE_URL
+        value: https://api.dataforseo.com
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_OAUTH_REDIRECT_URI
+        sync: false
+      - key: GOOGLE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: GA4_PROPERTY_ID
+        sync: false
+      - key: GSC_SITE_URL
+        sync: false
+
+  # --------------------------------------------------------------- worker ---
+  # Daily scheduled sync (tracked keywords, GSC/GA4, backlinks). Idempotent and
+  # observable — in demo mode it is a safe no-op that logs and exits.
+  - type: cron
+    name: orwell-jobs
+    runtime: node
+    plan: starter
+    region: frankfurt
+    branch: claude/seo-dashboard-dataforseo-112fbm
+    schedule: "0 6 * * *" # 06:00 UTC daily
+    buildCommand: npm ci && npm run build
+    startCommand: npm run jobs
+    envVars:
+      - key: NODE_VERSION
+        value: "22.22.2"
+      - key: SEO_PROVIDER
+        value: demo
+      - key: CRON_ENABLED
+        value: "true"
+      - key: MONTHLY_BUDGET_USD
+        value: "200"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: orwell-db
+          property: connectionString
+      - key: DATAFORSEO_LOGIN
+        sync: false
+      - key: DATAFORSEO_PASSWORD
+        sync: false
+      - key: DATAFORSEO_BASE_URL
+        value: https://api.dataforseo.com
+      - key: GOOGLE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: GA4_PROPERTY_ID
+        sync: false
+      - key: GSC_SITE_URL
+        sync: false
