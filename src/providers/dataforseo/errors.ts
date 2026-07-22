@@ -45,12 +45,15 @@ export class MissingCredentialsError extends Error {
 }
 
 /**
- * Classify a DataForSEO status code. `20000` is success; `40203` is the daily
- * limit; anything else is a hard error. DataForSEO returns statuses at both the
- * top level and per-task, so both are checked by the client.
+ * Classify a DataForSEO status code. `20000` (Ok) and the `201xx` "Task
+ * Created / In Queue" acknowledgements are success (the latter for async
+ * task_post endpoints like OnPage); `40203` is the daily limit; anything else
+ * is a hard error. DataForSEO returns statuses at both the top level and
+ * per-task, so both are checked by the client.
  */
 export function classifyStatus(statusCode: number): "ok" | "daily_limit" | "error" {
   if (statusCode === 20000) return "ok";
+  if (statusCode >= 20100 && statusCode < 20200) return "ok"; // task created / in queue
   if (statusCode === 40203) return "daily_limit";
   return "error";
 }

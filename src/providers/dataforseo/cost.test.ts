@@ -58,6 +58,8 @@ describe("SpendGuard — app-owned monthly $200 guardrail", () => {
 describe("DataForSEO status classification", () => {
   it("maps 20000 ok, 40203 daily limit, others error", () => {
     expect(classifyStatus(20000)).toBe("ok");
+    expect(classifyStatus(20100)).toBe("ok"); // Task Created (async task_post)
+    expect(classifyStatus(20101)).toBe("ok"); // In Queue
     expect(classifyStatus(40203)).toBe("daily_limit");
     expect(classifyStatus(40101)).toBe("error");
   });

@@ -118,6 +118,40 @@ export class DataForSeoClient {
     return { result, guard };
   }
 
+  /**
+   * Guarded POST for asynchronous task endpoints. The task id lives on the task
+   * object itself (`tasks[0].id`), not in `result` (which is null for task_post),
+   * so this returns the id directly.
+   */
+  async postTask(
+    endpointKey: keyof typeof COST_ESTIMATE_USD,
+    path: string,
+    body: unknown,
+    opts: { domainSlug?: string | null; critical?: boolean } = {},
+  ): Promise<{ taskId: string | null; guard: GuardResult }> {
+    const estimate = COST_ESTIMATE_USD[endpointKey] ?? 0.05;
+    const { result, guard } = await this.guard.run<string | null>(
+      { endpoint: endpointKey, estimateUsd: estimate, domainSlug: opts.domainSlug, critical: opts.critical },
+      async () => {
+        const res = await this.rawFetch(path, body);
+        const json = (await res.json()) as DfsEnvelope<unknown>;
+        const topClass = classifyStatus(json.status_code);
+        if (topClass === "daily_limit") throw new DailyLimitError(path);
+        if (topClass === "error") {
+          throw new DataForSeoError(json.status_message || "DataForSEO error", json.status_code, path);
+        }
+        const task = json.tasks?.[0] as { id?: string; status_code?: number; status_message?: string; cost?: number } | undefined;
+        const taskClass = classifyStatus(task?.status_code ?? 0);
+        if (taskClass === "daily_limit") throw new DailyLimitError(path);
+        if (taskClass === "error") {
+          throw new DataForSeoError(task?.status_message || "DataForSEO task error", task?.status_code ?? 0, path);
+        }
+        return { result: task?.id ?? null, costUsd: task?.cost ?? json.cost ?? 0 };
+      },
+    );
+    return { taskId: result, guard };
+  }
+
   /** Unguarded GET for zero-cost metadata endpoints (e.g. model lists). */
   async getMeta<T>(path: string): Promise<T[]> {
     const res = await this.rawFetch(path, undefined);
@@ -135,15 +169,14 @@ export class DataForSeoClient {
     target: string,
     opts: { maxPages?: number; domainSlug?: string | null } = {},
   ): Promise<{ taskId: string; guard: GuardResult }> {
-    const post = await this.post<{ id: string }>(
+    const { taskId, guard } = await this.postTask(
       "onPageTaskPost",
       ENDPOINTS.onPageTaskPost,
       [{ target, max_crawl_pages: opts.maxPages ?? 100 }],
       { domainSlug: opts.domainSlug, critical: false },
     );
-    const taskId = post.result[0]?.id;
     if (!taskId) throw new DataForSeoError("OnPage task_post returned no task id", 0, ENDPOINTS.onPageTaskPost);
-    return { taskId, guard: post.guard };
+    return { taskId, guard };
   }
 
   async fetchOnPageSummary(taskId: string): Promise<Record<string, unknown> | null> {
