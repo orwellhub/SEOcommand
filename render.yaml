@@ -11,9 +11,16 @@
 # VALUES are entered in the Render dashboard, never committed to git.
 
 databases:
-  - name: orwell-db
+  # IMPORTANT: the database MUST be in the same region as the services, otherwise
+  # the internal `dpg-…` hostname will not resolve and pre-deploy migrations (and
+  # runtime DB access) fail with ENOTFOUND. This DB is pinned to `frankfurt` to
+  # match orwell-web / orwell-jobs. The resource is named `orwell-db-fra` (rather
+  # than changing an existing DB's region, which Render cannot do in place) so a
+  # fresh Frankfurt database is created cleanly; delete the old Oregon `orwell-db`.
+  - name: orwell-db-fra
     databaseName: orwell
     user: orwell
+    region: frankfurt
     plan: basic-256mb # upgrade as data volume grows
     postgresMajorVersion: "16"
 
@@ -50,7 +57,7 @@ services:
         value: "200"
       - key: DATABASE_URL
         fromDatabase:
-          name: orwell-db
+          name: orwell-db-fra
           property: connectionString
       # --- Secrets: set values in the Render dashboard (never in git) ---
       - key: AUTH_SECRET
@@ -97,7 +104,7 @@ services:
         value: "200"
       - key: DATABASE_URL
         fromDatabase:
-          name: orwell-db
+          name: orwell-db-fra
           property: connectionString
       - key: DATAFORSEO_LOGIN
         sync: false
