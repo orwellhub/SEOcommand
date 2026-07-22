@@ -1,12 +1,13 @@
 import type { DomainId } from "@/lib/types";
+import { DOMAINS } from "@/data/domains";
 
 /**
  * Google (Search Console + GA4) configuration, server-side only.
  *
  * Auth is headless — a service account JSON or a stored OAuth refresh token —
  * NOT the interactive `gcloud` login the local MCP used (which cannot run on a
- * server). Property mappings default to the values discovered from the account
- * and can be overridden per-env.
+ * server). Property mappings are derived from the domain registry, with an
+ * optional per-domain env override (GSC_SITE_<ID> / GA4_PROPERTY_<ID>).
  */
 
 export const GSC_SCOPE = "https://www.googleapis.com/auth/webmasters.readonly";
@@ -15,20 +16,19 @@ export const GA4_SCOPE = "https://www.googleapis.com/auth/analytics.readonly";
 /** Search Console finalises data on a ~2 day lag (mirrors the reference MCP). */
 export const GSC_DATA_LAG_DAYS = 2;
 
-/** GSC domain properties per pilot (verified as siteOwner on the account). */
-export const GSC_SITE_MAP: Record<DomainId, string> = {
-  mortgagecompare: process.env.GSC_SITE_MORTGAGECOMPARE ?? "sc-domain:mortgagecompare.ae",
-  busrentalglobal: process.env.GSC_SITE_BUSRENTALGLOBAL ?? "sc-domain:busrentalglobal.com",
-  pettransportglobal: process.env.GSC_SITE_PETTRANSPORTGLOBAL ?? "sc-domain:pettransportglobal.com",
-};
+function envKey(prefix: string, id: DomainId): string | undefined {
+  return process.env[`${prefix}_${id.toUpperCase()}`];
+}
 
-/** GA4 property IDs per pilot (bare numeric id; `properties/` prefix added at call time). */
-export const GA4_PROPERTY_MAP: Record<DomainId, string | null> = {
-  mortgagecompare: process.env.GA4_PROPERTY_MORTGAGECOMPARE ?? "529950642",
-  pettransportglobal: process.env.GA4_PROPERTY_PETTRANSPORTGLOBAL ?? "536371348",
-  // BusRental GA4 property id was not present in the source account dump — set via env.
-  busrentalglobal: process.env.GA4_PROPERTY_BUSRENTALGLOBAL ?? null,
-};
+/** GSC domain property per domain (registry value, env-overridable). */
+export const GSC_SITE_MAP: Record<DomainId, string> = Object.fromEntries(
+  DOMAINS.map((d) => [d.id, envKey("GSC_SITE", d.id) ?? d.gscSite]),
+) as Record<DomainId, string>;
+
+/** GA4 numeric property id per domain (registry value, env-overridable; null if unmapped). */
+export const GA4_PROPERTY_MAP: Record<DomainId, string | null> = Object.fromEntries(
+  DOMAINS.map((d) => [d.id, envKey("GA4_PROPERTY", d.id) ?? d.ga4PropertyId]),
+) as Record<DomainId, string | null>;
 
 export interface GoogleAuthConfig {
   mode: "service_account" | "refresh_token";

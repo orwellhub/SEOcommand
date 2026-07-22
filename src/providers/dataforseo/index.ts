@@ -2,7 +2,7 @@ import type { AiPrompt, DomainId, Provenance } from "@/lib/types";
 import type { Envelope, SeoProvider } from "../contracts";
 import { DOMAIN_MAP } from "@/data/domains";
 import { isoDate } from "@/lib/dates";
-import { ENDPOINTS, LOCATION_MAP, readConfig } from "./config";
+import { ENDPOINTS, locationFor, readConfig } from "./config";
 import { MissingCredentialsError } from "./errors";
 import { DataForSeoClient } from "./client";
 import { InMemorySpendStore, SpendGuard, type SpendStore } from "./cost";
@@ -41,7 +41,7 @@ function makeGuard(limitUsd: number): SpendGuard {
 
 function liveProvenance(domainId: DomainId): Provenance {
   const today = isoDate(new Date());
-  const loc = LOCATION_MAP[domainId];
+  const loc = locationFor(domainId);
   return {
     source: "dataforseo",
     collectedAt: new Date().toISOString(),
@@ -67,7 +67,7 @@ export function createDataForSeoProvider(): SeoProvider {
     return DOMAIN_MAP[domainId].host;
   }
   function labsBody(domainId: DomainId, extra: Record<string, unknown> = {}) {
-    const loc = LOCATION_MAP[domainId];
+    const loc = locationFor(domainId);
     return [{ target: target(domainId), location_code: loc.location_code, language_code: loc.language_code, limit: 200, ...extra }];
   }
 

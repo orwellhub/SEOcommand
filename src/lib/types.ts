@@ -6,18 +6,24 @@
  * these types — never a vendor payload shape. See docs/provider-contracts.md.
  */
 
-export type DomainId = "mortgagecompare" | "busrentalglobal" | "pettransportglobal";
-
-export type AccentKey = "mortgage" | "bus" | "pet";
+/**
+ * Domain identifier. A stable slug, not a fixed union — the platform is
+ * architected for many domains, so the registry (src/data/domains.ts) is the
+ * single source of truth and everything derives from it.
+ */
+export type DomainId = string;
 
 export interface Domain {
   id: DomainId;
   name: string;
   host: string;
-  accentKey: AccentKey;
   accent: string;
   industry: string;
   primaryMarket: string;
+  /** Search Console property, e.g. "sc-domain:mortgagecompare.ae". */
+  gscSite: string;
+  /** GA4 numeric property id, or null when not yet mapped. */
+  ga4PropertyId: string | null;
   gscConnected: boolean;
   ga4Connected: boolean;
   dataForSeoConnected: boolean;

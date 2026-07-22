@@ -24,9 +24,10 @@ import type {
 } from "@/lib/types";
 import { DOMAINS } from "./domains";
 import {
-  COMPETITOR_HOSTS,
-  KEYWORD_SEEDS,
-  LOCATIONS,
+  aiPromptSeedsFor,
+  competitorHostsFor,
+  locationFor,
+  seedsFor,
 } from "./keyword-seeds";
 import { floatBetween, intBetween, pick, rngFor, series } from "@/lib/prng";
 import { isoDaysAgo } from "@/lib/dates";
@@ -54,9 +55,9 @@ function serpFeaturesFor(rng: () => number): SerpFeature[] {
 /* ------------------------------- Keywords ------------------------------- */
 
 function buildKeywords(domainId: DomainId): Keyword[] {
-  const seeds = KEYWORD_SEEDS[domainId];
-  const competitors = COMPETITOR_HOSTS[domainId];
-  const location = LOCATIONS[domainId];
+  const seeds = seedsFor(domainId);
+  const competitors = competitorHostsFor(domainId);
+  const location = locationFor(domainId);
   return seeds.map((seed, i) => {
     const rng = rngFor(`${domainId}:kw:${seed.keyword}`);
     const volume = intBetween(rng, 90, 22000);
@@ -197,7 +198,7 @@ function buildVisibilitySeries(domainId: DomainId): { date: string; value: numbe
 /* ----------------------------- Competitors ------------------------------ */
 
 function buildCompetitors(domainId: DomainId): Competitor[] {
-  return COMPETITOR_HOSTS[domainId].map((host, i) => {
+  return competitorHostsFor(domainId).map((host, i) => {
     const rng = rngFor(`${domainId}:comp:${host}`);
     const trends = ["up", "down", "flat"] as const;
     return {
@@ -483,37 +484,10 @@ function buildReferringDomains(domainId: DomainId): ReferringDomain[] {
 
 /* ----------------------------- AI Visibility ---------------------------- */
 
-const AI_PROMPTS: Record<DomainId, { prompt: string; topic: string }[]> = {
-  mortgagecompare: [
-    { prompt: "What are the best mortgage rates in the UAE right now?", topic: "Rates" },
-    { prompt: "How do I get a mortgage in Dubai as an expat?", topic: "Eligibility" },
-    { prompt: "Which UAE bank has the lowest mortgage interest?", topic: "Comparison" },
-    { prompt: "How much deposit do I need to buy a home in Dubai?", topic: "Down payment" },
-    { prompt: "Is it better to rent or buy in Dubai?", topic: "Advice" },
-    { prompt: "What is the mortgage eligibility salary in the UAE?", topic: "Eligibility" },
-  ],
-  busrentalglobal: [
-    { prompt: "Where can I hire a 48 seater coach in London?", topic: "Coach hire" },
-    { prompt: "How much does minibus hire with a driver cost?", topic: "Pricing" },
-    { prompt: "Best coach hire company for a European tour?", topic: "Comparison" },
-    { prompt: "Can I hire a coach for a wedding in Paris?", topic: "Events" },
-    { prompt: "What's the cheapest way to move a group across Europe?", topic: "Advice" },
-    { prompt: "Which coach hire firms have wifi and toilets?", topic: "Amenities" },
-  ],
-  pettransportglobal: [
-    { prompt: "How much does it cost to ship a dog internationally?", topic: "Pricing" },
-    { prompt: "What documents do I need to fly my cat abroad?", topic: "Documents" },
-    { prompt: "Best pet relocation company for UK to USA?", topic: "Comparison" },
-    { prompt: "What are the IATA crate requirements for pets?", topic: "Requirements" },
-    { prompt: "How do I relocate my pet to Australia?", topic: "Routes" },
-    { prompt: "Can snub-nosed dogs fly safely?", topic: "Safety" },
-  ],
-};
-
 function buildAiPrompts(domainId: DomainId): AiPrompt[] {
   const platforms = ["chatgpt", "google_ai", "gemini", "perplexity", "claude"] as const;
-  const competitors = COMPETITOR_HOSTS[domainId];
-  return AI_PROMPTS[domainId].map((p, i) => {
+  const competitors = competitorHostsFor(domainId);
+  return aiPromptSeedsFor(domainId).map((p, i) => {
     const rng = rngFor(`${domainId}:ai:${p.prompt}`);
     const cited = rng() > 0.4;
     const sentiments = ["positive", "neutral", "neutral", "negative"] as const;
@@ -889,7 +863,7 @@ export function provenanceFor(
     collectedAt: isoDaysAgo(0) + "T06:00:00.000Z",
     rangeStart: isoDaysAgo(90),
     rangeEnd: isoDaysAgo(0),
-    location: LOCATIONS[domainId],
+    location: locationFor(domainId),
     device,
     freshness: "fresh",
     mode: "demo",

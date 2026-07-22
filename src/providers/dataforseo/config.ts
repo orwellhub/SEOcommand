@@ -1,4 +1,5 @@
 import type { DomainId } from "@/lib/types";
+import { DOMAIN_MAP } from "@/data/domains";
 
 /**
  * DataForSEO runtime configuration, driven entirely by server-side env vars.
@@ -29,14 +30,24 @@ export function basicAuthHeader(cfg: DataForSeoConfig): string {
 }
 
 /**
- * Operator-confirmed location/language codes for the pilot markets.
- * Extend as EU cities and route countries are added.
+ * DataForSEO location/language codes, derived from each domain's primary market.
+ * Operator-confirmed: UAE 2784, UK 2826, US 2840. Falls back to UK for
+ * unmatched markets; override per domain as EU cities / route countries are added.
  */
-export const LOCATION_MAP: Record<DomainId, { location_code: number; language_code: string }> = {
-  mortgagecompare: { location_code: 2784, language_code: "en" }, // United Arab Emirates
-  busrentalglobal: { location_code: 2826, language_code: "en" }, // United Kingdom
-  pettransportglobal: { location_code: 2826, language_code: "en" }, // United Kingdom
-};
+const MARKET_LOCATION: { match: string; location_code: number }[] = [
+  { match: "united arab", location_code: 2784 },
+  { match: "uae", location_code: 2784 },
+  { match: "united states", location_code: 2840 },
+  { match: "usa", location_code: 2840 },
+  { match: "kingdom", location_code: 2826 },
+];
+
+export function locationFor(domainId: DomainId): { location_code: number; language_code: string } {
+  const domain = DOMAIN_MAP[domainId];
+  const market = (domain?.primaryMarket ?? "").toLowerCase();
+  const hit = MARKET_LOCATION.find((m) => market.includes(m.match));
+  return { location_code: hit?.location_code ?? 2826, language_code: "en" };
+}
 
 /**
  * Verified DataForSEO endpoints (each returned status 20000 on a real call for

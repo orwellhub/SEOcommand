@@ -1,10 +1,14 @@
 import type { DomainId, SearchIntent } from "@/lib/types";
+import { DOMAIN_MAP } from "./domains";
 
 /**
- * Hand-written, domain-relevant keyword seeds. These are the "real" terms each
- * pilot brand competes on; metrics (volume, difficulty, CPC, position) are then
- * generated deterministically from each keyword string so the numbers are stable
- * and internally consistent. No keyword is shared across domains.
+ * Keyword seed data.
+ *
+ * The three original pilots have hand-written keyword universes. Every other
+ * domain gets realistic, domain-specific demo keywords generated from a small
+ * theme vocabulary + its market — no lorem ipsum, no keywords shared across
+ * domains. This keeps the demo dense and consistent while scaling to any number
+ * of domains. All of this is replaced by live provider data once connected.
  */
 
 export interface KeywordSeed {
@@ -12,7 +16,7 @@ export interface KeywordSeed {
   intent: SearchIntent;
 }
 
-export const KEYWORD_SEEDS: Record<DomainId, KeywordSeed[]> = {
+const CURATED_SEEDS: Partial<Record<DomainId, KeywordSeed[]>> = {
   mortgagecompare: [
     { keyword: "mortgage rates uae", intent: "commercial" },
     { keyword: "best mortgage rates dubai", intent: "commercial" },
@@ -111,32 +115,197 @@ export const KEYWORD_SEEDS: Record<DomainId, KeywordSeed[]> = {
   ],
 };
 
-export const COMPETITOR_HOSTS: Record<DomainId, string[]> = {
-  mortgagecompare: [
-    "mortgagefinder.ae",
-    "yallacompare.com",
-    "propertyfinder.ae",
-    "holoapp.ae",
-    "souqalmal.com",
+/** Theme vocabulary for the remaining domains; expanded into keywords generically. */
+const THEME_MAP: Record<DomainId, string[]> = {
+  moneycompare: [
+    "personal loan",
+    "credit card",
+    "car loan",
+    "savings account",
+    "debt consolidation loan",
+    "balance transfer card",
+    "home loan",
   ],
-  busrentalglobal: [
-    "coachhire-comparison.co.uk",
-    "eurobuscharter.com",
-    "citybusrental.eu",
-    "minibushire24.com",
-    "kingslinecoaches.com",
+  insurecompare: [
+    "car insurance",
+    "health insurance",
+    "home insurance",
+    "travel insurance",
+    "life insurance",
+    "motor insurance",
   ],
-  pettransportglobal: [
-    "starwoodpetmovers.com",
-    "petrelocation.com",
-    "aircanine.co.uk",
-    "pettravel.com",
-    "jetpets.com.au",
+  pestremovalusa: [
+    "pest control",
+    "termite treatment",
+    "bed bug removal",
+    "rodent control",
+    "cockroach exterminator",
+    "mosquito control",
+    "wasp nest removal",
+  ],
+  closeprotectionhire: [
+    "close protection officer",
+    "bodyguard hire",
+    "executive protection",
+    "event security",
+    "personal security",
+    "security chauffeur",
+  ],
+  checkmyenergyclaim: [
+    "business energy claim",
+    "mis-sold energy contract",
+    "energy broker commission claim",
+    "hidden energy commission",
+    "energy contract compensation",
+  ],
+  energyclaimhelplineuk: [
+    "energy claim helpline",
+    "business energy refund",
+    "energy mis-selling claim",
+    "commercial energy claim",
+    "energy broker refund",
+  ],
+  energyclaimhelplinecom: [
+    "energy claim",
+    "commercial energy claim",
+    "energy overcharge claim",
+    "business gas claim",
+    "energy contract refund",
+  ],
+  myenergyclaim: [
+    "my energy claim",
+    "business gas claim",
+    "electricity contract claim",
+    "energy compensation claim",
+    "mis-sold business energy",
+  ],
+  warmhomeschemeloan: [
+    "warm home scheme",
+    "home insulation grant",
+    "boiler grant",
+    "energy efficiency loan",
+    "eco4 scheme",
+    "home heating grant",
   ],
 };
 
-export const LOCATIONS: Record<DomainId, string> = {
-  mortgagecompare: "United Arab Emirates",
-  busrentalglobal: "United Kingdom",
-  pettransportglobal: "United Kingdom",
+const CURATED_COMPETITORS: Partial<Record<DomainId, string[]>> = {
+  mortgagecompare: ["mortgagefinder.ae", "yallacompare.com", "propertyfinder.ae", "holoapp.ae", "souqalmal.com"],
+  busrentalglobal: ["coachhire-comparison.co.uk", "eurobuscharter.com", "citybusrental.eu", "minibushire24.com", "kingslinecoaches.com"],
+  pettransportglobal: ["starwoodpetmovers.com", "petrelocation.com", "aircanine.co.uk", "pettravel.com", "jetpets.com.au"],
+  moneycompare: ["yallacompare.com", "souqalmal.com", "policybazaar.ae", "compareit4me.com"],
+  insurecompare: ["policybazaar.ae", "yallacompare.com", "souqalmal.com", "insurancemarket.ae"],
+  pestremovalusa: ["terminix.com", "orkin.com", "rentokil.com", "trulynolen.com"],
+  closeprotectionhire: ["g4s.com", "securitas.co.uk", "taskforcesecurity.co.uk", "westminstersecurity.co.uk"],
+  checkmyenergyclaim: ["businessenergyclaims.co.uk", "energyclaimsuk.com", "claimexperts.co.uk"],
+  energyclaimhelplineuk: ["businessenergyclaims.co.uk", "energyclaimsuk.com", "reclaimenergy.co.uk"],
+  energyclaimhelplinecom: ["energyclaimsuk.com", "businessenergyclaims.co.uk", "claimexperts.co.uk"],
+  myenergyclaim: ["energyclaimsuk.com", "businessenergyclaims.co.uk", "reclaimenergy.co.uk"],
+  warmhomeschemeloan: ["gov.uk", "simpleenergyadvice.org.uk", "boilergrants.co.uk", "eco4grants.co.uk"],
 };
+
+const GENERIC_COMPETITORS = ["comparison-hub.com", "market-leader.co", "trusted-choice.com"];
+
+function marketCode(primaryMarket: string): string {
+  const m = primaryMarket.toLowerCase();
+  if (m.includes("united arab") || m.includes("uae")) return "uae";
+  if (m.includes("united states") || m.includes("usa")) return "usa";
+  if (m.includes("kingdom") || m.includes("uk")) return "uk";
+  if (m.includes("europe")) return "europe";
+  return "";
+}
+
+const MODIFIERS: { suffix: (kw: string, mkt: string) => string; intent: SearchIntent }[] = [
+  { suffix: (k, m) => (m ? `${k} ${m}` : k), intent: "commercial" },
+  { suffix: (k) => `best ${k}`, intent: "commercial" },
+  { suffix: (k) => `${k} cost`, intent: "informational" },
+  { suffix: (k, m) => (m ? `cheap ${k} ${m}` : `cheap ${k}`), intent: "transactional" },
+  { suffix: (k) => `${k} comparison`, intent: "commercial" },
+  { suffix: (k) => `${k} near me`, intent: "transactional" },
+  { suffix: (k) => `how much is ${k}`, intent: "informational" },
+  { suffix: (k) => `${k} quote`, intent: "transactional" },
+];
+
+function generateSeeds(domainId: DomainId): KeywordSeed[] {
+  const domain = DOMAIN_MAP[domainId];
+  const themes = THEME_MAP[domainId] ?? [domain.name.toLowerCase()];
+  const mkt = marketCode(domain.primaryMarket);
+  const out: KeywordSeed[] = [];
+  const seen = new Set<string>();
+  themes.forEach((theme, ti) => {
+    // Rotate through modifiers so each theme yields a distinct, varied set.
+    for (let i = 0; i < 3; i++) {
+      const mod = MODIFIERS[(ti + i) % MODIFIERS.length]!;
+      const kw = mod.suffix(theme, mkt).trim();
+      if (!seen.has(kw)) {
+        seen.add(kw);
+        out.push({ keyword: kw, intent: mod.intent });
+      }
+    }
+  });
+  return out;
+}
+
+/** Keyword seeds for a domain — curated where available, else generated. */
+export function seedsFor(domainId: DomainId): KeywordSeed[] {
+  return CURATED_SEEDS[domainId] ?? generateSeeds(domainId);
+}
+
+/** Organic competitors for a domain. */
+export function competitorHostsFor(domainId: DomainId): string[] {
+  return CURATED_COMPETITORS[domainId] ?? GENERIC_COMPETITORS;
+}
+
+/** Primary tracking location label for a domain. */
+export function locationFor(domainId: DomainId): string {
+  return DOMAIN_MAP[domainId].primaryMarket;
+}
+
+export interface AiPromptSeed {
+  prompt: string;
+  topic: string;
+}
+
+const CURATED_AI_PROMPTS: Partial<Record<DomainId, AiPromptSeed[]>> = {
+  mortgagecompare: [
+    { prompt: "What are the best mortgage rates in the UAE right now?", topic: "Rates" },
+    { prompt: "How do I get a mortgage in Dubai as an expat?", topic: "Eligibility" },
+    { prompt: "Which UAE bank has the lowest mortgage interest?", topic: "Comparison" },
+    { prompt: "How much deposit do I need to buy a home in Dubai?", topic: "Down payment" },
+    { prompt: "Is it better to rent or buy in Dubai?", topic: "Advice" },
+    { prompt: "What is the mortgage eligibility salary in the UAE?", topic: "Eligibility" },
+  ],
+  busrentalglobal: [
+    { prompt: "Where can I hire a 48 seater coach in London?", topic: "Coach hire" },
+    { prompt: "How much does minibus hire with a driver cost?", topic: "Pricing" },
+    { prompt: "Best coach hire company for a European tour?", topic: "Comparison" },
+    { prompt: "Can I hire a coach for a wedding in Paris?", topic: "Events" },
+    { prompt: "What's the cheapest way to move a group across Europe?", topic: "Advice" },
+    { prompt: "Which coach hire firms have wifi and toilets?", topic: "Amenities" },
+  ],
+  pettransportglobal: [
+    { prompt: "How much does it cost to ship a dog internationally?", topic: "Pricing" },
+    { prompt: "What documents do I need to fly my cat abroad?", topic: "Documents" },
+    { prompt: "Best pet relocation company for UK to USA?", topic: "Comparison" },
+    { prompt: "What are the IATA crate requirements for pets?", topic: "Requirements" },
+    { prompt: "How do I relocate my pet to Australia?", topic: "Routes" },
+    { prompt: "Can snub-nosed dogs fly safely?", topic: "Safety" },
+  ],
+};
+
+/** AI-visibility prompts for a domain — curated where available, else generated. */
+export function aiPromptSeedsFor(domainId: DomainId): AiPromptSeed[] {
+  const curated = CURATED_AI_PROMPTS[domainId];
+  if (curated) return curated;
+  const domain = DOMAIN_MAP[domainId];
+  const themes = THEME_MAP[domainId] ?? [domain.name.toLowerCase()];
+  const mkt = marketCode(domain.primaryMarket).toUpperCase();
+  const region = mkt ? ` in the ${mkt}` : "";
+  return themes.slice(0, 6).map((t, i) => ({
+    prompt:
+      i % 2 === 0
+        ? `What is the best ${t}${region}?`
+        : `How much does ${t} cost${region}?`,
+    topic: t.replace(/\b\w/g, (c) => c.toUpperCase()),
+  }));
+}

@@ -205,14 +205,11 @@ export default function SettingsPage() {
 
   const usageLedger = SEED.usageLedger;
 
-  // Illustrative sub-budgets that sum to the $200 global guardrail.
+  // Illustrative per-domain sub-budgets that sum to the $200 global guardrail,
+  // split evenly across the portfolio (scales to any number of domains).
   const perDomainBudgets = useMemo(() => {
-    const splits: Record<string, number> = {
-      mortgagecompare: 80,
-      busrentalglobal: 60,
-      pettransportglobal: 60,
-    };
-    return DOMAINS.map((d) => ({ domain: d, limit: splits[d.id] ?? 0 }));
+    const share = Math.round((200 / DOMAINS.length) * 100) / 100;
+    return DOMAINS.map((d) => ({ domain: d, limit: share }));
   }, []);
 
   const totalRequests = useMemo(

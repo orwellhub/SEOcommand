@@ -54,17 +54,30 @@ your account already owns the properties (no per-property grant needed).
 
 Scopes used: `webmasters.readonly` (GSC), `analytics.readonly` (GA4).
 
-## Property mappings (defaults from the source account; override per-env)
+## Property mappings (from the domain registry; override per-env)
+
+All mappings live in `src/data/domains.ts` (one row per domain) and can be overridden
+with `GSC_SITE_<ID>` / `GA4_PROPERTY_<ID>` env vars. The service account
+`orwell-seo-reader` has GSC access to all 12 properties.
 
 | Domain | GSC property | GA4 property |
 | --- | --- | --- |
 | MortgageCompare | `sc-domain:mortgagecompare.ae` | `529950642` |
-| BusRentalGlobal | `sc-domain:busrentalglobal.com` | *(set `GA4_PROPERTY_BUSRENTALGLOBAL`)* |
+| BusRentalGlobal | `sc-domain:busrentalglobal.com` | *(unmapped — `GA4_PROPERTY_BUSRENTALGLOBAL`)* |
 | PetTransportGlobal | `sc-domain:pettransportglobal.com` | `536371348` |
+| MoneyCompare | `sc-domain:moneycompare.ae` | `541738826` |
+| InsureCompare | `sc-domain:insurecompare.ae` | `541656359` |
+| PestRemovalUSA | `sc-domain:pestremovalusa.com` | `542325553` |
+| CloseProtectionHire | `sc-domain:closeprotectionhire.com` | `536427457` |
+| CheckMyEnergyClaim | `sc-domain:checkmyenergyclaim.co.uk` | *(unmapped)* |
+| EnergyClaimHelpline UK | `sc-domain:energyclaimhelpline.co.uk` | *(unmapped)* |
+| EnergyClaimHelpline | `sc-domain:energyclaimhelpline.com` | *(unmapped)* |
+| MyEnergyClaim | `sc-domain:myenergyclaim.com` | *(unmapped)* |
+| WarmHomeSchemeLoan | `sc-domain:warmhomeschemeloan.co.uk` | *(unmapped)* |
 
-BusRentalGlobal's GA4 property id was not present in the account dump — set it via
-`GA4_PROPERTY_BUSRENTALGLOBAL` in Render (GA4 calls for that domain error clearly
-until it is).
+GSC works for all 12 immediately. GA4 ids marked *unmapped* weren't in the source account
+dump — set each via `GA4_PROPERTY_<ID>` (e.g. `GA4_PROPERTY_WARMHOMESCHEMELOAN`) once known.
+GA4 calls for an unmapped domain return a clear "not configured" error while GSC still works.
 
 ## Going live — checklist
 

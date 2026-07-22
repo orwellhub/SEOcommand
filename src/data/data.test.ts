@@ -7,7 +7,7 @@ import {
   orwellAuthorityScore,
   winnersLosers,
 } from "./metrics";
-import { KEYWORD_SEEDS } from "./keyword-seeds";
+import { seedsFor } from "./keyword-seeds";
 
 describe("seed data — determinism & consistency", () => {
   it("keyword generation is deterministic across calls", () => {
@@ -17,9 +17,23 @@ describe("seed data — determinism & consistency", () => {
     expect(a).toEqual(b);
   });
 
-  it("does not repeat keywords across domains", () => {
-    const all = DOMAINS.flatMap((d) => KEYWORD_SEEDS[d.id].map((s) => s.keyword));
+  it("has no duplicate keywords within a domain", () => {
+    for (const d of DOMAINS) {
+      const kws = seedsFor(d.id).map((s) => s.keyword);
+      expect(new Set(kws).size).toBe(kws.length);
+    }
+  });
+
+  it("keeps the three curated pilot universes mutually distinct", () => {
+    const pilots = ["mortgagecompare", "busrentalglobal", "pettransportglobal"];
+    const all = pilots.flatMap((id) => seedsFor(id).map((s) => s.keyword));
     expect(new Set(all).size).toBe(all.length);
+  });
+
+  it("generates keyword seeds for every domain in the registry", () => {
+    for (const d of DOMAINS) {
+      expect(seedsFor(d.id).length).toBeGreaterThan(0);
+    }
   });
 
   it("ranking snapshots only include ranked keywords and derive delta correctly", () => {
