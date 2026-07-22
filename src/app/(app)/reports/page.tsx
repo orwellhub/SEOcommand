@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { CalendarClock, Download, FileDown, FileText, Send } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { CalendarClock, Download, FileDown, FileText, Send, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { KpiCard } from "@/components/ui/kpi-card";
 import {
@@ -29,13 +29,16 @@ type Cadence = "daily" | "weekly" | "monthly";
 
 const CADENCE_OPTIONS: Cadence[] = ["daily", "weekly", "monthly"];
 
-/** Session-local schedule draft — nothing is persisted server-side yet. */
-interface DraftSchedule {
-  id: number;
+interface PersistedSchedule {
+  id: string;
   templateId: string;
   templateName: string;
   cadence: Cadence;
-  recipients: string;
+  recipients: string[];
+  nextRun: string;
+  lastDelivered: string | null;
+  lastError: string | null;
+  enabled: boolean;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -226,18 +229,35 @@ function renderSection(template: ReportTemplate, section: string, pm: PortfolioL
 
 const PAGE_TITLE = "Reports";
 const PAGE_DESCRIPTION =
-  "Report templates previewed against live portfolio data. Report persistence, export and scheduled delivery are the next milestone.";
+  "Live report previews, downloadable exports and persistent delivery schedules.";
 
 export default function ReportsPage() {
   const { data: pm, loading, error } = useLivePortfolio();
 
   const [previewTemplate, setPreviewTemplate] = useState<ReportTemplate | null>(null);
 
-  // Draft schedule form — session-local only, no persistence layer yet.
   const [draftTemplateId, setDraftTemplateId] = useState<string>(REPORT_TEMPLATES[0]?.id ?? "");
   const [draftCadence, setDraftCadence] = useState<Cadence>("weekly");
   const [draftRecipients, setDraftRecipients] = useState("");
-  const [drafts, setDrafts] = useState<DraftSchedule[]>([]);
+  const [schedules, setSchedules] = useState<PersistedSchedule[]>([]);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/reports/schedules")
+      .then(async (response) => {
+        const body = (await response.json()) as { schedules?: PersistedSchedule[]; error?: string };
+        if (!response.ok) throw new Error(body.error || "Could not load report schedules.");
+        if (active) setSchedules(body.schedules ?? []);
+      })
+      .catch((err) => {
+        if (active) setScheduleError(err instanceof Error ? err.message : "Could not load report schedules.");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Latest sync across the whole portfolio — null when nothing has synced.
   const lastSync = useMemo(() => {
@@ -248,20 +268,93 @@ export default function ReportsPage() {
     );
   }, [pm]);
 
-  function saveDraft() {
-    const tpl = REPORT_TEMPLATES.find((t) => t.id === draftTemplateId);
-    if (!tpl) return;
-    setDrafts((prev) => [
-      ...prev,
-      {
-        id: prev.length + 1,
-        templateId: tpl.id,
-        templateName: tpl.name,
-        cadence: draftCadence,
-        recipients: draftRecipients.trim(),
-      },
-    ]);
-    setDraftRecipients("");
+  async function saveSchedule() {
+    const recipients = draftRecipients
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    if (recipients.length === 0) {
+      setScheduleError("Add at least one recipient email address.");
+      return;
+    }
+    setSaving(true);
+    setScheduleError(null);
+    try {
+      const response = await fetch("/api/reports/schedules", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ templateId: draftTemplateId, cadence: draftCadence, recipients, format: "PDF" }),
+      });
+      const body = (await response.json()) as { schedule?: PersistedSchedule; error?: string };
+      if (!response.ok || !body.schedule) throw new Error(body.error || "Could not save the schedule.");
+      setSchedules((prev) => [body.schedule!, ...prev]);
+      setDraftRecipients("");
+    } catch (err) {
+      setScheduleError(err instanceof Error ? err.message : "Could not save the schedule.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteSchedule(id: string) {
+    setScheduleError(null);
+    try {
+      const response = await fetch(`/api/reports/schedules?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      const body = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(body.error || "Could not delete the schedule.");
+      setSchedules((prev) => prev.filter((schedule) => schedule.id !== id));
+    } catch (err) {
+      setScheduleError(err instanceof Error ? err.message : "Could not delete the schedule.");
+    }
+  }
+
+  function downloadCsv() {
+    const header = ["Domain", "Clicks 28d", "Impressions 28d", "Sessions 28d", "Conversions 28d", "Health", "Visibility"];
+    const rows = pm?.domains.map((row) => {
+      const domain = DOMAINS.find((candidate) => candidate.id === row.domainId);
+      return [domain?.name ?? row.domainId, row.clicks28d, row.impressions28d, row.sessions28d, row.conversions28d, row.health, row.visibility];
+    }) ?? [];
+    const csv = [header, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `orwell-seo-portfolio-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function printReport() {
+    if (!pm || !previewTemplate) return;
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.opener = null;
+    printWindow.document.title = previewTemplate.name;
+    const style = printWindow.document.createElement("style");
+    style.textContent = "body{font-family:Arial,sans-serif;color:#11182b;padding:32px}h1{margin-bottom:4px}p{color:#5b6474}table{border-collapse:collapse;width:100%;margin-top:24px}th,td{border:1px solid #dfe4ec;padding:8px;text-align:right}th:first-child,td:first-child{text-align:left}";
+    printWindow.document.head.appendChild(style);
+    const title = printWindow.document.createElement("h1");
+    title.textContent = previewTemplate.name;
+    const meta = printWindow.document.createElement("p");
+    meta.textContent = `Generated ${new Date().toLocaleString()} from live portfolio snapshots.`;
+    const table = printWindow.document.createElement("table");
+    table.innerHTML = "<thead><tr><th>Domain</th><th>Clicks</th><th>Sessions</th><th>Conversions</th><th>Health</th></tr></thead>";
+    const body = printWindow.document.createElement("tbody");
+    for (const row of pm.domains) {
+      const tr = printWindow.document.createElement("tr");
+      const values = [DOMAINS.find((candidate) => candidate.id === row.domainId)?.name ?? row.domainId, row.clicks28d, row.sessions28d, row.conversions28d, row.health];
+      for (const value of values) {
+        const td = printWindow.document.createElement("td");
+        td.textContent = value == null ? "—" : String(value);
+        tr.appendChild(td);
+      }
+      body.appendChild(tr);
+    }
+    table.appendChild(body);
+    printWindow.document.body.append(title, meta, table);
+    printWindow.focus();
+    printWindow.print();
   }
 
   if (loading && !pm) {
@@ -323,8 +416,8 @@ export default function ReportsPage() {
         />
         <KpiCard
           label="Scheduled reports"
-          value="0"
-          hint="Scheduling persistence has not shipped yet"
+          value={String(schedules.filter((schedule) => schedule.enabled).length)}
+          hint="Persisted delivery schedules"
         />
         <KpiCard
           label="Last data refresh"
@@ -380,20 +473,19 @@ export default function ReportsPage() {
       <Card className="p-4">
         <CardHeader
           title="Scheduled delivery"
-          subtitle="Delivery is configured on the daily sync cadence — report persistence is the next milestone"
+          subtitle="Schedules persist in Postgres and are handed to your configured delivery webhook"
         />
         <div className="space-y-4 pt-4">
           <div className="flex items-start gap-2.5 rounded-md border border-border bg-workspace/40 p-3">
             <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-purple" />
             <p className="text-xs text-muted">
-              Reports draw from snapshots refreshed by the daily full sync (06:00 UTC). Once report
-              persistence ships, saved schedules will render each template on that cadence and
-              deliver it to the listed recipients. Until then you can draft a schedule below —
-              drafts live only in this browser session and are not persisted or delivered.
+              Reports draw from snapshots refreshed at 06:00 UTC. Due schedules are processed after
+              the sync and sent to the configured signed webhook for email delivery. Without a
+              webhook, schedules remain saved and visible but are not sent.
             </p>
           </div>
 
-          {/* Draft schedule form — session-local state only */}
+          {/* Persisted schedule form */}
           <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,1.2fr)_auto]">
             <div>
               <label className="text-2xs font-medium uppercase tracking-wide text-muted">
@@ -438,36 +530,47 @@ export default function ReportsPage() {
                 className="mt-1 h-8 w-full rounded-md border border-border bg-card px-3 text-xs text-ink placeholder:text-muted focus:outline-none focus-visible:outline-2"
               />
             </div>
-            <Button variant="primary" size="sm" onClick={saveDraft}>
-              <Send className="h-3.5 w-3.5" /> Save draft
+            <Button variant="primary" size="sm" onClick={saveSchedule} disabled={saving}>
+              <Send className="h-3.5 w-3.5" /> {saving ? "Saving…" : "Save schedule"}
             </Button>
           </div>
 
-          {drafts.length === 0 ? (
+          {scheduleError && (
+            <p role="alert" className="rounded-md border border-critical/20 bg-critical/10 px-3 py-2 text-xs text-critical">
+              {scheduleError}
+            </p>
+          )}
+
+          {schedules.length === 0 ? (
             <p className="text-2xs text-muted">
-              No drafts in this session. Saved drafts appear here — session-local only.
+              No delivery schedules saved yet.
             </p>
           ) : (
             <div className="space-y-2">
-              {drafts.map((d) => (
+              {schedules.map((schedule) => (
                 <div
-                  key={d.id}
+                  key={schedule.id}
                   className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-2"
                 >
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <span className="text-xs font-medium text-ink">{d.templateName}</span>
-                    <StatusBadge label={d.cadence} tone="info" />
+                    <span className="text-xs font-medium text-ink">{schedule.templateName}</span>
+                    <StatusBadge label={schedule.cadence} tone="info" />
                     <span className="truncate text-2xs text-muted">
-                      {d.recipients || "No recipients listed"}
+                      {schedule.recipients.join(", ")}
                     </span>
+                    <span className="text-2xs text-muted">Next: {new Date(schedule.nextRun).toLocaleString()}</span>
                   </div>
-                  <StatusBadge label="session-local draft" tone="neutral" />
+                  <div className="flex items-center gap-2">
+                    <StatusBadge
+                      label={schedule.lastError ? "delivery error" : schedule.lastDelivered ? "delivered" : "scheduled"}
+                      tone={schedule.lastError ? "critical" : schedule.lastDelivered ? "success" : "neutral"}
+                    />
+                    <Button variant="ghost" size="sm" onClick={() => deleteSchedule(schedule.id)} aria-label={`Delete ${schedule.templateName}`}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
               ))}
-              <p className="text-2xs text-muted">
-                Drafts are held in local component state only — they are cleared on reload and
-                nothing is scheduled or delivered.
-              </p>
             </div>
           )}
         </div>
@@ -485,12 +588,12 @@ export default function ReportsPage() {
         }
         footer={
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <span className="text-2xs text-muted">PDF/CSV export ships with report persistence.</span>
+            <span className="text-2xs text-muted">Print opens the browser’s Save as PDF flow.</span>
             <div className="flex gap-2">
-              <Button variant="secondary" size="sm" disabled>
-                <Download className="h-3.5 w-3.5" /> Export PDF
+              <Button variant="secondary" size="sm" onClick={printReport}>
+                <Download className="h-3.5 w-3.5" /> Print / PDF
               </Button>
-              <Button variant="secondary" size="sm" disabled>
+              <Button variant="secondary" size="sm" onClick={downloadCsv}>
                 <Download className="h-3.5 w-3.5" /> Export CSV
               </Button>
             </div>

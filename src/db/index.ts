@@ -3,10 +3,8 @@ import postgres from "postgres";
 import * as schema from "./schema";
 
 /**
- * Lazy Postgres connection. The demo build never touches this — it runs off the
- * seed modules — so importing this file must not require a live DB. The client
- * is only constructed when `db()` is first called (i.e. once live persistence
- * is switched on and DATABASE_URL is present).
+ * Lazy Postgres connection. Importing the module does not establish a network
+ * connection; the client is created on the first live persistence operation.
  */
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -15,8 +13,7 @@ export function db() {
   const url = process.env.DATABASE_URL;
   if (!url) {
     throw new Error(
-      "DATABASE_URL is not set. The demo runs on seed data and does not need a " +
-        "database; set DATABASE_URL only when enabling live persistence.",
+      "DATABASE_URL is not set. Live snapshots, workflows and report schedules require Postgres.",
     );
   }
   const client = postgres(url, { max: 5, prepare: false });

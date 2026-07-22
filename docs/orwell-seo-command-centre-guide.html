@@ -402,11 +402,11 @@ footer{margin-top:80px;padding-top:24px;border-top:1px solid var(--border);font-
     <h3 style="font-size:22px;margin-top:44px;letter-spacing:-0.02em">G · Institutional rails</h3>
     <p style="font-size:15px;color:var(--muted);max-width:640px">The plumbing that makes a serious multi-user, multi-year system trustworthy.</p>
     <div class="grid3" style="margin-top:16px">
-      <div class="idea"><span class="lift rails">Rails</span><h4>Real authentication and roles</h4><p>Replace the demo boundary with proper login and the four designed roles (admin, manager, analyst, viewer), enforced server-side. The prerequisite for every in-app action that spends money or changes state.</p></div>
+      <div class="idea"><span class="lift rails">Shipped</span><h4>Authentication and roles</h4><p>Signed internal login now protects every dashboard and live-data API, with server-side write enforcement for admin, manager, analyst and viewer roles.</p></div>
       <div class="idea"><span class="lift rails">Rails</span><h4>Audit log</h4><p>An append-only record of who changed what: approvals, dismissals, setting edits, manual pulls. Boring until the day it is priceless.</p></div>
       <div class="idea"><span class="lift rails">Rails</span><h4>Chart annotations and event studies</h4><p>Mark deploys, content pushes, and algorithm updates on every chart, and compute before-and-after deltas around each event. This is how finance decides what actually moved a line.</p></div>
       <div class="idea"><span class="lift rails">Rails</span><h4>Alert routing</h4><p>Severity-based delivery: critical pages someone by phone or Slack immediately, medium goes to the daily digest, low waits in the feed. Borrowed directly from on-call engineering practice.</p></div>
-      <div class="idea"><span class="lift rails">Rails</span><h4>Scheduled report delivery</h4><p>Finish the reports module: PDF rendering and emailed schedules with delivery history. The templates and live previews already exist.</p></div>
+      <div class="idea"><span class="lift rails">Shipped</span><h4>Scheduled report delivery</h4><p>Schedules now persist with delivery history and hand canonical report data to a signed operator-owned webhook; browser print/PDF and CSV exports are available.</p></div>
       <div class="idea"><span class="lift rails">Rails</span><h4>Public API and webhooks</h4><p>Expose the stored snapshots over an authenticated API and push events (alerts, sync completions) as webhooks. Lets every future Orwell system, and our own agents, build on this one.</p></div>
       <div class="idea"><span class="lift rails">Rails</span><h4>Warehouse export</h4><p>Nightly export of all snapshots to files or a warehouse table. Insurance for reprocessing, and freedom to analyse with any tool later.</p></div>
       <div class="idea"><span class="lift rails">Rails</span><h4>Data quality monitors</h4><p>The watcher for the watchers: alert when a sync stops writing, a source drifts, or a metric goes silently to zero. Trust in the numbers is the platform's core asset.</p></div>
@@ -417,7 +417,7 @@ footer{margin-top:80px;padding-top:24px;border-top:1px solid var(--border);font-
     <div class="grid3" style="margin-top:16px">
       <div class="idea"><span class="lift flow">Flow</span><h4>One-click property refresh</h4><p>A refresh button on every domain page with the estimated cost shown before it runs, gated by role. The manual pull already exists as an API; this is the missing front door.</p></div>
       <div class="idea"><span class="lift flow">Flow</span><h4>Bulk onboarding wizard</h4><p>Paste a domain, and the platform finds its GSC property, detects GA4, registers it, and runs the first sync. Adding site number twenty-six should take five minutes, not a code change.</p></div>
-      <div class="idea"><span class="lift flow">Flow</span><h4>Persistent tasks</h4><p>Move the approval workflow from session state into the database tables already designed for it, with owners, due dates and status history. Work must survive a page reload.</p></div>
+      <div class="idea"><span class="lift flow">Shipped</span><h4>Persistent tasks</h4><p>Recommendation approvals, dismissals and task status now persist in Postgres and survive reloads across the shared team workspace.</p></div>
       <div class="idea"><span class="lift flow">Flow</span><h4>Editorial calendar</h4><p>A publishing pipeline view across all sites: briefs, drafts, scheduled, live, refresh-due. Content is the biggest recurring workstream; give it a home.</p></div>
       <div class="idea"><span class="lift flow">Flow</span><h4>Domain groups and tags</h4><p>Organise properties into named groups (UAE finance, UK claims) that filter every screen and every report. The rail already scales; the grouping makes it navigable at fifty sites.</p></div>
       <div class="idea"><span class="lift flow">Flow</span><h4>Comments and mentions</h4><p>Discuss a keyword, page or task where the data lives, with mentions that notify. Context that dies in chat apps survives next quarter here.</p></div>
@@ -436,7 +436,7 @@ footer{margin-top:80px;padding-top:24px;border-top:1px solid var(--border);font-
       <tr><th>Phase</th><th>Contents</th><th>Why this order</th></tr>
       <tr>
         <td><span class="pill now">Now</span></td>
-        <td>Real authentication and roles · persistent tasks · one-click property refresh with cost estimate · daily digest v1 · GA4 properties for the remaining five sites · service-account key rotation · true daily rank history and the new-and-lost backlink ledger (start accumulating immediately)</td>
+        <td>One-click property refresh with cost estimate · daily digest v1 · GA4 properties for the remaining sites · service-account key rotation · true daily rank history and the new-and-lost backlink ledger (authentication, persistent tasks and report schedules are shipped)</td>
         <td>Auth unlocks every in-app action that spends or changes state. History starts compounding from the day it ships, so it cannot come last. The digest delivers the first "the system watches for me" moment with minimal machinery.</td>
       </tr>
       <tr>

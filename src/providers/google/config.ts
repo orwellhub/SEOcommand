@@ -17,7 +17,8 @@ export const GA4_SCOPE = "https://www.googleapis.com/auth/analytics.readonly";
 export const GSC_DATA_LAG_DAYS = 2;
 
 function envKey(prefix: string, id: DomainId): string | undefined {
-  return process.env[`${prefix}_${id.toUpperCase()}`];
+  const value = process.env[`${prefix}_${id.toUpperCase()}`]?.trim();
+  return value || undefined;
 }
 
 /** GSC domain property per domain (registry value, env-overridable). */

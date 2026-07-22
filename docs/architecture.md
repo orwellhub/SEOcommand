@@ -37,13 +37,13 @@ fabricates a number. The former demo-seed layer has been removed.
 │  charts/ (Recharts wrappers, SVG sparkline)                │
 ├─────────────────────────────────────────────────────────────┤
 │  Data access                                               │
-│  data/metrics.ts (derived KPIs)  ← reconciled aggregates   │
-│  providers/ (contracts → demo | dataforseo | google)       │
+│  sync/bundle.ts (protected read models)                    │
+│  providers/ (DataForSEO + Google adapters)                 │
 ├─────────────────────────────────────────────────────────────┤
 │  Canonical models (lib/types.ts)                           │
 ├─────────────────────────────────────────────────────────────┤
 │  Persistence (db/schema.ts — Drizzle/Postgres)             │
-│  used by live sync jobs; demo build does not require it    │
+│  snapshots, spend, workflow and report delivery schedules │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -77,28 +77,29 @@ Tokens live in `tailwind.config.ts` and `app/globals.css`:
 
 ## Rendering & routing
 
+- Middleware verifies a signed HTTP-only session before any dashboard or read API is reached.
 - The `(app)` route group wraps every module in `DomainProvider` + `AppShell`
-  (rail + top nav + context bar + demo banner + scrollable workspace).
+  (rail + top nav + context bar + scrollable workspace).
 - `/` redirects to `/portfolio`.
 - Route modules are client components because they use context, charts and interactive
-  tables. Provider calls (production) are async and would move data fetching to server
-  components / route handlers when live.
+  tables. Provider calls run only in the scheduled server process; pages use protected
+  route handlers to read stored snapshots.
 
 ## Background jobs
 
 `scripts/jobs.ts` is the cron entrypoint (`npm run jobs`, wired to a Render cron service
-in `render.yaml`). Jobs are idempotent and observable; in demo mode they are safe no-ops
-that log why they skipped. Each live job checks the budget guardrail, batches and
-deduplicates, retries with exponential backoff, writes immutable snapshots and appends to
-the usage ledger.
+in `render.yaml`). Google runs daily, DataForSEO light datasets weekly and heavy crawl/AI
+datasets monthly. Jobs check the budget guardrail, retry with exponential backoff, upsert
+daily snapshots and append to the spend ledger. After syncing, due report schedules are
+sent to the configured signed delivery webhook.
 
 ## Security posture
 
 - Provider secrets are server-side only (`.env` / Render secret env vars), never imported
   into client components, never in the browser bundle.
-- All provider responses and API inputs are validated with Zod at the adapter boundary.
-- Role permissions are enforced server-side (production auth).
-- Snapshots are immutable and per-domain scoped to prevent cross-domain leakage.
+- API inputs are validated with Zod; provider normalisers defensively handle payload drift.
+- Signed sessions protect dashboard/read APIs; mutation routes enforce write-capable roles.
+- Same-day snapshots are idempotently upserted and scoped by stable domain slug.
 - Crawler targets must be validated against the domain allow-list before any request.
 
 ## Testing

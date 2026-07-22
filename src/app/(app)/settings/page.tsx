@@ -51,6 +51,7 @@ interface DataForSeoHealth {
   configured: boolean;
   spend?: BudgetStatus;
   models?: number;
+  locations?: Record<string, { locationCode?: number; languageCode?: string; error?: string }>;
   error?: string;
 }
 
@@ -61,6 +62,10 @@ interface GoogleHealth {
   gscSiteMap?: Record<string, string>;
   ga4PropertyMap?: Record<string, string | null>;
   error?: string;
+}
+
+interface SessionResponse {
+  user: { email: string | null; name: string | null; role: AppUser["role"] | null };
 }
 
 /** Plain fetch state — loading / error / loaded, no fake fallbacks. */
@@ -284,6 +289,10 @@ function ConnectionCard({
 function ConnectionsSection() {
   const dfs = useProbe<DataForSeoHealth>("/api/health/dataforseo");
   const google = useProbe<GoogleHealth>("/api/health/google");
+  const missingDfsMarkets =
+    dfs.status === "done"
+      ? Object.entries(dfs.data.locations ?? {}).filter(([, location]) => location.error)
+      : [];
 
   const ga4Mapped = useMemo(() => {
     if (google.status !== "done" || !google.data.ga4PropertyMap) return null;
@@ -334,7 +343,13 @@ function ConnectionsSection() {
             <ConnectionCard
               title="DataForSEO"
               detail="Rankings, keywords, backlinks, on-page crawls and AI visibility checks."
-              badge={<StatusBadge label="Connected" tone="success" />}
+              badge={
+                missingDfsMarkets.length > 0 ? (
+                  <StatusBadge label="Markets required" tone="warning" />
+                ) : (
+                  <StatusBadge label="Connected" tone="success" />
+                )
+              }
             >
               {dfs.data.models != null && (
                 <div className="tnum">{dfs.data.models} LLM models visible (zero-cost probe)</div>
@@ -343,6 +358,12 @@ function ConnectionsSection() {
                 <div className="mt-1 text-2xs text-muted tnum">
                   Month-to-date spend {currency(dfs.data.spend.spentUsd)} of{" "}
                   {currency(dfs.data.spend.limitUsd)}
+                </div>
+              )}
+              {missingDfsMarkets.length > 0 && (
+                <div className="mt-2 text-2xs text-[#B9791A]">
+                  {missingDfsMarkets.map(([domainId]) => getDomain(domainId).name).join(", ")} need
+                  an explicit DataForSEO priority market before ranking syncs will run.
                 </div>
               )}
             </ConnectionCard>
@@ -471,15 +492,14 @@ function SyncSection() {
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <RefreshCw className="h-4 w-4 text-purple" />
-              <h3 className="text-sm font-semibold text-ink">Daily full sync</h3>
+              <h3 className="text-sm font-semibold text-ink">Split-cadence sync</h3>
             </div>
             <StatusBadge label="06:00 UTC" tone="info" />
           </div>
           <p className="mt-2 text-2xs text-muted">
-            A Render cron job runs the full pipeline daily: Search Console totals, timeseries,
-            queries, pages and movers; GA4 overview and landing pages for mapped domains; DataForSEO
-            rankings, keywords, backlinks and competitors. Each run appends one visibility point per
-            domain.
+            A Render cron runs Google Search Console and GA4 daily. Paid DataForSEO rankings,
+            keywords, backlinks and competitors refresh on Mondays; the daily job also resumes any
+            pending crawl without starting another paid task.
           </p>
         </Card>
 
@@ -489,12 +509,11 @@ function SyncSection() {
               <Globe className="h-4 w-4 text-purple" />
               <h3 className="text-sm font-semibold text-ink">OnPage crawls</h3>
             </div>
-            <StatusBadge label="Weekly · Sundays" tone="info" />
+            <StatusBadge label="Monthly · 1st" tone="info" />
           </div>
           <p className="mt-2 text-2xs text-muted">
-            Technical crawls run once on a domain&apos;s first sync, then refresh weekly on Sundays.
-            Health score, issue counts and category breakdowns come from the latest completed
-            crawl.
+            Paid technical crawls start on the first of each month. Pending crawls are polled on
+            later daily runs until complete; health and issue breakdowns retain the latest result.
           </p>
         </Card>
       </div>
@@ -672,7 +691,7 @@ function UsageSection() {
 }
 
 /* ---------------------------------------------------------------------- */
-/* 5. Users & roles — access-model description (auth is a next milestone) */
+/* 5. Users & roles — active internal authentication model */
 /* ---------------------------------------------------------------------- */
 
 interface AppUser {
@@ -681,8 +700,6 @@ interface AppUser {
   email: string;
   role: "admin" | "manager" | "seo_analyst" | "viewer";
 }
-
-const USERS: AppUser[] = [{ id: "u-1", name: "Orwell Admin", email: "admin@orwell.io", role: "admin" }];
 
 const ROLE_PERMISSIONS: Record<AppUser["role"], string> = {
   admin: "Settings, providers, domains, users and all data across the portfolio.",
@@ -699,6 +716,18 @@ const ROLE_TONE: Record<AppUser["role"], "info" | "success" | "warning" | "neutr
 };
 
 function UsersSection() {
+  const session = useProbe<SessionResponse>("/api/auth/session");
+  const users = useMemo<AppUser[]>(() => {
+    if (session.status !== "done" || !session.data.user.email) return [];
+    return [
+      {
+        id: session.data.user.email,
+        name: session.data.user.name || session.data.user.email,
+        email: session.data.user.email,
+        role: session.data.user.role || "viewer",
+      },
+    ];
+  }, [session]);
   const columns = useMemo<Column<AppUser>[]>(
     () => [
       {
@@ -731,13 +760,19 @@ function UsersSection() {
     <div className="space-y-5">
       <Card className="p-4">
         <div className="mb-3">
-          <h3 className="text-sm font-semibold text-ink">Users</h3>
+          <h3 className="text-sm font-semibold text-ink">Current session</h3>
           <p className="text-2xs text-muted">
-            The pilot runs with a single administrator. This is a description of the intended
-            access model, not live account data.
+            Internal accounts are configured in secret environment variables. This row reflects
+            the authenticated user for the current HTTP-only session.
           </p>
         </div>
-        <DataTable rows={USERS} columns={columns} exportName="users" pageSize={10} />
+        {session.status === "loading" ? (
+          <Skeleton className="h-20" />
+        ) : session.status === "error" ? (
+          <EmptyState title="Could not load the current session" description={session.message} />
+        ) : (
+          <DataTable rows={users} columns={columns} exportName="users" pageSize={10} />
+        )}
       </Card>
 
       <Card className="p-4">
@@ -754,8 +789,8 @@ function UsersSection() {
           ))}
         </div>
         <p className="mt-3 inline-flex items-center gap-1.5 text-2xs text-muted">
-          <Lock className="h-3.5 w-3.5" /> Auth integration is a next milestone — sign-in is not
-          yet wired, and no credentials are stored in the app.
+          <Lock className="h-3.5 w-3.5" /> Signed HTTP-only sessions protect every dashboard and
+          live-data API. Viewer writes are rejected server-side.
         </p>
       </Card>
     </div>

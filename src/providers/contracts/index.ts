@@ -1,10 +1,9 @@
 /**
  * Provider contracts.
  *
- * Every data provider (demo, DataForSEO, Google Search Console, GA4) implements
- * these interfaces and returns CANONICAL internal models from @/lib/types —
- * never a raw vendor payload. Swapping demo → live is a factory change only;
- * no UI or business logic is rewritten. See docs/provider-contracts.md.
+ * Provider adapters return canonical internal models from @/lib/types, never
+ * raw vendor payloads. UI code reads stored bundles and does not branch on the
+ * active provider. See docs/provider-contracts.md.
  */
 import type {
   AiPrompt,
