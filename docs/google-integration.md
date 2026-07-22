@@ -66,18 +66,20 @@ with `GSC_SITE_<ID>` / `GA4_PROPERTY_<ID>` env vars. The service account
 | BusRentalGlobal | `sc-domain:busrentalglobal.com` | *(unmapped — `GA4_PROPERTY_BUSRENTALGLOBAL`)* |
 | PetTransportGlobal | `sc-domain:pettransportglobal.com` | `536371348` |
 | MoneyCompare | `sc-domain:moneycompare.ae` | `541738826` |
-| InsureCompare | `sc-domain:insurecompare.ae` | `541656359` |
+| InsureCompare | `sc-domain:insurecompare.ae` | `541720356` |
 | PestRemovalUSA | `sc-domain:pestremovalusa.com` | `542325553` |
 | CloseProtectionHire | `sc-domain:closeprotectionhire.com` | `536427457` |
-| CheckMyEnergyClaim | `sc-domain:checkmyenergyclaim.co.uk` | *(unmapped)* |
-| EnergyClaimHelpline UK | `sc-domain:energyclaimhelpline.co.uk` | *(unmapped)* |
-| EnergyClaimHelpline | `sc-domain:energyclaimhelpline.com` | *(unmapped)* |
-| MyEnergyClaim | `sc-domain:myenergyclaim.com` | *(unmapped)* |
-| WarmHomeSchemeLoan | `sc-domain:warmhomeschemeloan.co.uk` | *(unmapped)* |
+| CheckMyEnergyClaim | `sc-domain:checkmyenergyclaim.co.uk` | *(no GA4 property)* |
+| EnergyClaimHelpline UK | `sc-domain:energyclaimhelpline.co.uk` | *(no GA4 property)* |
+| EnergyClaimHelpline | `sc-domain:energyclaimhelpline.com` | *(no GA4 property)* |
+| MyEnergyClaim | `sc-domain:myenergyclaim.com` | *(no GA4 property)* |
+| WarmHomeSchemeLoan | `sc-domain:warmhomeschemeloan.co.uk` | `546413199` |
 
-GSC works for all 12 immediately. GA4 ids marked *unmapped* weren't in the source account
-dump — set each via `GA4_PROPERTY_<ID>` (e.g. `GA4_PROPERTY_WARMHOMESCHEMELOAN`) once known.
-GA4 calls for an unmapped domain return a clear "not configured" error while GSC still works.
+GSC works for all 12 immediately. GA4 ids were reconciled against the live account
+inventory (InsureCompare corrected to `541720356`; WarmHomeSchemeLoan set to `546413199`).
+The five domains marked *no GA4 property* have no GA4 property in the account yet — one must
+be created before mapping. GA4 calls for those return a clear "not configured" error while
+GSC still works. Override any mapping per-env with `GA4_PROPERTY_<ID>`.
 
 ## Going live — checklist
 

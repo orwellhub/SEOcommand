@@ -68,7 +68,9 @@ export const DOMAINS: Domain[] = [
     industry: "UAE insurance comparison (motor, health, home)",
     primaryMarket: "United Arab Emirates",
     gscSite: "sc-domain:insurecompare.ae",
-    ga4PropertyId: "541656359",
+    // GA4 property for the InsureCompare account (541656359 belongs to a
+    // PetTransportGlobal secondary property — corrected per account inventory).
+    ga4PropertyId: "541720356",
     gscConnected: false,
     ga4Connected: false,
     dataForSeoConnected: false,
@@ -159,7 +161,7 @@ export const DOMAINS: Domain[] = [
     industry: "UK home energy-efficiency scheme & grants",
     primaryMarket: "United Kingdom",
     gscSite: "sc-domain:warmhomeschemeloan.co.uk",
-    ga4PropertyId: null,
+    ga4PropertyId: "546413199",
     gscConnected: false,
     ga4Connected: false,
     dataForSeoConnected: false,

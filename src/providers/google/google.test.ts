@@ -10,9 +10,18 @@ describe("Google provider config", () => {
     expect(GSC_SITE_MAP.pettransportglobal).toBe("sc-domain:pettransportglobal.com");
   });
 
-  it("has GA4 property ids for the domains present in the source account", () => {
+  it("has GA4 property ids reconciled against the live account inventory", () => {
     expect(GA4_PROPERTY_MAP.mortgagecompare).toBe("529950642");
     expect(GA4_PROPERTY_MAP.pettransportglobal).toBe("536371348");
+    expect(GA4_PROPERTY_MAP.moneycompare).toBe("541738826");
+    expect(GA4_PROPERTY_MAP.insurecompare).toBe("541720356"); // corrected from 541656359
+    expect(GA4_PROPERTY_MAP.warmhomeschemeloan).toBe("546413199");
+  });
+
+  it("leaves domains without a GA4 property unmapped (null)", () => {
+    for (const id of ["busrentalglobal", "checkmyenergyclaim", "myenergyclaim"]) {
+      expect(GA4_PROPERTY_MAP[id]).toBeNull();
+    }
   });
 
   it("reports not-configured when no Google credentials are set", () => {
