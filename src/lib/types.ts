@@ -334,6 +334,82 @@ export interface ProviderConnection {
   detail: string;
 }
 
+/* ------------------- First-party: Search Console & GA4 ------------------ */
+
+/** GSC headline totals for a window (owned-site performance). */
+export interface GscTotals {
+  clicks: number;
+  impressions: number;
+  ctr: number; // percent
+  position: number; // average
+}
+
+export interface GscRow {
+  key: string; // query | page | country | device value
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+}
+
+/** A query ranking just off page one — the cheapest available win. */
+export interface StrikingDistanceRow {
+  query: string;
+  position: number;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+}
+
+export interface GscMover {
+  key: string;
+  clicksNow: number;
+  clicksBefore: number;
+  change: number;
+  positionNow: number | null;
+  positionBefore: number | null;
+}
+
+/** Measured share of the researched click pool (from benchmarks.json). */
+export interface ShareOfMarket {
+  site: string;
+  windowDays: number;
+  measuredClicks: number;
+  measuredImpressions: number;
+  keywordCount: number;
+  monthlySearchVolume: number;
+  availableMonthlyClicks: number;
+  availableClicksInWindow: number;
+  shareOfAvailableClicksPct: number;
+  impressionShareOfDemandPct: number;
+  baselined: string | null;
+}
+
+/** GA4 organic overview for a window. */
+export interface Ga4Overview {
+  sessions: number;
+  totalUsers: number;
+  newUsers: number;
+  engagedSessions: number;
+  engagementRate: number;
+  conversions: number; // keyEvents
+  screenPageViews: number;
+}
+
+export interface Ga4LandingPage {
+  landingPage: string;
+  sessions: number;
+  totalUsers: number;
+  engagementRate: number;
+  conversions: number;
+}
+
+export interface Ga4ChannelRow {
+  channel: string;
+  sessions: number;
+  conversions: number;
+}
+
 /* ------------------------------- Alerts --------------------------------- */
 
 export interface AlertItem {

@@ -98,6 +98,7 @@ secrets. Replace with a real auth provider before production (see `AUTH_SECRET` 
    treats a provider as live once a real request succeeds; otherwise it stays in demo mode.
 
 See [`docs/dataforseo-integration.md`](docs/dataforseo-integration.md),
+[`docs/google-integration.md`](docs/google-integration.md) (Search Console + GA4),
 [`docs/live-connection-plan.md`](docs/live-connection-plan.md) and
 [`docs/cost-controls.md`](docs/cost-controls.md).
 

@@ -68,17 +68,18 @@ services:
         sync: false
       - key: DATAFORSEO_BASE_URL
         value: https://api.dataforseo.com
+      # --- Google (GSC + GA4): pick ONE auth method, values set in dashboard ---
+      - key: GOOGLE_SERVICE_ACCOUNT_JSON
+        sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
-      - key: GOOGLE_OAUTH_REDIRECT_URI
+      - key: GOOGLE_REFRESH_TOKEN
         sync: false
-      - key: GOOGLE_SERVICE_ACCOUNT_JSON
+      - key: GOOGLE_CLOUD_PROJECT
         sync: false
-      - key: GA4_PROPERTY_ID
-        sync: false
-      - key: GSC_SITE_URL
+      - key: GA4_PROPERTY_BUSRENTALGLOBAL
         sync: false
 
   # --------------------------------------------------------------- worker ---
@@ -114,7 +115,13 @@ services:
         value: https://api.dataforseo.com
       - key: GOOGLE_SERVICE_ACCOUNT_JSON
         sync: false
-      - key: GA4_PROPERTY_ID
+      - key: GOOGLE_CLIENT_ID
         sync: false
-      - key: GSC_SITE_URL
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REFRESH_TOKEN
+        sync: false
+      - key: GOOGLE_CLOUD_PROJECT
+        sync: false
+      - key: GA4_PROPERTY_BUSRENTALGLOBAL
         sync: false

@@ -13,6 +13,12 @@ import type {
   ContentItem,
   CrawlRun,
   DomainId,
+  Ga4ChannelRow,
+  Ga4LandingPage,
+  Ga4Overview,
+  GscMover,
+  GscRow,
+  GscTotals,
   HealthBreakdown,
   Keyword,
   KeywordList,
@@ -20,6 +26,8 @@ import type {
   Provenance,
   RankSnapshot,
   ReferringDomain,
+  ShareOfMarket,
+  StrikingDistanceRow,
   TechnicalIssue,
 } from "@/lib/types";
 
@@ -62,16 +70,31 @@ export interface ContentIntelligenceProvider {
   content(domainId: DomainId): Promise<Envelope<ContentItem[]>>;
 }
 
-/** First-party search performance — GSC-backed in production. */
+/** First-party search performance — Google Search Console-backed in production. */
 export interface SearchPerformanceProvider {
-  // Reserved: query/page/device/country snapshots from Google Search Console.
-  readonly source: "google-search-console" | "demo";
+  gscTotals(domainId: DomainId, days?: number): Promise<Envelope<GscTotals>>;
+  gscBreakdown(
+    domainId: DomainId,
+    dimension: "query" | "page" | "country" | "device",
+    days?: number,
+    rowLimit?: number,
+  ): Promise<Envelope<GscRow[]>>;
+  gscStrikingDistance(domainId: DomainId, days?: number): Promise<Envelope<StrikingDistanceRow[]>>;
+  gscMovers(domainId: DomainId, days?: number): Promise<Envelope<{ gains: GscMover[]; losses: GscMover[] }>>;
+  shareOfMarket(domainId: DomainId, days?: number): Promise<Envelope<ShareOfMarket | null>>;
 }
 
 /** Analytics & conversions — GA4-backed in production. */
 export interface AnalyticsProvider {
-  // Reserved: organic sessions, conversions and landing-page performance.
-  readonly source: "google-analytics" | "demo";
+  ga4OrganicOverview(domainId: DomainId, days?: number): Promise<Envelope<Ga4Overview>>;
+  ga4LandingPages(domainId: DomainId, days?: number): Promise<Envelope<Ga4LandingPage[]>>;
+  ga4Channels(domainId: DomainId, days?: number): Promise<Envelope<Ga4ChannelRow[]>>;
+}
+
+/** Combined first-party provider (GSC + GA4). */
+export interface GoogleProvider extends SearchPerformanceProvider, AnalyticsProvider {
+  readonly name: string;
+  readonly live: boolean;
 }
 
 export interface SeoProvider

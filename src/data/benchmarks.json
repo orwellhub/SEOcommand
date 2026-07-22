@@ -1,0 +1,1607 @@
+{
+  "_comment": "MortgageCompare.ae market benchmark. Semrush AE search volumes researched for the 249-article content plan plus the unassigned keyword pool. Baselined 15 July 2026. Denominator for share-of-market reporting. Refresh volumes when the Semrush MCP is available.",
+  "site": "sc-domain:mortgagecompare.ae",
+  "ga4_property_id": "529950642",
+  "baselined": "2026-07-15",
+  "source": "Semrush AE database, researched for the MortgageCompare content plan",
+  "keyword_count": 261,
+  "monthly_search_volume": 33090,
+  "click_availability_rate": 0.45,
+  "click_availability_note": "Assumed share of searches producing an organic click after zero-click SERPs and AI answers. Replace with measured GSC impressions when available.",
+  "available_monthly_clicks": 14890,
+  "clusters": {
+    "rates-comparison": 5470,
+    "calculator": 4670,
+    "banks": 3940,
+    "preapproval-application": 3140,
+    "unassigned-pool": 2740,
+    "expats-nonresident": 2650,
+    "eligibility-affordability": 1560,
+    "brokers": 1240,
+    "dubai-locations": 1230,
+    "eibor-interest": 1000,
+    "unclustered": 890,
+    "offplan-newbuild": 730,
+    "islamic": 620,
+    "downpayment-ltv": 590,
+    "first-time-buyer": 440,
+    "fees-costs": 370,
+    "loan-amount-scenarios": 330,
+    "missed-default": 300,
+    "self-employed": 270,
+    "abu-dhabi": 230,
+    "refinance-equity": 220,
+    "rent-vs-buy": 160,
+    "regulation": 130,
+    "fixed-vs-variable": 100,
+    "golden-visa": 70
+  },
+  "keywords": [
+    {
+      "keyword": "uae mortgage calculator",
+      "volume": 1900,
+      "kd": 18,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "mortgage loan",
+      "volume": 1600,
+      "kd": 41,
+      "cluster": "unassigned-pool"
+    },
+    {
+      "keyword": "loan calculator uae",
+      "volume": 1300,
+      "kd": 24,
+      "cluster": "banks"
+    },
+    {
+      "keyword": "best mortgage rates uae",
+      "volume": 880,
+      "kd": 22,
+      "cluster": "preapproval-application"
+    },
+    {
+      "keyword": "home loan emi calculator uae",
+      "volume": 720,
+      "kd": 22,
+      "cluster": "banks"
+    },
+    {
+      "keyword": "mortgage broker dubai",
+      "volume": 720,
+      "kd": 28,
+      "cluster": "expats-nonresident"
+    },
+    {
+      "keyword": "mortgage rates today uae",
+      "volume": 720,
+      "kd": 24,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "mortgage pre approval uae",
+      "volume": 590,
+      "kd": 24,
+      "cluster": "eligibility-affordability"
+    },
+    {
+      "keyword": "mortgage for expats uae",
+      "volume": 590,
+      "kd": 24,
+      "cluster": "preapproval-application"
+    },
+    {
+      "keyword": "emirates nbd mortgage",
+      "volume": 590,
+      "kd": 26,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "home loan calculator uae",
+      "volume": 590,
+      "kd": 20,
+      "cluster": "unclustered"
+    },
+    {
+      "keyword": "cost of buying property dubai",
+      "volume": 590,
+      "kd": 24,
+      "cluster": "eibor-interest"
+    },
+    {
+      "keyword": "rent vs buy dubai",
+      "volume": 590,
+      "kd": 24,
+      "cluster": "expats-nonresident"
+    },
+    {
+      "keyword": "adcb mortgage",
+      "volume": 480,
+      "kd": 26,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "mortgage comparison uae",
+      "volume": 480,
+      "kd": 24,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "how to get a mortgage in dubai",
+      "volume": 480,
+      "kd": 26,
+      "cluster": "brokers"
+    },
+    {
+      "keyword": "mortgage down payment uae",
+      "volume": 480,
+      "kd": 22,
+      "cluster": "offplan-newbuild"
+    },
+    {
+      "keyword": "mortgage uae",
+      "volume": 480,
+      "kd": 53,
+      "cluster": "unassigned-pool"
+    },
+    {
+      "keyword": "fab mortgage",
+      "volume": 390,
+      "kd": 26,
+      "cluster": "preapproval-application"
+    },
+    {
+      "keyword": "how much mortgage can i afford uae",
+      "volume": 320,
+      "kd": 20,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "lowest mortgage rate uae",
+      "volume": 320,
+      "kd": 22,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "non resident mortgage uae",
+      "volume": 320,
+      "kd": 26,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "hsbc uae mortgage",
+      "volume": 320,
+      "kd": 28,
+      "cluster": "preapproval-application"
+    },
+    {
+      "keyword": "how to apply for mortgage uae",
+      "volume": 320,
+      "kd": 22,
+      "cluster": "dubai-locations"
+    },
+    {
+      "keyword": "adib home finance",
+      "volume": 320,
+      "kd": 24,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "best bank for mortgage uae",
+      "volume": 320,
+      "kd": 24,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "islamic mortgage uae",
+      "volume": 320,
+      "kd": 22,
+      "cluster": "downpayment-ltv"
+    },
+    {
+      "keyword": "dld fee dubai",
+      "volume": 320,
+      "kd": 18,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "mortgage buyout uae",
+      "volume": 320,
+      "kd": 22,
+      "cluster": "islamic"
+    },
+    {
+      "keyword": "mortgage abu dhabi",
+      "volume": 320,
+      "kd": 22,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "mortgage eligibility calculator uae",
+      "volume": 290,
+      "kd": 20,
+      "cluster": "brokers"
+    },
+    {
+      "keyword": "documents for mortgage uae",
+      "volume": 260,
+      "kd": 18,
+      "cluster": "banks"
+    },
+    {
+      "keyword": "mashreq mortgage",
+      "volume": 260,
+      "kd": 24,
+      "cluster": "expats-nonresident"
+    },
+    {
+      "keyword": "minimum salary for mortgage uae",
+      "volume": 260,
+      "kd": 18,
+      "cluster": "brokers"
+    },
+    {
+      "keyword": "debt burden ratio uae",
+      "volume": 260,
+      "kd": 22,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "eibor today",
+      "volume": 260,
+      "kd": 24,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "off plan mortgage dubai",
+      "volume": 260,
+      "kd": 22,
+      "cluster": "fees-costs"
+    },
+    {
+      "keyword": "mortgage repayment calculator uae",
+      "volume": 210,
+      "kd": 20,
+      "cluster": "eligibility-affordability"
+    },
+    {
+      "keyword": "mortgage approval uae",
+      "volume": 210,
+      "kd": 20,
+      "cluster": "eligibility-affordability"
+    },
+    {
+      "keyword": "dib home finance",
+      "volume": 210,
+      "kd": 24,
+      "cluster": "preapproval-application"
+    },
+    {
+      "keyword": "compare mortgage rates uae",
+      "volume": 210,
+      "kd": 22,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "first time buyer uae",
+      "volume": 210,
+      "kd": 22,
+      "cluster": "unclustered"
+    },
+    {
+      "keyword": "rak bank mortgage",
+      "volume": 210,
+      "kd": 22,
+      "cluster": "unassigned-pool"
+    },
+    {
+      "keyword": "mortgage on 20000 salary uae",
+      "volume": 170,
+      "kd": 16,
+      "cluster": "banks"
+    },
+    {
+      "keyword": "fixed vs variable mortgage uae",
+      "volume": 170,
+      "kd": 20,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "mortgage affordability calculator uae",
+      "volume": 170,
+      "kd": 18,
+      "cluster": "banks"
+    },
+    {
+      "keyword": "best mortgage deals dubai",
+      "volume": 170,
+      "kd": 22,
+      "cluster": "eligibility-affordability"
+    },
+    {
+      "keyword": "rakbank mortgage",
+      "volume": 170,
+      "kd": 22,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "standard chartered uae mortgage",
+      "volume": 170,
+      "kd": 24,
+      "cluster": "preapproval-application"
+    },
+    {
+      "keyword": "eibor explained",
+      "volume": 170,
+      "kd": 20,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "self employed mortgage uae",
+      "volume": 170,
+      "kd": 20,
+      "cluster": "downpayment-ltv"
+    },
+    {
+      "keyword": "off plan mortgage uae",
+      "volume": 170,
+      "kd": 22,
+      "cluster": "dubai-locations"
+    },
+    {
+      "keyword": "emirates islamic mortgage",
+      "volume": 170,
+      "kd": 22,
+      "cluster": "preapproval-application"
+    },
+    {
+      "keyword": "mortgage loan uae",
+      "volume": 170,
+      "kd": 38,
+      "cluster": "unassigned-pool"
+    },
+    {
+      "keyword": "mortgage broker fees dubai",
+      "volume": 140,
+      "kd": 18,
+      "cluster": "expats-nonresident"
+    },
+    {
+      "keyword": "mortgage finder uae review",
+      "volume": 140,
+      "kd": 22,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "best mortgage comparison sites uae",
+      "volume": 140,
+      "kd": 22,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "mortgage on 30000 salary uae",
+      "volume": 110,
+      "kd": 16,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "islamic mortgage calculator uae",
+      "volume": 110,
+      "kd": 18,
+      "cluster": "banks"
+    },
+    {
+      "keyword": "indian expat mortgage uae",
+      "volume": 110,
+      "kd": 18,
+      "cluster": "banks"
+    },
+    {
+      "keyword": "mortgage interest calculator uae",
+      "volume": 110,
+      "kd": 18,
+      "cluster": "banks"
+    },
+    {
+      "keyword": "uae mortgage interest rate 2026",
+      "volume": 110,
+      "kd": 20,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "cbd mortgage",
+      "volume": 110,
+      "kd": 22,
+      "cluster": "preapproval-application"
+    },
+    {
+      "keyword": "fixed rate mortgage uae",
+      "volume": 110,
+      "kd": 18,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "salary transfer mortgage uae",
+      "volume": 110,
+      "kd": 18,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "fab home loan calculator",
+      "volume": 110,
+      "kd": 20,
+      "cluster": "expats-nonresident"
+    },
+    {
+      "keyword": "mortgage processing fee uae",
+      "volume": 110,
+      "kd": 18,
+      "cluster": "eligibility-affordability"
+    },
+    {
+      "keyword": "1 million mortgage uae",
+      "volume": 110,
+      "kd": 16,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "down payment calculator uae",
+      "volume": 110,
+      "kd": 18,
+      "cluster": "expats-nonresident"
+    },
+    {
+      "keyword": "rent vs buy calculator uae",
+      "volume": 110,
+      "kd": 18,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "best uae mortgage calculator",
+      "volume": 110,
+      "kd": 20,
+      "cluster": "banks"
+    },
+    {
+      "keyword": "how long does mortgage pre approval take uae",
+      "volume": 90,
+      "kd": 14,
+      "cluster": "brokers"
+    },
+    {
+      "keyword": "buy to let calculator uae",
+      "volume": 90,
+      "kd": 18,
+      "cluster": "banks"
+    },
+    {
+      "keyword": "british expat mortgage dubai",
+      "volume": 90,
+      "kd": 18,
+      "cluster": "preapproval-application"
+    },
+    {
+      "keyword": "cheapest mortgage uae",
+      "volume": 90,
+      "kd": 18,
+      "cluster": "expats-nonresident"
+    },
+    {
+      "keyword": "mortgage estimator uae",
+      "volume": 90,
+      "kd": 16,
+      "cluster": "eligibility-affordability"
+    },
+    {
+      "keyword": "mortgage on 50000 salary uae",
+      "volume": 90,
+      "kd": 16,
+      "cluster": "banks"
+    },
+    {
+      "keyword": "mortgage vs rent calculator uae",
+      "volume": 90,
+      "kd": 16,
+      "cluster": "expats-nonresident"
+    },
+    {
+      "keyword": "best mortgage rates uae september",
+      "volume": 90,
+      "kd": 18,
+      "cluster": "dubai-locations"
+    },
+    {
+      "keyword": "property affordability calculator uae",
+      "volume": 90,
+      "kd": 16,
+      "cluster": "self-employed"
+    },
+    {
+      "keyword": "ltv uae mortgage",
+      "volume": 90,
+      "kd": 18,
+      "cluster": "regulation"
+    },
+    {
+      "keyword": "uae mortgage rejected",
+      "volume": 90,
+      "kd": 18,
+      "cluster": "rent-vs-buy"
+    },
+    {
+      "keyword": "oqood registration dubai",
+      "volume": 90,
+      "kd": 16,
+      "cluster": "self-employed"
+    },
+    {
+      "keyword": "business owner mortgage uae",
+      "volume": 90,
+      "kd": 18,
+      "cluster": "dubai-locations"
+    },
+    {
+      "keyword": "cbuae base rate",
+      "volume": 90,
+      "kd": 18,
+      "cluster": "banks"
+    },
+    {
+      "keyword": "golden visa property mortgage",
+      "volume": 90,
+      "kd": 18,
+      "cluster": "preapproval-application"
+    },
+    {
+      "keyword": "mortgage on 15000 salary uae",
+      "volume": 90,
+      "kd": 16,
+      "cluster": "banks"
+    },
+    {
+      "keyword": "adib mortgage calculator",
+      "volume": 90,
+      "kd": 18,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "variable rate mortgage uae",
+      "volume": 90,
+      "kd": 18,
+      "cluster": "self-employed"
+    },
+    {
+      "keyword": "uae mortgage law",
+      "volume": 90,
+      "kd": 20,
+      "cluster": "banks"
+    },
+    {
+      "keyword": "mortgage broker abu dhabi",
+      "volume": 90,
+      "kd": 22,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "2 million mortgage uae",
+      "volume": 90,
+      "kd": 16,
+      "cluster": "first-time-buyer"
+    },
+    {
+      "keyword": "missed mortgage payment uae",
+      "volume": 90,
+      "kd": 18,
+      "cluster": "eibor-interest"
+    },
+    {
+      "keyword": "joint mortgage uae",
+      "volume": 90,
+      "kd": 18,
+      "cluster": "dubai-locations"
+    },
+    {
+      "keyword": "sharjah mortgage",
+      "volume": 90,
+      "kd": 16,
+      "cluster": "islamic"
+    },
+    {
+      "keyword": "home mortgage uae",
+      "volume": 90,
+      "kd": 31,
+      "cluster": "unassigned-pool"
+    },
+    {
+      "keyword": "dubai marina mortgage",
+      "volume": 70,
+      "kd": 20,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "mortgage overpayment calculator uae",
+      "volume": 70,
+      "kd": 16,
+      "cluster": "banks"
+    },
+    {
+      "keyword": "mortgage pre approval letter uae",
+      "volume": 70,
+      "kd": 14,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "independent mortgage broker uae",
+      "volume": 70,
+      "kd": 16,
+      "cluster": "expats-nonresident"
+    },
+    {
+      "keyword": "property value calculator uae",
+      "volume": 70,
+      "kd": 16,
+      "cluster": "eligibility-affordability"
+    },
+    {
+      "keyword": "pakistani expat mortgage uae",
+      "volume": 70,
+      "kd": 16,
+      "cluster": "brokers"
+    },
+    {
+      "keyword": "mortgage fees calculator uae",
+      "volume": 70,
+      "kd": 16,
+      "cluster": "banks"
+    },
+    {
+      "keyword": "cbuae mortgage regulations",
+      "volume": 70,
+      "kd": 20,
+      "cluster": "offplan-newbuild"
+    },
+    {
+      "keyword": "uae mortgage rate forecast",
+      "volume": 70,
+      "kd": 18,
+      "cluster": "islamic"
+    },
+    {
+      "keyword": "best mortgage rates uae october",
+      "volume": 70,
+      "kd": 18,
+      "cluster": "downpayment-ltv"
+    },
+    {
+      "keyword": "mortgage valuation fee uae",
+      "volume": 70,
+      "kd": 14,
+      "cluster": "golden-visa"
+    },
+    {
+      "keyword": "islamic vs conventional mortgage uae",
+      "volume": 70,
+      "kd": 18,
+      "cluster": "expats-nonresident"
+    },
+    {
+      "keyword": "mortgage refinance calculator uae",
+      "volume": 70,
+      "kd": 16,
+      "cluster": "rent-vs-buy"
+    },
+    {
+      "keyword": "best mortgage rates uae december",
+      "volume": 70,
+      "kd": 18,
+      "cluster": "loan-amount-scenarios"
+    },
+    {
+      "keyword": "uae mortgage foreclosure",
+      "volume": 70,
+      "kd": 18,
+      "cluster": "loan-amount-scenarios"
+    },
+    {
+      "keyword": "nri mortgage uae",
+      "volume": 70,
+      "kd": 18,
+      "cluster": "missed-default"
+    },
+    {
+      "keyword": "compare mortgage calculator uae",
+      "volume": 70,
+      "kd": 16,
+      "cluster": "unclustered"
+    },
+    {
+      "keyword": "best mortgage rates uae march 2027",
+      "volume": 70,
+      "kd": 16,
+      "cluster": "expats-nonresident"
+    },
+    {
+      "keyword": "mortgage buyout fees uae",
+      "volume": 70,
+      "kd": 16,
+      "cluster": "expats-nonresident"
+    },
+    {
+      "keyword": "best mortgage rates uae april 2027",
+      "volume": 70,
+      "kd": 16,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "broker vs direct uae mortgage",
+      "volume": 70,
+      "kd": 16,
+      "cluster": "offplan-newbuild"
+    },
+    {
+      "keyword": "european expat mortgage uae",
+      "volume": 50,
+      "kd": 14,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "adib vs dib mortgage",
+      "volume": 50,
+      "kd": 16,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "approval in principle uae",
+      "volume": 50,
+      "kd": 14,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "nbf mortgage",
+      "volume": 50,
+      "kd": 18,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "downtown dubai mortgage",
+      "volume": 50,
+      "kd": 18,
+      "cluster": "fixed-vs-variable"
+    },
+    {
+      "keyword": "ijara vs murabaha",
+      "volume": 50,
+      "kd": 18,
+      "cluster": "dubai-locations"
+    },
+    {
+      "keyword": "dubai hills mortgage",
+      "volume": 50,
+      "kd": 18,
+      "cluster": "fees-costs"
+    },
+    {
+      "keyword": "compound interest mortgage uae",
+      "volume": 50,
+      "kd": 14,
+      "cluster": "banks"
+    },
+    {
+      "keyword": "first time buyer down payment uae",
+      "volume": 50,
+      "kd": 14,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "uae mortgage rate 2027",
+      "volume": 50,
+      "kd": 18,
+      "cluster": "dubai-locations"
+    },
+    {
+      "keyword": "mortgage comparison calculator uae",
+      "volume": 50,
+      "kd": 14,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "non resident uae mortgage banks",
+      "volume": 50,
+      "kd": 18,
+      "cluster": "eligibility-affordability"
+    },
+    {
+      "keyword": "best mortgage rates uae november",
+      "volume": 50,
+      "kd": 18,
+      "cluster": "dubai-locations"
+    },
+    {
+      "keyword": "second home mortgage uae",
+      "volume": 50,
+      "kd": 18,
+      "cluster": "fixed-vs-variable"
+    },
+    {
+      "keyword": "3 month eibor vs 6 month",
+      "volume": 50,
+      "kd": 16,
+      "cluster": "abu-dhabi"
+    },
+    {
+      "keyword": "how banks calculate mortgage uae",
+      "volume": 50,
+      "kd": 16,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "1 month eibor",
+      "volume": 50,
+      "kd": 16,
+      "cluster": "loan-amount-scenarios"
+    },
+    {
+      "keyword": "3 million mortgage uae",
+      "volume": 50,
+      "kd": 14,
+      "cluster": "first-time-buyer"
+    },
+    {
+      "keyword": "5 million mortgage uae",
+      "volume": 50,
+      "kd": 14,
+      "cluster": "eibor-interest"
+    },
+    {
+      "keyword": "mortgage amortisation calculator uae",
+      "volume": 50,
+      "kd": 14,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "best mortgage rates uae january 2027",
+      "volume": 50,
+      "kd": 16,
+      "cluster": "first-time-buyer"
+    },
+    {
+      "keyword": "uae mortgage restructure",
+      "volume": 50,
+      "kd": 14,
+      "cluster": "eibor-interest"
+    },
+    {
+      "keyword": "best mortgage rates uae february",
+      "volume": 50,
+      "kd": 16,
+      "cluster": "expats-nonresident"
+    },
+    {
+      "keyword": "american expat mortgage uae",
+      "volume": 50,
+      "kd": 14,
+      "cluster": "dubai-locations"
+    },
+    {
+      "keyword": "best bank first time buyer uae",
+      "volume": 50,
+      "kd": 18,
+      "cluster": "banks"
+    },
+    {
+      "keyword": "ramadan mortgage offers uae",
+      "volume": 50,
+      "kd": 16,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "when to refinance mortgage uae",
+      "volume": 50,
+      "kd": 16,
+      "cluster": "abu-dhabi"
+    },
+    {
+      "keyword": "best mortgage rates uae may 2027",
+      "volume": 50,
+      "kd": 16,
+      "cluster": "expats-nonresident"
+    },
+    {
+      "keyword": "debt consolidation mortgage uae",
+      "volume": 50,
+      "kd": 16,
+      "cluster": "banks"
+    },
+    {
+      "keyword": "mortgage declined uae",
+      "volume": 50,
+      "kd": 14,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "jvc mortgage dubai",
+      "volume": 40,
+      "kd": 16,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "mortgage term calculator uae",
+      "volume": 40,
+      "kd": 14,
+      "cluster": "offplan-newbuild"
+    },
+    {
+      "keyword": "palm jumeirah mortgage",
+      "volume": 40,
+      "kd": 18,
+      "cluster": "eibor-interest"
+    },
+    {
+      "keyword": "adcb vs fab vs enbd",
+      "volume": 40,
+      "kd": 16,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "mortgage timeline uae",
+      "volume": 40,
+      "kd": 14,
+      "cluster": "dubai-locations"
+    },
+    {
+      "keyword": "mortgage without salary certificate uae",
+      "volume": 40,
+      "kd": 14,
+      "cluster": "offplan-newbuild"
+    },
+    {
+      "keyword": "when to buy property dubai",
+      "volume": 40,
+      "kd": 14,
+      "cluster": "regulation"
+    },
+    {
+      "keyword": "south african expat mortgage uae",
+      "volume": 40,
+      "kd": 12,
+      "cluster": "dubai-locations"
+    },
+    {
+      "keyword": "first time buyer mistakes uae",
+      "volume": 40,
+      "kd": 14,
+      "cluster": "missed-default"
+    },
+    {
+      "keyword": "uae mortgage rate history",
+      "volume": 40,
+      "kd": 14,
+      "cluster": "missed-default"
+    },
+    {
+      "keyword": "1.5 million mortgage uae",
+      "volume": 40,
+      "kd": 14,
+      "cluster": "eibor-interest"
+    },
+    {
+      "keyword": "saadiyat island mortgage",
+      "volume": 40,
+      "kd": 14,
+      "cluster": "islamic"
+    },
+    {
+      "keyword": "zakat on property uae",
+      "volume": 40,
+      "kd": 14,
+      "cluster": "refinance-equity"
+    },
+    {
+      "keyword": "release equity mortgage uae",
+      "volume": 40,
+      "kd": 16,
+      "cluster": "expats-nonresident"
+    },
+    {
+      "keyword": "ajman mortgage",
+      "volume": 40,
+      "kd": 12,
+      "cluster": "islamic"
+    },
+    {
+      "keyword": "filipino expat mortgage uae",
+      "volume": 40,
+      "kd": 14,
+      "cluster": "abu-dhabi"
+    },
+    {
+      "keyword": "rak mortgage",
+      "volume": 40,
+      "kd": 14,
+      "cluster": "missed-default"
+    },
+    {
+      "keyword": "hsbc premier mortgage uae",
+      "volume": 40,
+      "kd": 14,
+      "cluster": "eligibility-affordability"
+    },
+    {
+      "keyword": "russian expat mortgage uae",
+      "volume": 40,
+      "kd": 14,
+      "cluster": "preapproval-application"
+    },
+    {
+      "keyword": "business bay mortgage",
+      "volume": 30,
+      "kd": 16,
+      "cluster": "fees-costs"
+    },
+    {
+      "keyword": "arabian ranches mortgage",
+      "volume": 30,
+      "kd": 16,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "uae mortgage rate changes",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "refinance-equity"
+    },
+    {
+      "keyword": "damac mortgage dubai",
+      "volume": 30,
+      "kd": 16,
+      "cluster": "downpayment-ltv"
+    },
+    {
+      "keyword": "emaar off plan mortgage",
+      "volume": 30,
+      "kd": 16,
+      "cluster": "eibor-interest"
+    },
+    {
+      "keyword": "yas island mortgage",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "fees-costs"
+    },
+    {
+      "keyword": "equity release calculator uae",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "brokers"
+    },
+    {
+      "keyword": "cheapest mortgage uae december",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "dubai-locations"
+    },
+    {
+      "keyword": "saving for deposit uae",
+      "volume": 30,
+      "kd": 12,
+      "cluster": "banks"
+    },
+    {
+      "keyword": "mashreq vs emirates nbd mortgage",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "eibor reset uae mortgage",
+      "volume": 30,
+      "kd": 12,
+      "cluster": "first-time-buyer"
+    },
+    {
+      "keyword": "first time buyer step by step uae",
+      "volume": 30,
+      "kd": 12,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "uae mortgage rates 2026 review",
+      "volume": 30,
+      "kd": 12,
+      "cluster": "loan-amount-scenarios"
+    },
+    {
+      "keyword": "10 million mortgage uae",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "first time buyer documents uae",
+      "volume": 30,
+      "kd": 12,
+      "cluster": "missed-default"
+    },
+    {
+      "keyword": "mortgage stress test uae",
+      "volume": 30,
+      "kd": 12,
+      "cluster": "loan-amount-scenarios"
+    },
+    {
+      "keyword": "uae mortgage rate vs base rate",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "first-time-buyer"
+    },
+    {
+      "keyword": "off plan first time buyer uae",
+      "volume": 30,
+      "kd": 12,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "uae mortgage rate cut 2027",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "dubai-locations"
+    },
+    {
+      "keyword": "uae mortgage tax calculator",
+      "volume": 30,
+      "kd": 12,
+      "cluster": "banks"
+    },
+    {
+      "keyword": "rakbank islamic mortgage",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "eibor-interest"
+    },
+    {
+      "keyword": "800k mortgage uae",
+      "volume": 30,
+      "kd": 12,
+      "cluster": "preapproval-application"
+    },
+    {
+      "keyword": "preapproval validity uae",
+      "volume": 30,
+      "kd": 12,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "bridging loan calculator uae",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "first-time-buyer"
+    },
+    {
+      "keyword": "mashreq neo mortgage",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "loan-amount-scenarios"
+    },
+    {
+      "keyword": "minimum mortgage uae",
+      "volume": 30,
+      "kd": 12,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "lowest mortgage rate 2027 uae",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "eibor-interest"
+    },
+    {
+      "keyword": "exit uae mortgage early",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "loan-amount-scenarios"
+    },
+    {
+      "keyword": "4 million mortgage uae",
+      "volume": 30,
+      "kd": 12,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "uae mortgage arrears",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "eibor-interest"
+    },
+    {
+      "keyword": "uae mortgage rate update february 2027",
+      "volume": 30,
+      "kd": 12,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "australian expat mortgage uae",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "refinance-equity"
+    },
+    {
+      "keyword": "canadian expat mortgage uae",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "abu-dhabi"
+    },
+    {
+      "keyword": "al reem island mortgage",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "dubai-locations"
+    },
+    {
+      "keyword": "egyptian expat mortgage uae",
+      "volume": 30,
+      "kd": 12,
+      "cluster": "abu-dhabi"
+    },
+    {
+      "keyword": "al raha mortgage",
+      "volume": 30,
+      "kd": 12,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "refinance roi calculator uae",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "uae mortgage rate april 2027",
+      "volume": 30,
+      "kd": 12,
+      "cluster": "expats-nonresident"
+    },
+    {
+      "keyword": "variable to fixed mortgage uae",
+      "volume": 30,
+      "kd": 12,
+      "cluster": "first-time-buyer"
+    },
+    {
+      "keyword": "lifetime cost mortgage uae",
+      "volume": 30,
+      "kd": 12,
+      "cluster": "expats-nonresident"
+    },
+    {
+      "keyword": "yas acres mortgage",
+      "volume": 30,
+      "kd": 12,
+      "cluster": "dubai-locations"
+    },
+    {
+      "keyword": "uae negative equity",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "banks"
+    },
+    {
+      "keyword": "bonus income mortgage uae",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "refinance-equity"
+    },
+    {
+      "keyword": "renovation mortgage uae",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "expats-nonresident"
+    },
+    {
+      "keyword": "uae mortgage rate review 2026 2027",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "refinance-equity"
+    },
+    {
+      "keyword": "remove spouse mortgage uae",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "expats-nonresident"
+    },
+    {
+      "keyword": "preapproval fees uae",
+      "volume": 30,
+      "kd": 12,
+      "cluster": "offplan-newbuild"
+    },
+    {
+      "keyword": "off plan handover delay uae",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "islamic"
+    },
+    {
+      "keyword": "compare two mortgages uae",
+      "volume": 30,
+      "kd": 12,
+      "cluster": "banks"
+    },
+    {
+      "keyword": "citi uae mortgage",
+      "volume": 30,
+      "kd": 12,
+      "cluster": "dubai-locations"
+    },
+    {
+      "keyword": "german expat mortgage uae",
+      "volume": 30,
+      "kd": 12,
+      "cluster": "first-time-buyer"
+    },
+    {
+      "keyword": "off plan refund uae",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "preapproval-application"
+    },
+    {
+      "keyword": "best uae mortgages 2026 2027",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "abu-dhabi"
+    },
+    {
+      "keyword": "first time buyer incentives uae",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "islamic"
+    },
+    {
+      "keyword": "uae mortgage rate outlook 2028",
+      "volume": 30,
+      "kd": 14,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "best mortgage loan in uae",
+      "volume": 30,
+      "kd": 19,
+      "cluster": "unassigned-pool"
+    },
+    {
+      "keyword": "best uae mortgage",
+      "volume": 30,
+      "kd": 21,
+      "cluster": "unassigned-pool"
+    },
+    {
+      "keyword": "house mortgage uae",
+      "volume": 30,
+      "kd": 26,
+      "cluster": "unassigned-pool"
+    },
+    {
+      "keyword": "bluewaters island mortgage",
+      "volume": 20,
+      "kd": 14,
+      "cluster": "first-time-buyer"
+    },
+    {
+      "keyword": "eibor vs saibor",
+      "volume": 20,
+      "kd": 12,
+      "cluster": "banks"
+    },
+    {
+      "keyword": "adcb tasjeel",
+      "volume": 20,
+      "kd": 12,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "meydan mortgage dubai",
+      "volume": 20,
+      "kd": 12,
+      "cluster": "missed-default"
+    },
+    {
+      "keyword": "uae mortgage default 60 days",
+      "volume": 20,
+      "kd": 12,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "how is eibor set",
+      "volume": 20,
+      "kd": 14,
+      "cluster": "first-time-buyer"
+    },
+    {
+      "keyword": "hidden costs first home uae",
+      "volume": 20,
+      "kd": 10,
+      "cluster": "loan-amount-scenarios"
+    },
+    {
+      "keyword": "city walk dubai mortgage",
+      "volume": 20,
+      "kd": 12,
+      "cluster": "eibor-interest"
+    },
+    {
+      "keyword": "eibor spike history",
+      "volume": 20,
+      "kd": 12,
+      "cluster": "missed-default"
+    },
+    {
+      "keyword": "voluntary surrender property uae",
+      "volume": 20,
+      "kd": 12,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "eibor today vs last year",
+      "volume": 20,
+      "kd": 10,
+      "cluster": "preapproval-application"
+    },
+    {
+      "keyword": "preapproval multiple banks uae",
+      "volume": 20,
+      "kd": 10,
+      "cluster": "dubai-locations"
+    },
+    {
+      "keyword": "mirdif mortgage dubai",
+      "volume": 20,
+      "kd": 10,
+      "cluster": "first-time-buyer"
+    },
+    {
+      "keyword": "first time buyer faq uae",
+      "volume": 20,
+      "kd": 10,
+      "cluster": "missed-default"
+    },
+    {
+      "keyword": "big bank vs small bank mortgage uae",
+      "volume": 20,
+      "kd": 10,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "eibor floor uae",
+      "volume": 20,
+      "kd": 12,
+      "cluster": "first-time-buyer"
+    },
+    {
+      "keyword": "town square dubai mortgage",
+      "volume": 20,
+      "kd": 10,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "sukuk home finance uae",
+      "volume": 20,
+      "kd": 14,
+      "cluster": "refinance-equity"
+    },
+    {
+      "keyword": "lebanese expat mortgage uae",
+      "volume": 20,
+      "kd": 12,
+      "cluster": "dubai-locations"
+    },
+    {
+      "keyword": "sharia refinance uae",
+      "volume": 20,
+      "kd": 14,
+      "cluster": "refinance-equity"
+    },
+    {
+      "keyword": "best month to buy uae property",
+      "volume": 20,
+      "kd": 12,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "fujairah mortgage",
+      "volume": 20,
+      "kd": 12,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "eid mortgage offers uae",
+      "volume": 20,
+      "kd": 12,
+      "cluster": "calculator"
+    },
+    {
+      "keyword": "aljada mortgage",
+      "volume": 20,
+      "kd": 12,
+      "cluster": "eligibility-affordability"
+    },
+    {
+      "keyword": "second income mortgage uae",
+      "volume": 20,
+      "kd": 12,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "buyers agent uae",
+      "volume": 20,
+      "kd": 12,
+      "cluster": "missed-default"
+    },
+    {
+      "keyword": "enbd liv mortgage",
+      "volume": 20,
+      "kd": 12,
+      "cluster": "brokers"
+    },
+    {
+      "keyword": "reem hills mortgage",
+      "volume": 20,
+      "kd": 12,
+      "cluster": "first-time-buyer"
+    },
+    {
+      "keyword": "islamic mortgage late payment uae",
+      "volume": 20,
+      "kd": 12,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "scb saadiq mortgage 2027",
+      "volume": 20,
+      "kd": 12,
+      "cluster": "refinance-equity"
+    },
+    {
+      "keyword": "eid al adha mortgage offers uae",
+      "volume": 20,
+      "kd": 12,
+      "cluster": "rates-comparison"
+    },
+    {
+      "keyword": "uae mortgage snapshot may 2027",
+      "volume": 20,
+      "kd": 10,
+      "cluster": "unclustered"
+    },
+    {
+      "keyword": "ajman bank mortgage",
+      "volume": 20,
+      "kd": 14,
+      "cluster": "unassigned-pool"
+    },
+    {
+      "keyword": "mortgage insurance uae",
+      "volume": 20,
+      "kd": 17,
+      "cluster": "unassigned-pool"
+    },
+    {
+      "keyword": "mortgage loan interest rate in uae",
+      "volume": 20,
+      "kd": 23,
+      "cluster": "unassigned-pool"
+    },
+    {
+      "keyword": "uae mortgage market",
+      "volume": 20,
+      "kd": 29,
+      "cluster": "unassigned-pool"
+    },
+    {
+      "keyword": "uae mortgage rules",
+      "volume": 20,
+      "kd": 25,
+      "cluster": "unassigned-pool"
+    }
+  ]
+}
