@@ -93,6 +93,7 @@ export async function probeGoogle(): Promise<{
     const res = await fetch(`${GSC_API}/sites`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
+      signal: AbortSignal.timeout(30_000),
     });
     const ok = res.ok;
     const count = ok ? ((await res.json())?.siteEntry?.length ?? 0) : 0;

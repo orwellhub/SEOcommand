@@ -44,6 +44,7 @@ async function gscQuery(siteUrl: string, body: unknown): Promise<any> {
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
     cache: "no-store",
+    signal: AbortSignal.timeout(45_000),
   });
   if (!res.ok) {
     let detail = "";

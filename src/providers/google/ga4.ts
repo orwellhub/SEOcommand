@@ -37,6 +37,7 @@ async function runReport(propertyId: string, body: Record<string, unknown>): Pro
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
     cache: "no-store",
+    signal: AbortSignal.timeout(45_000),
   });
   if (!res.ok) {
     let detail = "";

@@ -160,11 +160,13 @@ export async function syncDomain(
       collect("onpage", async () => {
         if (!dfsOk) return "skip";
         const wantCrawl = opts.includeCrawl ?? !existingByDataset.has("onpage");
-        const pendingTask = existingByDataset.get("onpage_task")?.payload as
-          | { taskId: string }
-          | undefined;
-        if (!wantCrawl && !pendingTask) return "skip";
-        const res = await ensureOnPageCrawl(domainId, pendingTask?.taskId ?? null);
+        // A finished crawl leaves onpage_task = { taskId: null }; only a real id
+        // means "still polling". Check the id, not the row's mere presence.
+        const pendingTaskId =
+          (existingByDataset.get("onpage_task")?.payload as { taskId: string | null } | undefined)
+            ?.taskId ?? null;
+        if (!wantCrawl && !pendingTaskId) return "skip";
+        const res = await ensureOnPageCrawl(domainId, pendingTaskId);
         const p = dfsProv();
         if (res.status === "pending") {
           await write("onpage_task", { taskId: res.taskId }, p);

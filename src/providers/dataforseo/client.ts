@@ -26,6 +26,14 @@ interface DfsEnvelope<T> {
 const RETRYABLE = new Set([429, 500, 502, 503, 504]);
 const MAX_RETRIES = 4;
 
+/** Per-request timeout — a stalled call must fail, never hang the whole sync. */
+const REQUEST_TIMEOUT_MS = 45_000;
+
+/** OnPage summary "task not ready" statuses (queued / handed / in progress). */
+function isTaskNotReady(statusCode: number): boolean {
+  return statusCode >= 40600 && statusCode < 40700;
+}
+
 function backoffMs(attempt: number): number {
   return 2000 * 2 ** attempt; // 2s, 4s, 8s, 16s
 }
@@ -54,6 +62,7 @@ export class DataForSeoClient {
           },
           body: body === undefined ? undefined : JSON.stringify(body),
           cache: "no-store",
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         });
         if (RETRYABLE.has(res.status) && attempt < MAX_RETRIES) {
           await new Promise((r) => setTimeout(r, backoffMs(attempt)));
@@ -179,9 +188,23 @@ export class DataForSeoClient {
     return { taskId, guard };
   }
 
+  /**
+   * Fetch an OnPage crawl summary. Returns null while the crawl is not yet ready
+   * (queued / handed / in progress → the caller keeps polling on later runs)
+   * rather than throwing. Only genuine failures (auth, daily limit) throw.
+   */
   async fetchOnPageSummary(taskId: string): Promise<Record<string, unknown> | null> {
-    const rows = await this.getMeta<Record<string, unknown>>(ENDPOINTS.onPageSummary(taskId));
-    return rows[0] ?? null;
+    const path = ENDPOINTS.onPageSummary(taskId);
+    const res = await this.rawFetch(path, undefined);
+    const json = (await res.json()) as DfsEnvelope<Record<string, unknown>>;
+    if (classifyStatus(json.status_code) === "daily_limit") throw new DailyLimitError(path);
+    const task = json.tasks?.[0];
+    if (!task) return null;
+    const cls = classifyStatus(task.status_code);
+    if (cls === "ok") return (task.result?.[0] as Record<string, unknown>) ?? null;
+    if (cls === "daily_limit") throw new DailyLimitError(path);
+    if (isTaskNotReady(task.status_code)) return null; // still crawling — keep polling
+    throw new DataForSeoError(task.status_message || "OnPage summary error", task.status_code, path);
   }
 
   /** Post + poll convenience used by one-shot flows. */
