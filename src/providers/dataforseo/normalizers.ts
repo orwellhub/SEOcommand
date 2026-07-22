@@ -83,7 +83,7 @@ export function normalizeRankedKeywords(rows: Row[], domainId: DomainId): Keywor
       position,
       prevPosition: num(serp?.rank_changes?.previous_rank_absolute, position ?? 0) || position,
       competitorPositions: {},
-      trafficPotential: num(it?.ranked_serp_element?.serp_item?.etv),
+      trafficPotential: Math.round(num(it?.ranked_serp_element?.serp_item?.etv)),
       serpFeatures: [],
       trend: (kwInfo?.monthly_searches ?? [])
         .slice(0, 12)
@@ -144,7 +144,7 @@ export function normalizeDomainOverview(rows: Row[]): {
   const weighted =
     (num(metrics?.pos_1) + num(metrics?.pos_2_3)) * 1 + num(metrics?.pos_4_10) * 0.5 + num(metrics?.pos_11_20) * 0.2;
   const visibility = Math.min(100, Math.round((weighted / Math.max(1, total)) * 100));
-  return { visibility, estTraffic: num(metrics?.etv), buckets };
+  return { visibility, estTraffic: Math.round(num(metrics?.etv)), buckets };
 }
 
 /* ------------------------- Labs: competitors ---------------------------- */
@@ -160,7 +160,7 @@ export function normalizeCompetitors(rows: Row[], domainId: DomainId): Competito
       commonKeywords: num(it?.intersections ?? it?.full_domain_metrics?.organic?.count),
       keywords: num(m?.count),
       authority: num(it?.rank),
-      estTraffic: num(m?.etv),
+      estTraffic: Math.round(num(m?.etv)),
       overlapPct: num(it?.intersections) && num(m?.count) ? Math.round((num(it?.intersections) / num(m?.count)) * 1000) / 10 : 0,
       trend: "flat",
     };

@@ -327,7 +327,7 @@ export default function RankingsPage() {
             ) : (
               <EmptyState
                 title="No position buckets"
-                description="Not yet synced — this dataset populates on the next scheduled sync."
+                description="No data for this domain in the current window — refreshes on the next scheduled sync or a manual pull."
               />
             )}
           </div>
@@ -355,7 +355,7 @@ export default function RankingsPage() {
             ) : (
               <EmptyState
                 title="No visibility data"
-                description="Not yet synced — this dataset populates on the next scheduled sync."
+                description="No data for this domain in the current window — refreshes on the next scheduled sync or a manual pull."
               />
             )}
           </div>
@@ -387,7 +387,7 @@ export default function RankingsPage() {
           ) : (
             <EmptyState
               title="No search trend yet"
-              description="Not yet synced — this dataset populates on the next scheduled sync."
+              description="No data for this domain in the current window — refreshes on the next scheduled sync or a manual pull."
             />
           )}
         </div>
@@ -411,7 +411,7 @@ export default function RankingsPage() {
           />
         ) : (
           <EmptyState
-            title="Awaiting first keyword sync"
+            title="No keyword data for this domain yet"
             description="Rank snapshots populate on the next scheduled sync."
           />
         )}
@@ -438,7 +438,7 @@ export default function RankingsPage() {
         ) : (
           <EmptyState
             title="No striking-distance queries"
-            description="Not yet synced — this dataset populates on the next scheduled sync."
+            description="No data for this domain in the current window — refreshes on the next scheduled sync or a manual pull."
           />
         )}
       </Card>
@@ -464,7 +464,7 @@ export default function RankingsPage() {
           ) : (
             <EmptyState
               title="No mover data"
-              description="Not yet synced — this dataset populates on the next scheduled sync."
+              description="No data for this domain in the current window — refreshes on the next scheduled sync or a manual pull."
             />
           )}
         </Card>
@@ -488,7 +488,7 @@ export default function RankingsPage() {
           ) : (
             <EmptyState
               title="No mover data"
-              description="Not yet synced — this dataset populates on the next scheduled sync."
+              description="No data for this domain in the current window — refreshes on the next scheduled sync or a manual pull."
             />
           )}
         </Card>

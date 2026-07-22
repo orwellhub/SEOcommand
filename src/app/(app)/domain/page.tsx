@@ -306,7 +306,7 @@ export default function DomainOverviewPage() {
             ) : (
               <EmptyState
                 title="No search trend yet"
-                description="Not yet synced — this dataset populates on the next scheduled sync."
+                description="No data for this domain in the current window — refreshes on the next scheduled sync or a manual pull."
               />
             )}
           </div>
@@ -364,7 +364,7 @@ export default function DomainOverviewPage() {
           {topPages.length === 0 ? (
             <EmptyState
               title="No page data"
-              description="Not yet synced — this dataset populates on the next scheduled sync."
+              description="No data for this domain in the current window — refreshes on the next scheduled sync or a manual pull."
             />
           ) : (
             <div className="space-y-1.5">
@@ -403,7 +403,7 @@ export default function DomainOverviewPage() {
           ) : (
             <EmptyState
               title="No mover data"
-              description="Not yet synced — this dataset populates on the next scheduled sync."
+              description="No data for this domain in the current window — refreshes on the next scheduled sync or a manual pull."
             />
           )}
         </Card>
@@ -491,7 +491,7 @@ export default function DomainOverviewPage() {
         {competitors.length === 0 ? (
           <EmptyState
             title="No competitor data"
-            description="Not yet synced — this dataset populates on the next scheduled sync."
+            description="No data for this domain in the current window — refreshes on the next scheduled sync or a manual pull."
           />
         ) : (
           <div className="overflow-x-auto">

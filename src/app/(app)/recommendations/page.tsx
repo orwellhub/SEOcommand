@@ -71,22 +71,23 @@ export default function RecommendationsPage() {
     [ds],
   );
 
-  const kpis = useMemo(() => {
-    const avg = recs.length
-      ? Math.round(recs.reduce((sum, r) => sum + r.priorityScore, 0) / recs.length)
-      : null;
-    return {
-      open: recs.length,
-      highPriority: recs.filter((r) => r.priorityScore >= 70).length,
-      modules: new Set(recs.map((r) => r.module)).size,
-      avgPriority: avg,
-    };
-  }, [recs]);
-
   const queue = useMemo(() => {
     const decided = new Set([...tasks.map((t) => t.recId), ...dismissed]);
     return recs.filter((r) => !decided.has(r.id));
   }, [recs, tasks, dismissed]);
+
+  // KPIs reflect the OPEN queue so they update as recs are approved/dismissed.
+  const kpis = useMemo(() => {
+    const avg = queue.length
+      ? Math.round(queue.reduce((sum, r) => sum + r.priorityScore, 0) / queue.length)
+      : null;
+    return {
+      open: queue.length,
+      highPriority: queue.filter((r) => r.priorityScore >= 70).length,
+      modules: new Set(queue.map((r) => r.module)).size,
+      avgPriority: avg,
+    };
+  }, [queue]);
 
   const board = useMemo(() => {
     const map: Record<LocalTaskStatus, LocalTask[]> = { approved: [], in_progress: [], done: [] };
@@ -176,7 +177,7 @@ export default function RecommendationsPage() {
         {header}
         {scopeNote}
         <EmptyState
-          title="Awaiting first sync — recommendations are derived from live data once it lands"
+          title="No recommendations yet — they are derived from live signals at each sync"
           description="Recommendations are computed from measured Search Console, crawl and backlink signals at each sync. Nothing to show until the first sync completes."
           icon={<Lightbulb className="h-5 w-5" />}
         />
@@ -203,7 +204,7 @@ export default function RecommendationsPage() {
 
       {/* KPI row */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label="Open recommendations" value={String(kpis.open)} hint="Derived at last sync" />
+        <KpiCard label="Open recommendations" value={String(kpis.open)} hint="Open now (excludes decided)" />
         <KpiCard
           label="High priority"
           value={String(kpis.highPriority)}

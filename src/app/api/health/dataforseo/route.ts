@@ -14,7 +14,6 @@ export async function GET() {
   const probe = await probeDataForSeo();
   return NextResponse.json({
     provider: "dataforseo",
-    providerMode: process.env.SEO_PROVIDER ?? "demo",
     ...probe,
   });
 }

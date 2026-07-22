@@ -429,8 +429,8 @@ export default function ResearchPage() {
           {tab === "ranked" &&
             (!keywordsDs ? (
               <EmptyState
-                title="Awaiting first keyword sync"
-                description="Not yet synced — this dataset populates on the next scheduled sync."
+                title="No keyword data for this domain yet"
+                description="No data for this domain in the current window — refreshes on the next scheduled sync or a manual pull."
                 icon={<Search className="h-5 w-5" />}
               />
             ) : (
@@ -519,7 +519,7 @@ export default function ResearchPage() {
             (!queriesDs ? (
               <EmptyState
                 title="Search queries not yet synced"
-                description="Not yet synced — this dataset populates on the next scheduled sync."
+                description="No data for this domain in the current window — refreshes on the next scheduled sync or a manual pull."
                 icon={<ListOrdered className="h-5 w-5" />}
               />
             ) : (
@@ -553,7 +553,7 @@ export default function ResearchPage() {
             (!competitorsDs ? (
               <EmptyState
                 title="Competitors not yet synced"
-                description="Not yet synced — this dataset populates on the next scheduled sync."
+                description="No data for this domain in the current window — refreshes on the next scheduled sync or a manual pull."
                 icon={<Users className="h-5 w-5" />}
               />
             ) : (
@@ -587,7 +587,7 @@ export default function ResearchPage() {
             (!strikingDs ? (
               <EmptyState
                 title="Striking distance not yet synced"
-                description="Not yet synced — this dataset populates on the next scheduled sync."
+                description="No data for this domain in the current window — refreshes on the next scheduled sync or a manual pull."
                 icon={<Target className="h-5 w-5" />}
               />
             ) : (

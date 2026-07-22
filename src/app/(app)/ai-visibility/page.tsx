@@ -177,7 +177,7 @@ export default function AiVisibilityPage() {
         {header}
         {scopeNote}
         <EmptyState
-          title="Awaiting first AI check — runs with the daily sync"
+          title="No AI checks recorded yet — tracked prompts run on the monthly AI sync"
           description={`${trackedConfig.length} prompts are configured for ${domain.host}. Measured mention and citation results will appear here after the next sync completes.`}
           icon={<Sparkles className="h-5 w-5" />}
         />

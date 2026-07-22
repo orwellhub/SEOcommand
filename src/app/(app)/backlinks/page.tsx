@@ -44,7 +44,7 @@ const TABS: { key: SubTab; label: string }[] = [
   { key: "risk", label: "Risk review" },
 ];
 
-const AWAITING_SYNC = "Awaiting first backlink sync";
+const AWAITING_SYNC = "No backlink data for this domain yet";
 
 /** Tone classes for a 0–100 toxicity (spam score) value. */
 function toxClass(t: number): string {

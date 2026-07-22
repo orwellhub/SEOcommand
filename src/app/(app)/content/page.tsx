@@ -261,7 +261,7 @@ export default function ContentIntelligencePage() {
           {!pagesDs ? (
             <EmptyState
               title="Page inventory not yet synced"
-              description="Not yet synced — this dataset populates on the next scheduled sync."
+              description="No data for this domain in the current window — refreshes on the next scheduled sync or a manual pull."
               icon={<FileText className="h-5 w-5" />}
             />
           ) : (
@@ -301,7 +301,7 @@ export default function ContentIntelligencePage() {
               <div className="p-4">
                 {!moversDs ? (
                   <EmptyState
-                    title="Not yet synced"
+                    title="No data yet"
                     description="Page movers populate on the next scheduled sync."
                     icon={<TrendingDown className="h-5 w-5" />}
                   />
@@ -326,7 +326,7 @@ export default function ContentIntelligencePage() {
               <div className="p-4">
                 {!moversDs ? (
                   <EmptyState
-                    title="Not yet synced"
+                    title="No data yet"
                     description="Page movers populate on the next scheduled sync."
                     icon={<TrendingUp className="h-5 w-5" />}
                   />
@@ -359,7 +359,7 @@ export default function ContentIntelligencePage() {
           ) : !ga4LandingDs ? (
             <EmptyState
               title="GA4 landing pages not yet synced"
-              description="Not yet synced — this dataset populates on the next scheduled sync."
+              description="No data for this domain in the current window — refreshes on the next scheduled sync or a manual pull."
               icon={<BarChart3 className="h-5 w-5" />}
             />
           ) : (
