@@ -452,6 +452,31 @@ export const reportSchedules = pgTable("report_schedules", {
   recipients: jsonb("recipients").$type<string[]>().default([]),
 });
 
+/* --------------------------- Provider spend ----------------------------- */
+
+/**
+ * Append-only spend ledger for the app-owned monthly budget guardrail.
+ * Deliberately has NO foreign keys so the spend guard works even before the
+ * rest of the schema is seeded. Month-to-date spend = SUM(cost_usd) for the
+ * current `month` and provider. See src/providers/dataforseo/cost.ts.
+ */
+export const providerSpend = pgTable(
+  "provider_spend",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    provider: text("provider").notNull(), // e.g. "dataforseo"
+    month: text("month").notNull(), // "YYYY-MM" (UTC)
+    endpoint: text("endpoint").notNull(),
+    domainSlug: text("domain_slug"),
+    costUsd: real("cost_usd").notNull().default(0),
+    requests: integer("requests").notNull().default(1),
+    occurredAt: timestamp("occurred_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    monthIdx: index("provider_spend_month_idx").on(t.provider, t.month),
+  }),
+);
+
 /* -------------------------------- Alerts -------------------------------- */
 
 export const alerts = pgTable("alerts", {

@@ -2,10 +2,15 @@
 
 import { useState } from "react";
 import { Info, X } from "lucide-react";
-import { IS_DEMO_MODE } from "@/providers";
 
-/** Global, dismissible demo-mode indicator. Becomes hidden once a live provider
- * is connected (IS_DEMO_MODE=false). */
+/**
+ * Global, dismissible demo-mode indicator. Driven by a client-safe public env
+ * var so this client component never imports the server provider chain (which
+ * pulls in the Postgres driver). Set NEXT_PUBLIC_SEO_PROVIDER=dataforseo when
+ * going live to hide the banner.
+ */
+const IS_DEMO_MODE = (process.env.NEXT_PUBLIC_SEO_PROVIDER ?? "demo") === "demo";
+
 export function DemoBanner() {
   const [dismissed, setDismissed] = useState(false);
   if (!IS_DEMO_MODE || dismissed) return null;

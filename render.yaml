@@ -38,6 +38,10 @@ services:
       # AND the DataForSEO adapter is implemented.
       - key: SEO_PROVIDER
         value: demo
+      # Client-safe mirror controlling the "Demo data" banner. Flip both
+      # SEO_PROVIDER and this to "dataforseo" when going live.
+      - key: NEXT_PUBLIC_SEO_PROVIDER
+        value: demo
       - key: NEXT_PUBLIC_APP_URL
         sync: false
       - key: MONTHLY_BUDGET_USD

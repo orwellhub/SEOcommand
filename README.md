@@ -89,12 +89,16 @@ secrets. Replace with a real auth provider before production (see `AUTH_SECRET` 
 
 1. Copy `.env.example` → `.env.local` and fill values (never commit secrets).
 2. Provision Postgres, run `npm run db:generate && npm run db:migrate`, optionally `npm run db:seed`.
-3. Implement the DataForSEO adapter methods in `src/providers/dataforseo` (endpoint map
-   is already documented there and in `docs/live-connection-plan.md`).
-4. Set `SEO_PROVIDER=dataforseo` **and** the credentials — the app only treats a provider
-   as live once a real request succeeds; otherwise it stays in demo mode.
+3. Add DataForSEO credentials (`DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD`). The **live
+   adapter is implemented** (`src/providers/dataforseo`) with Basic auth, the app-owned
+   $200/month spend guardrail, graceful `40203`/error handling and async OnPage polling.
+4. Verify with `GET /api/health/dataforseo` (credentials + spend status) and watch spend at
+   `GET /api/usage`.
+5. Flip `SEO_PROVIDER=dataforseo` and `NEXT_PUBLIC_SEO_PROVIDER=dataforseo` — the app only
+   treats a provider as live once a real request succeeds; otherwise it stays in demo mode.
 
-See [`docs/live-connection-plan.md`](docs/live-connection-plan.md) and
+See [`docs/dataforseo-integration.md`](docs/dataforseo-integration.md),
+[`docs/live-connection-plan.md`](docs/live-connection-plan.md) and
 [`docs/cost-controls.md`](docs/cost-controls.md).
 
 ## Deployment
