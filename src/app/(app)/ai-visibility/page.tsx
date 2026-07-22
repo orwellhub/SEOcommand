@@ -1,350 +1,255 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-  Sparkles,
-  Bot,
-  FlaskConical,
-  TrendingUp,
-  Layers,
-  Target,
-  CheckCircle2,
-  XCircle,
-} from "lucide-react";
+import { Bot, CheckCircle2, Settings2, Sparkles, Target, XCircle } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { Card, CardHeader, StatusBadge, EmptyState } from "@/components/ui/primitives";
+import { Card, EmptyState, Skeleton, StatusBadge } from "@/components/ui/primitives";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Drawer, DrawerField } from "@/components/ui/drawer";
-import { SEED } from "@/data/seed";
-import { percent, position } from "@/lib/format";
-import { formatDate } from "@/lib/dates";
-import { cn } from "@/lib/cn";
 import { useDomain, useResolvedDomain } from "@/components/shell/domain-context";
-import type { AiPlatform, AiPrompt, Sentiment } from "@/lib/types";
-
-const PLATFORMS: AiPlatform[] = ["chatgpt", "google_ai", "gemini", "perplexity", "claude"];
-
-const PLATFORM_LABEL: Record<AiPlatform, string> = {
-  chatgpt: "ChatGPT",
-  google_ai: "Google AI",
-  gemini: "Gemini",
-  perplexity: "Perplexity",
-  claude: "Claude",
-};
-
-const SENTIMENT_TONE: Record<Sentiment, "success" | "neutral" | "critical"> = {
-  positive: "success",
-  neutral: "neutral",
-  negative: "critical",
-};
+import { useLiveDomain } from "@/lib/use-live";
+import { TRACKED_AI_PROMPTS } from "@/data/ai-prompts";
+import { getDomain } from "@/data/domains";
+import { percent } from "@/lib/format";
+import { formatDate } from "@/lib/dates";
+import type { AiPrompt } from "@/lib/types";
 
 function avg(values: number[]): number {
   if (values.length === 0) return 0;
   return values.reduce((a, b) => a + b, 0) / values.length;
 }
 
-function PlatformChip({ platform }: { platform: AiPlatform }) {
-  return (
-    <span className="inline-flex items-center rounded border border-border bg-workspace px-1.5 py-0.5 text-2xs font-medium text-muted">
-      {PLATFORM_LABEL[platform]}
-    </span>
-  );
-}
+const COLUMNS: Column<AiPrompt>[] = [
+  {
+    key: "prompt",
+    header: "Prompt",
+    sortValue: (r) => r.prompt,
+    render: (r) => (
+      <span className="block max-w-[320px] truncate font-medium text-ink" title={r.prompt}>
+        {r.prompt}
+      </span>
+    ),
+  },
+  { key: "topic", header: "Topic", sortValue: (r) => r.topic, render: (r) => r.topic },
+  {
+    key: "mentioned",
+    header: "Mentioned",
+    sortValue: (r) => r.mentionRate,
+    render: (r) => (
+      <StatusBadge
+        label={r.mentionRate > 0 ? "yes" : "no"}
+        tone={r.mentionRate > 0 ? "success" : "neutral"}
+      />
+    ),
+  },
+  {
+    key: "cited",
+    header: "Cited",
+    sortValue: (r) => (r.cited ? 1 : 0),
+    render: (r) => (
+      <StatusBadge label={r.cited ? "yes" : "no"} tone={r.cited ? "success" : "neutral"} />
+    ),
+  },
+  {
+    key: "lastChecked",
+    header: "Last checked",
+    align: "right",
+    sortValue: (r) => r.lastChecked,
+    render: (r) => <span className="text-xs text-muted">{formatDate(r.lastChecked)}</span>,
+  },
+];
 
 export default function AiVisibilityPage() {
   const domain = useResolvedDomain();
   const { scope } = useDomain();
-  const [platformFilter, setPlatformFilter] = useState<AiPlatform[]>([]);
+  const { data: bundle, loading, error } = useLiveDomain(domain.id);
   const [selected, setSelected] = useState<AiPrompt | null>(null);
 
-  const prompts = useMemo(() => SEED.aiPrompts[domain.id], [domain.id]);
+  const trackedConfig = TRACKED_AI_PROMPTS[domain.id];
+  const trackedDomains = useMemo(
+    () => Object.keys(TRACKED_AI_PROMPTS).map((id) => getDomain(id)),
+    [],
+  );
 
-  const filtered = useMemo(() => {
-    if (platformFilter.length === 0) return prompts;
-    return prompts.filter((p) => p.platforms.some((pl) => platformFilter.includes(pl)));
-  }, [prompts, platformFilter]);
+  const ds = bundle?.datasets.ai_prompts;
+  const prompts = useMemo(() => ds?.data ?? [], [ds]);
 
-  const kpis = useMemo(() => {
-    const positions = prompts.map((p) => p.avgPosition).filter((v): v is number => v != null);
-    return {
-      mentionRate: avg(prompts.map((p) => p.mentionRate)),
-      citationRate: avg(prompts.map((p) => p.citationRate)),
-      avgPosition: positions.length ? avg(positions) : null,
+  const kpis = useMemo(
+    () => ({
+      mentionRate: prompts.length ? avg(prompts.map((p) => p.mentionRate)) : null,
+      citationRate: prompts.length ? avg(prompts.map((p) => p.citationRate)) : null,
       tracked: prompts.length,
-    };
-  }, [prompts]);
-
-  const shareOfVoice = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const p of prompts) {
-      for (const host of p.competitorsMentioned) {
-        counts.set(host, (counts.get(host) ?? 0) + 1);
-      }
-    }
-    const rows = [...counts.entries()].map(([host, count]) => ({ host, count }));
-    rows.sort((a, b) => b.count - a.count);
-    const max = rows.length ? rows[0]!.count : 0;
-    return { rows, max };
-  }, [prompts]);
+      citing: prompts.filter((p) => p.cited).length,
+    }),
+    [prompts],
+  );
 
   const missed = useMemo(() => prompts.filter((p) => !p.cited), [prompts]);
 
-  const clusters = useMemo(() => {
-    const map = new Map<string, AiPrompt[]>();
-    for (const p of prompts) {
-      const arr = map.get(p.topic) ?? [];
-      arr.push(p);
-      map.set(p.topic, arr);
-    }
-    return [...map.entries()]
-      .map(([topic, items]) => ({
-        topic,
-        count: items.length,
-        avgMention: avg(items.map((i) => i.mentionRate)),
-      }))
-      .sort((a, b) => b.count - a.count);
-  }, [prompts]);
+  const header = (
+    <PageHeader
+      title={`${domain.name} — AI Visibility`}
+      description={`How ${domain.host} surfaces in AI assistant answers — real LLM checks against the tracked prompt set, run at each sync.`}
+      lastSync={bundle?.lastSync ?? null}
+      loading={loading}
+    />
+  );
 
-  const columns: Column<AiPrompt>[] = [
-    {
-      key: "prompt",
-      header: "Prompt",
-      sortValue: (r) => r.prompt,
-      render: (r) => (
-        <span className="block max-w-[280px] truncate font-medium text-ink" title={r.prompt}>
-          {r.prompt}
-        </span>
-      ),
-    },
-    { key: "topic", header: "Topic", sortValue: (r) => r.topic, render: (r) => r.topic },
-    {
-      key: "platforms",
-      header: "Platforms",
-      render: (r) => (
-        <div className="flex flex-wrap gap-1">
-          {r.platforms.map((pl) => (
-            <PlatformChip key={pl} platform={pl} />
-          ))}
+  const scopeNote =
+    scope === "portfolio" ? (
+      <p className="-mt-2 text-2xs text-muted">
+        Showing <span className="font-medium text-ink">{domain.name}</span> — AI checks follow the
+        domain selected in the rail.
+      </p>
+    ) : null;
+
+  if (loading && !bundle) {
+    return (
+      <div className="animate-in space-y-5">
+        {header}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
         </div>
-      ),
-    },
-    {
-      key: "mentionRate",
-      header: "Mention",
-      align: "right",
-      sortValue: (r) => r.mentionRate,
-      render: (r) => percent(r.mentionRate, 0),
-    },
-    {
-      key: "citationRate",
-      header: "Citation",
-      align: "right",
-      sortValue: (r) => r.citationRate,
-      render: (r) => percent(r.citationRate, 0),
-    },
-    {
-      key: "avgPosition",
-      header: "Rec. pos.",
-      align: "right",
-      sortValue: (r) => r.avgPosition ?? 999,
-      render: (r) => position(r.avgPosition),
-    },
-    {
-      key: "sentiment",
-      header: "Sentiment",
-      sortValue: (r) => r.sentiment,
-      render: (r) => <StatusBadge label={r.sentiment} tone={SENTIMENT_TONE[r.sentiment]} />,
-    },
-    {
-      key: "cited",
-      header: "Cited",
-      sortValue: (r) => (r.cited ? 1 : 0),
-      render: (r) =>
-        r.cited ? (
-          <span className="inline-flex items-center gap-1 text-xs text-success">
-            <CheckCircle2 className="h-3.5 w-3.5" /> Yes
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1 text-xs text-muted">
-            <XCircle className="h-3.5 w-3.5" /> No
-          </span>
-        ),
-    },
-    {
-      key: "lastChecked",
-      header: "Last checked",
-      align: "right",
-      sortValue: (r) => r.lastChecked,
-      render: (r) => <span className="text-xs text-muted">{formatDate(r.lastChecked)}</span>,
-    },
-  ];
+        <Skeleton className="h-72" />
+        <Skeleton className="h-40" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="animate-in space-y-5">
+        {header}
+        <EmptyState title="Could not load live data" description={error} />
+      </div>
+    );
+  }
+
+  // Domain not configured for AI prompt tracking — no checks run, no data exists.
+  if (!trackedConfig) {
+    return (
+      <div className="animate-in space-y-5">
+        {header}
+        {scopeNote}
+        <Card className="p-5">
+          <div className="flex items-start gap-3">
+            <Settings2 className="mt-0.5 h-5 w-5 shrink-0 text-muted" />
+            <div>
+              <div className="text-sm font-semibold text-ink">
+                AI prompt tracking is not configured for this domain
+              </div>
+              <p className="mt-1 text-xs text-muted">
+                Add prompts in <code className="rounded bg-workspace px-1 py-0.5">src/data/ai-prompts.ts</code>{" "}
+                to start measuring. Only configured domains run paid LLM checks during sync, which
+                keeps AI spend deliberate. No data is shown here because none has been measured.
+              </p>
+              <div className="mt-3">
+                <div className="text-2xs font-medium uppercase tracking-wide text-muted">
+                  Currently tracked domains
+                </div>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {trackedDomains.map((d) => (
+                    <span
+                      key={d.id}
+                      className="inline-flex items-center gap-1 rounded border border-border bg-workspace px-2 py-0.5 text-2xs font-medium text-ink"
+                    >
+                      <Bot className="h-3 w-3 text-muted" />
+                      {d.host}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  // Tracked, but the first check has not landed yet.
+  if (!ds) {
+    return (
+      <div className="animate-in space-y-5">
+        {header}
+        {scopeNote}
+        <EmptyState
+          title="Awaiting first AI check — runs with the daily sync"
+          description={`${trackedConfig.length} prompts are configured for ${domain.host}. Measured mention and citation results will appear here after the next sync completes.`}
+          icon={<Sparkles className="h-5 w-5" />}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="animate-in space-y-5">
-      <PageHeader
-        title={`${domain.name} — AI Visibility`}
-        description={`How ${domain.host} surfaces across AI assistants — brand mentions, citations and recommendation position for tracked prompts.`}
-      />
+      {header}
+      {scopeNote}
 
-      {scope === "portfolio" && (
-        <div className="flex items-center gap-2 rounded-md border border-border bg-workspace/60 px-3 py-2 text-2xs text-muted">
-          <span className="h-2 w-2 rounded-full" style={{ background: "var(--accent)" }} />
-          Showing <span className="font-medium text-ink">{domain.name}</span> — data follows the
-          domain selected in the rail. Switch domains there to change scope.
-        </div>
-      )}
-
-      {/* KPI row */}
+      {/* KPI row — averages of real per-prompt check results */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard
           label="Brand mention rate"
-          value={percent(kpis.mentionRate, 0)}
+          value={kpis.mentionRate == null ? "—" : percent(kpis.mentionRate, 0)}
           accent
           hint="Avg across tracked prompts"
         />
-        <KpiCard label="Citation rate" value={percent(kpis.citationRate, 0)} hint="Avg linked-source rate" />
         <KpiCard
-          label="Avg recommendation position"
-          value={kpis.avgPosition == null ? "—" : kpis.avgPosition.toFixed(1)}
-          invertDelta
-          hint="Where cited among recommendations"
+          label="Citation rate"
+          value={kpis.citationRate == null ? "—" : percent(kpis.citationRate, 0)}
+          hint="Avg across tracked prompts"
         />
-        <KpiCard label="Prompts tracked" value={String(kpis.tracked)} hint="Across all platforms" />
+        <KpiCard label="Prompts tracked" value={String(kpis.tracked)} hint="Checked at each sync" />
+        <KpiCard
+          label="Prompts citing"
+          value={String(kpis.citing)}
+          hint={`Of ${kpis.tracked} tracked prompts`}
+        />
       </div>
 
-      {/* Platform filter */}
-      <Card className="p-4">
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-[color:var(--accent)]" />
-            <h3 className="text-sm font-semibold text-ink">Platform coverage</h3>
-          </div>
-          {platformFilter.length > 0 && (
-            <button
-              onClick={() => setPlatformFilter([])}
-              className="text-2xs font-medium text-muted hover:text-ink"
-            >
-              Clear filter
-            </button>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {PLATFORMS.map((pl) => {
-            const active = platformFilter.includes(pl);
-            return (
-              <button
-                key={pl}
-                onClick={() =>
-                  setPlatformFilter((prev) =>
-                    prev.includes(pl) ? prev.filter((x) => x !== pl) : [...prev, pl],
-                  )
-                }
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                  active
-                    ? "border-transparent bg-[color:var(--accent)] text-white"
-                    : "border-border bg-card text-muted hover:bg-workspace hover:text-ink",
-                )}
-              >
-                <Bot className="h-3.5 w-3.5" />
-                {PLATFORM_LABEL[pl]}
-              </button>
-            );
-          })}
-        </div>
-        <p className="mt-3 text-2xs text-muted">
-          These are prepared platforms — coverage is subject to provider availability and
-          per-platform API access. Selecting one or more chips filters the prompt table below.
+      {/* Platform note — honest about current coverage */}
+      <Card className="flex items-start gap-3 p-4">
+        <Bot className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--accent)]" />
+        <p className="text-xs text-muted">
+          Checks currently run against <span className="font-medium text-ink">ChatGPT (gpt-4o)</span>{" "}
+          via DataForSEO. Claude, Gemini and Perplexity endpoints exist and can be enabled later —
+          no results are shown for platforms that are not yet being measured.
         </p>
       </Card>
 
-      {/* Prompt tracking table */}
+      {/* Prompt table */}
       <Card className="p-4">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-ink">Prompt tracking</h3>
-          <span className="text-2xs text-muted">Click a row to inspect the sampled response</span>
+          <span className="text-2xs text-muted">Click a row to read the measured response</span>
         </div>
         <DataTable
-          rows={filtered}
-          columns={columns}
+          rows={prompts}
+          columns={COLUMNS}
           searchKeys={(r) => `${r.prompt} ${r.topic}`}
           searchPlaceholder="Search prompts…"
           onRowClick={setSelected}
           exportName={`${domain.id}-ai-prompts`}
           pageSize={12}
-          emptyLabel="No prompts match the selected platforms."
+          emptyLabel="No prompt checks recorded."
         />
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        {/* Share of voice */}
-        <Card className="xl:col-span-2">
-          <CardHeader
-            title="Competitor share of voice"
-            subtitle="How often each competitor is mentioned across tracked prompts"
-          />
-          <div className="p-4">
-            {shareOfVoice.rows.length === 0 ? (
-              <EmptyState
-                title="No competitors surfaced"
-                description="No competing hosts were mentioned across the sampled AI responses."
-                icon={<TrendingUp className="h-5 w-5" />}
-              />
-            ) : (
-              <div className="space-y-2.5">
-                {shareOfVoice.rows.map((r, i) => (
-                  <div key={r.host} className="flex items-center gap-3">
-                    <span className="w-5 text-2xs font-semibold text-muted tnum">{i + 1}</span>
-                    <span className="w-40 shrink-0 truncate text-sm text-ink" title={r.host}>
-                      {r.host}
-                    </span>
-                    <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-workspace">
-                      <div
-                        className="h-full rounded-full bg-[color:var(--accent)]"
-                        style={{ width: `${(r.count / shareOfVoice.max) * 100}%` }}
-                      />
-                    </div>
-                    <span className="w-8 text-right text-xs font-medium text-ink tnum">{r.count}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {/* Topic clusters */}
-        <Card>
-          <CardHeader title="Topic clusters" subtitle="Prompts grouped by topic" />
-          <div className="divide-y divide-border">
-            {clusters.map((c) => (
-              <div key={c.topic} className="flex items-center justify-between px-4 py-2.5">
-                <div className="flex items-center gap-2">
-                  <Layers className="h-3.5 w-3.5 text-muted" />
-                  <span className="text-sm text-ink">{c.topic}</span>
-                </div>
-                <div className="flex items-center gap-3 text-2xs text-muted">
-                  <span className="tnum">
-                    {c.count} {c.count === 1 ? "prompt" : "prompts"}
-                  </span>
-                  <span className="font-medium text-ink tnum">{percent(c.avgMention, 0)} mention</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-
-      {/* Missed-opportunity prompts */}
+      {/* Missed opportunities */}
       <Card className="p-4">
         <div className="mb-3 flex items-center gap-2">
           <Target className="h-4 w-4 text-warning" />
-          <h3 className="text-sm font-semibold text-ink">Missed-opportunity prompts</h3>
+          <h3 className="text-sm font-semibold text-ink">Missed opportunities</h3>
+          <span className="text-2xs text-muted">Prompts where the last check did not cite the brand</span>
         </div>
         {missed.length === 0 ? (
           <EmptyState
-            title="Full citation coverage"
-            description="Every tracked prompt currently cites this brand — no coverage gaps to close."
+            title="All tracked prompts cite the brand"
+            description="Every tracked prompt cited the brand in its most recent check — no coverage gaps."
             icon={<CheckCircle2 className="h-5 w-5" />}
           />
         ) : (
@@ -368,105 +273,58 @@ export default function AiVisibilityPage() {
         )}
       </Card>
 
-      {/* Response inspection drawer */}
+      {/* Response inspection drawer — only measured facts */}
       <Drawer
         open={selected != null}
         onClose={() => setSelected(null)}
-        title="AI response inspection"
+        title="AI check detail"
         subtitle={selected?.topic}
         width="max-w-xl"
       >
         {selected && (
           <div>
             <DrawerField label="Prompt">{selected.prompt}</DrawerField>
-            <DrawerField label="Platforms tracked">
-              <div className="flex flex-wrap gap-1">
-                {selected.platforms.map((pl) => (
-                  <PlatformChip key={pl} platform={pl} />
-                ))}
+
+            <DrawerField label="Measured response (ChatGPT via DataForSEO)">
+              <div className="max-h-72 overflow-y-auto rounded-md border border-border bg-workspace/60 p-3">
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted">
+                  {selected.sampleResponse}
+                </p>
               </div>
-            </DrawerField>
-            <DrawerField label="Sampled response">
-              <p className="text-sm leading-relaxed text-muted">{selected.sampleResponse}</p>
-            </DrawerField>
-            <DrawerField label="Competitors mentioned">
-              {selected.competitorsMentioned.length === 0 ? (
-                <span className="text-xs text-muted">None mentioned in the sampled response.</span>
-              ) : (
-                <div className="flex flex-wrap gap-1">
-                  {selected.competitorsMentioned.map((host) => (
-                    <span
-                      key={host}
-                      className="inline-flex items-center rounded border border-border bg-workspace px-1.5 py-0.5 text-2xs font-medium text-muted"
-                    >
-                      {host}
-                    </span>
-                  ))}
-                </div>
-              )}
             </DrawerField>
 
-            {/* Measured facts */}
-            <div className="mt-4 rounded-md border border-border bg-workspace/50 p-3">
-              <div className="mb-2 flex items-center gap-1.5">
-                <FlaskConical className="h-3.5 w-3.5 text-success" />
-                <span className="text-2xs font-semibold uppercase tracking-wide text-ink">
-                  Measured (API)
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <div className="text-2xs text-muted">Mention rate</div>
-                  <div className="text-sm font-semibold text-ink tnum">
-                    {percent(selected.mentionRate, 0)}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-2xs text-muted">Citation rate</div>
-                  <div className="text-sm font-semibold text-ink tnum">
-                    {percent(selected.citationRate, 0)}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-2xs text-muted">Recommendation position</div>
-                  <div className="text-sm font-semibold text-ink tnum">
-                    {position(selected.avgPosition)}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-2xs text-muted">Sentiment</div>
-                  <div className="mt-0.5">
-                    <StatusBadge
-                      label={selected.sentiment}
-                      tone={SENTIMENT_TONE[selected.sentiment]}
-                    />
-                  </div>
-                </div>
-              </div>
-              <p className="mt-2 text-2xs text-muted">
-                Facts above are stored provider measurements from the last check on{" "}
-                {formatDate(selected.lastChecked)}.
-              </p>
+            <div className="grid grid-cols-2 gap-2">
+              <DrawerField label="Brand mentioned">
+                {selected.mentionRate > 0 ? (
+                  <span className="inline-flex items-center gap-1 text-sm font-medium text-success">
+                    <CheckCircle2 className="h-4 w-4" /> Yes
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-sm font-medium text-muted">
+                    <XCircle className="h-4 w-4" /> No
+                  </span>
+                )}
+              </DrawerField>
+              <DrawerField label="Brand cited (linked)">
+                {selected.cited ? (
+                  <span className="inline-flex items-center gap-1 text-sm font-medium text-success">
+                    <CheckCircle2 className="h-4 w-4" /> Yes
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-sm font-medium text-muted">
+                    <XCircle className="h-4 w-4" /> No
+                  </span>
+                )}
+              </DrawerField>
             </div>
 
-            {/* Inferred recommendation */}
-            <div className="mt-3 rounded-md border border-[color:var(--accent)]/30 bg-[color:var(--accent)]/5 p-3">
-              <div className="mb-2 flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-[color:var(--accent)]" />
-                <span className="text-2xs font-semibold uppercase tracking-wide text-[color:var(--accent)]">
-                  Inferred recommendation
-                </span>
-              </div>
-              <p className="text-sm leading-relaxed text-ink">
-                {selected.cited
-                  ? "Reinforce the pages this prompt already cites with fresher statistics and structured data to defend recommendation position against competitors."
-                  : "Publish an authoritative answer targeting this prompt — a concise, well-sourced explainer with schema markup — to close the citation gap and earn a mention."}
-              </p>
-              <p className="mt-2 text-2xs text-muted">
-                AI-generated guidance, not a measured metric. Validate against the stored data above
-                before acting.
-              </p>
-            </div>
+            <DrawerField label="Last checked">{formatDate(selected.lastChecked)}</DrawerField>
+
+            <p className="mt-3 text-2xs text-muted">
+              Verdicts above are from the stored response of the most recent live check. Sentiment,
+              recommendation position and competitor mentions are not yet meaningfully measured and
+              are therefore not shown.
+            </p>
           </div>
         )}
       </Drawer>

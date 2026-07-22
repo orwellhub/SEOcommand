@@ -65,23 +65,21 @@ countries to be added).
 - OnPage is async: `task_post` → poll `summary/{id}` until `crawl_progress === "finished"`
   (or timeout). Summary polling is treated as zero-cost.
 
-## Going live — checklist
+## How data flows now
 
-1. In Render, set on **orwell-web** and **orwell-jobs** (secrets, never committed):
-   `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD`, `DATAFORSEO_BASE_URL=https://api.dataforseo.com`.
-2. Ensure `DATABASE_URL` is present (Blueprint wires it) and run `npm run db:migrate`
-   so `provider_spend` exists (migration `drizzle/0001_*`).
-3. Deploy, then hit `GET /api/health/dataforseo` — expect `configured: true` with a spend
-   block and a positive `models` count. Fix credentials if it reports an error.
-4. Flip `SEO_PROVIDER=dataforseo` **and** `NEXT_PUBLIC_SEO_PROVIDER=dataforseo`.
-5. The cron worker's daily jobs (`tracked-keyword-collection`, `backlink-changes`,
-   `competitor-refresh`, `technical-crawl`, `ai-prompt-checks`) now fetch live data under
-   the guardrail. Watch `/api/usage` and the logs.
+There is no demo mode and no provider "flip". When credentials are present, the sync
+engine (`src/sync/engine.ts`) pulls live data and writes canonical snapshots to the
+`dataset_snapshots` table; the dashboard reads them via `/api/live/*`. One paid call
+feeds every dataset it can (ranked_keywords → keywords + rank snapshots;
+domain_rank_overview → visibility + position buckets). OnPage crawls are posted once and
+resumed across runs via their stored task id — a slow crawl never blocks or double-pays.
 
-## Remaining (optional) work
+Sync triggers:
+- **Daily cron** (orwell-jobs, 06:00 UTC) — full portfolio sync; crawls run first-time
+  and on Sundays (or `SYNC_INCLUDE_CRAWL=1`).
+- **On-demand** — the cron's "Trigger Run" button, or `POST /api/sync` with
+  `Authorization: Bearer $SYNC_TOKEN` (refused entirely while `SYNC_TOKEN` is unset).
+- AI prompt checks run only for domains configured in `src/data/ai-prompts.ts`.
 
-- The demo UI pages still read the seed modules directly for an instant walkthrough. To
-  render live data in the pages, fetch through server route handlers that call
-  `getSeoProvider()` (the adapter and provenance are ready). `keywordLists` and `content`
-  return empty envelopes live until Labs `relevant_pages` mapping is added — they never
-  fabricate data.
+Watch spend at `GET /api/usage`; every DataForSEO call is pre-checked and recorded by the
+SpendGuard against the $200/month ceiling.

@@ -452,6 +452,32 @@ export const reportSchedules = pgTable("report_schedules", {
   recipients: jsonb("recipients").$type<string[]>().default([]),
 });
 
+/* --------------------------- Dataset snapshots -------------------------- */
+
+/**
+ * Live read-model store. Each provider sync writes one row per
+ * (domain, dataset, day) holding the CANONICAL payload (already normalised to
+ * the shapes in src/lib/types) plus its provenance. Pages read the latest row
+ * per dataset; history-style datasets (visibility points) read all rows.
+ * Deliberately FK-free so sync works before any relational bootstrap.
+ */
+export const datasetSnapshots = pgTable(
+  "dataset_snapshots",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    domainSlug: text("domain_slug").notNull(),
+    dataset: text("dataset").notNull(),
+    capturedOn: date("captured_on").notNull(),
+    payload: jsonb("payload").notNull(),
+    provenance: jsonb("provenance").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    uniqSnapshot: uniqueIndex("uniq_dataset_snapshot").on(t.domainSlug, t.dataset, t.capturedOn),
+    latestIdx: index("dataset_latest_idx").on(t.domainSlug, t.dataset, t.capturedOn),
+  }),
+);
+
 /* --------------------------- Provider spend ----------------------------- */
 
 /**

@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:seed": "tsx scripts/seed.ts"
+    "db:seed": "tsx scripts/seed.ts",
+    "jobs": "tsx scripts/jobs.ts"
   },
   "dependencies": {
     "clsx": "2.1.1",

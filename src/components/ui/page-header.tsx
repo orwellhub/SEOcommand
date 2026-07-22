@@ -1,19 +1,19 @@
 "use client";
 
-import { SourceBadge } from "./primitives";
-import type { DataMode, ProviderSource } from "@/lib/types";
+import { SyncBadge } from "./sync-badge";
 
 export function PageHeader({
   title,
   description,
-  source = "demo",
-  mode = "demo",
+  lastSync,
+  loading = false,
   actions,
 }: {
   title: string;
   description?: string;
-  source?: ProviderSource;
-  mode?: DataMode;
+  /** Latest sync timestamp for the data this page renders (null = never). */
+  lastSync?: string | null;
+  loading?: boolean;
   actions?: React.ReactNode;
 }) {
   return (
@@ -21,7 +21,7 @@ export function PageHeader({
       <div>
         <div className="flex items-center gap-2.5">
           <h1 className="text-xl font-semibold tracking-tight text-ink">{title}</h1>
-          <SourceBadge source={source} mode={mode} />
+          <SyncBadge lastSync={lastSync} loading={loading} />
         </div>
         {description && <p className="mt-1 max-w-2xl text-sm text-muted">{description}</p>}
       </div>

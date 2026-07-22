@@ -2,273 +2,359 @@
 
 import { useMemo, useState } from "react";
 import {
-  Lightbulb,
+  ArrowRight,
   CheckCircle2,
-  XCircle,
-  ShieldCheck,
   ClipboardList,
+  Lightbulb,
+  ShieldCheck,
+  XCircle,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { Card, StatusBadge, EmptyState, Button } from "@/components/ui/primitives";
-import { DataTable, type Column } from "@/components/ui/data-table";
+import { Button, Card, EmptyState, Skeleton, StatusBadge } from "@/components/ui/primitives";
 import { Drawer, DrawerField } from "@/components/ui/drawer";
-import { SEED } from "@/data/seed";
-import { formatDate } from "@/lib/dates";
-import { cn } from "@/lib/cn";
 import { useDomain, useResolvedDomain } from "@/components/shell/domain-context";
-import type { ApprovalStatus, Recommendation, Task, TaskStatus } from "@/lib/types";
+import { useLiveDomain } from "@/lib/use-live";
+import type { DerivedRecommendation } from "@/lib/live";
+import type { RecConfidence, RecEffort } from "@/lib/types";
+import { cn } from "@/lib/cn";
 
-function approvalTone(status: ApprovalStatus): "success" | "warning" | "critical" | "neutral" {
-  switch (status) {
-    case "approved":
-      return "success";
-    case "pending":
-      return "warning";
-    case "rejected":
-      return "critical";
-    default:
-      return "neutral";
-  }
-}
-
-const EFFORT_LABEL: Record<Recommendation["effort"], string> = {
+const EFFORT_LABEL: Record<RecEffort, string> = {
   S: "Small",
   M: "Medium",
   L: "Large",
 };
 
-const CONFIDENCE_COLOR: Record<Recommendation["confidence"], string> = {
+const CONFIDENCE_COLOR: Record<RecConfidence, string> = {
   high: "text-success",
   medium: "text-[#B9791A]",
   low: "text-muted",
 };
 
-const BOARD_COLUMNS: { status: TaskStatus; label: string }[] = [
-  { status: "backlog", label: "Backlog" },
+type LocalTaskStatus = "approved" | "in_progress" | "done";
+
+/** A session-local task created by approving a recommendation. Not persisted. */
+interface LocalTask {
+  recId: string;
+  title: string;
+  module: string;
+  effort: RecEffort;
+  priorityScore: number;
+  status: LocalTaskStatus;
+}
+
+const BOARD_COLUMNS: { status: LocalTaskStatus; label: string }[] = [
   { status: "approved", label: "Approved" },
   { status: "in_progress", label: "In progress" },
-  { status: "review", label: "Review" },
   { status: "done", label: "Done" },
 ];
+
+const NEXT_STATUS: Partial<Record<LocalTaskStatus, LocalTaskStatus>> = {
+  approved: "in_progress",
+  in_progress: "done",
+};
 
 export default function RecommendationsPage() {
   const domain = useResolvedDomain();
   const { scope } = useDomain();
+  const { data: bundle, loading, error } = useLiveDomain(domain.id);
 
-  const [selected, setSelected] = useState<Recommendation | null>(null);
-  // Local, in-memory approval overrides — demonstrates the recommendation→task
-  // conversion without any persistence or live-site mutation.
-  const [overrides, setOverrides] = useState<Record<string, ApprovalStatus>>({});
+  const [selected, setSelected] = useState<DerivedRecommendation | null>(null);
+  // Session-local workflow state — cleared on reload; task persistence has not shipped yet.
+  const [tasks, setTasks] = useState<LocalTask[]>([]);
+  const [dismissed, setDismissed] = useState<string[]>([]);
+
+  const ds = bundle?.datasets.recommendations;
 
   const recs = useMemo(
-    () => [...(SEED.recommendations[domain.id] ?? [])].sort((a, b) => b.priorityScore - a.priorityScore),
-    [domain.id],
+    () => [...(ds?.data ?? [])].sort((a, b) => b.priorityScore - a.priorityScore),
+    [ds],
   );
-  const tasks = useMemo(() => SEED.tasks[domain.id] ?? [], [domain.id]);
-
-  const effectiveApproval = (r: Recommendation): ApprovalStatus => overrides[r.id] ?? r.approval;
 
   const kpis = useMemo(() => {
-    const pending = recs.filter((r) => effectiveApproval(r) === "pending").length;
-    const inProgress = tasks.filter((t) => t.status === "in_progress").length;
-    const avgScore = recs.length
+    const avg = recs.length
       ? Math.round(recs.reduce((sum, r) => sum + r.priorityScore, 0) / recs.length)
-      : 0;
-    return { open: recs.length, pending, inProgress, avgScore };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recs, tasks, overrides]);
+      : null;
+    return {
+      open: recs.length,
+      highPriority: recs.filter((r) => r.priorityScore >= 70).length,
+      modules: new Set(recs.map((r) => r.module)).size,
+      avgPriority: avg,
+    };
+  }, [recs]);
+
+  const queue = useMemo(() => {
+    const decided = new Set([...tasks.map((t) => t.recId), ...dismissed]);
+    return recs.filter((r) => !decided.has(r.id));
+  }, [recs, tasks, dismissed]);
 
   const board = useMemo(() => {
-    const map: Record<TaskStatus, Task[]> = {
-      backlog: [],
-      approved: [],
-      in_progress: [],
-      review: [],
-      done: [],
-    };
+    const map: Record<LocalTaskStatus, LocalTask[]> = { approved: [], in_progress: [], done: [] };
     for (const t of tasks) map[t.status].push(t);
     return map;
   }, [tasks]);
 
-  const columns: Column<Recommendation>[] = [
-    {
-      key: "title",
-      header: "Recommendation",
-      sortValue: (r) => r.title,
-      render: (r) => (
-        <div className="min-w-0">
-          <div className="truncate font-medium text-ink">{r.title}</div>
-          <div className="text-2xs text-muted">{r.relatedMetric}</div>
-        </div>
-      ),
-    },
-    {
-      key: "module",
-      header: "Module",
-      sortValue: (r) => r.module,
-      render: (r) => <span className="text-muted">{r.module}</span>,
-    },
-    {
-      key: "priorityScore",
-      header: "Priority",
-      align: "right",
-      width: "96px",
-      sortValue: (r) => r.priorityScore,
-      render: (r) => <span className="font-semibold text-[color:var(--accent)] tnum">{r.priorityScore}</span>,
-    },
-    {
-      key: "estImpact",
-      header: "Est. impact",
-      sortValue: (r) => r.estImpact,
-      render: (r) => <span className="text-xs text-ink">{r.estImpact}</span>,
-    },
-    {
-      key: "confidence",
-      header: "Confidence",
-      width: "112px",
-      sortValue: (r) => r.confidence,
-      render: (r) => (
-        <span className={cn("text-xs font-medium capitalize", CONFIDENCE_COLOR[r.confidence])}>
-          {r.confidence}
-        </span>
-      ),
-    },
-    {
-      key: "effort",
-      header: "Effort",
-      align: "center",
-      width: "80px",
-      sortValue: (r) => r.effort,
-      render: (r) => (
-        <span
-          className="inline-flex h-5 w-5 items-center justify-center rounded border border-border bg-workspace text-2xs font-semibold text-ink"
-          title={EFFORT_LABEL[r.effort]}
-        >
-          {r.effort}
-        </span>
-      ),
-    },
-    {
-      key: "approval",
-      header: "Approval",
-      width: "120px",
-      sortValue: (r) => effectiveApproval(r),
-      render: (r) => {
-        const a = effectiveApproval(r);
-        return <StatusBadge label={a} tone={approvalTone(a)} />;
-      },
-    },
-  ];
+  const approve = (rec: DerivedRecommendation) => {
+    setTasks((prev) =>
+      prev.some((t) => t.recId === rec.id)
+        ? prev
+        : [
+            ...prev,
+            {
+              recId: rec.id,
+              title: rec.title,
+              module: rec.module,
+              effort: rec.effort,
+              priorityScore: rec.priorityScore,
+              status: "approved",
+            },
+          ],
+    );
+    setSelected(null);
+  };
 
-  const selApproval = selected ? effectiveApproval(selected) : "draft";
+  const dismiss = (rec: DerivedRecommendation) => {
+    setDismissed((prev) => (prev.includes(rec.id) ? prev : [...prev, rec.id]));
+    setSelected(null);
+  };
+
+  const advance = (recId: string) => {
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.recId !== recId) return t;
+        const next = NEXT_STATUS[t.status];
+        return next ? { ...t, status: next } : t;
+      }),
+    );
+  };
+
+  const header = (
+    <PageHeader
+      title={`${domain.name} — Recommendations & Tasks`}
+      description="Priority-scored actions derived from measured signals, with a human approval workflow."
+      lastSync={bundle?.lastSync ?? null}
+      loading={loading}
+    />
+  );
+
+  const scopeNote =
+    scope === "portfolio" ? (
+      <p className="-mt-2 text-2xs text-muted">
+        Showing <span className="font-medium text-ink">{domain.name}</span> — recommendations follow
+        the domain selected in the rail.
+      </p>
+    ) : null;
+
+  if (loading && !bundle) {
+    return (
+      <div className="animate-in space-y-5">
+        {header}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+        </div>
+        <Skeleton className="h-72" />
+        <Skeleton className="h-56" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="animate-in space-y-5">
+        {header}
+        <EmptyState title="Could not load live data" description={error} />
+      </div>
+    );
+  }
+
+  if (!ds) {
+    return (
+      <div className="animate-in space-y-5">
+        {header}
+        {scopeNote}
+        <EmptyState
+          title="Awaiting first sync — recommendations are derived from live data once it lands"
+          description="Recommendations are computed from measured Search Console, crawl and backlink signals at each sync. Nothing to show until the first sync completes."
+          icon={<Lightbulb className="h-5 w-5" />}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="animate-in space-y-5">
-      <PageHeader
-        title="Recommendations & Tasks"
-        description="Agent-drafted, priority-scored actions with a human approval workflow — nothing ships to a live site without sign-off."
-      />
+      {header}
+      {scopeNote}
 
-      {scope === "portfolio" && (
-        <p className="-mt-2 text-2xs text-muted">
-          Showing <span className="font-medium text-ink">{domain.name}</span> — recommendations follow the
-          domain rail selection.
-        </p>
-      )}
-
-      {/* KPI row */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label="Open recommendations" value={String(kpis.open)} hint="Drafted for this domain" />
-        <KpiCard label="Pending approval" value={String(kpis.pending)} hint="Awaiting human sign-off" />
-        <KpiCard label="Tasks in progress" value={String(kpis.inProgress)} hint="Currently being implemented" />
-        <KpiCard label="Avg priority score" value={String(kpis.avgScore)} accent hint="Across open recommendations" />
-      </div>
-
-      {/* Action policy note */}
+      {/* Provenance / policy banner */}
       <Card className="flex items-start gap-3 border-[color:var(--accent)]/30 bg-[color:var(--accent-soft)] p-4">
         <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--accent)]" />
         <div>
-          <div className="text-sm font-semibold text-ink">Action policy</div>
+          <div className="text-sm font-semibold text-ink">Derived from live signals</div>
           <p className="mt-0.5 text-xs text-muted">
-            Agents analyse and draft recommendations. Humans approve implementation. The platform never
-            automatically modifies live websites.
+            Recommendations are derived from live measured signals (Search Console, crawls,
+            backlinks) at each sync. Humans approve implementation — nothing changes automatically.
           </p>
         </div>
       </Card>
 
+      {/* KPI row */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard label="Open recommendations" value={String(kpis.open)} hint="Derived at last sync" />
+        <KpiCard
+          label="High priority"
+          value={String(kpis.highPriority)}
+          hint="Priority score ≥ 70"
+        />
+        <KpiCard label="Modules covered" value={String(kpis.modules)} hint="Distinct source modules" />
+        <KpiCard
+          label="Avg priority"
+          value={kpis.avgPriority == null ? "—" : String(kpis.avgPriority)}
+          accent
+          hint="Across open recommendations"
+        />
+      </div>
+
       {/* Recommendation queue */}
       <Card className="p-4">
-        <div className="mb-3 flex items-center gap-2">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
           <Lightbulb className="h-4 w-4 text-[color:var(--accent)]" />
           <h3 className="text-sm font-semibold text-ink">Recommendation queue</h3>
-          <span className="text-2xs text-muted">Sorted by priority — click a row to review and approve</span>
+          <span className="text-2xs text-muted">
+            Sorted by priority — click one to review, then approve or dismiss
+          </span>
+          {dismissed.length > 0 && (
+            <span className="ml-auto text-2xs text-muted tnum">
+              {dismissed.length} dismissed this session
+            </span>
+          )}
         </div>
-        {recs.length === 0 ? (
+        {queue.length === 0 ? (
           <EmptyState
-            title="No recommendations yet"
-            description="Agents have not drafted any recommendations for this domain."
-            icon={<Lightbulb className="h-5 w-5" />}
+            title={
+              recs.length === 0
+                ? "No recommendations were derived at the last sync"
+                : "Queue clear"
+            }
+            description={
+              recs.length === 0
+                ? "The last sync did not surface any actions from the measured signals for this domain."
+                : "Every derived recommendation has been approved or dismissed in this session."
+            }
+            icon={<CheckCircle2 className="h-5 w-5" />}
           />
         ) : (
-          <DataTable
-            rows={recs}
-            columns={columns}
-            searchKeys={(r) => `${r.title} ${r.module} ${r.relatedMetric}`}
-            onRowClick={setSelected}
-            exportName={`recommendations-${domain.id}`}
-            pageSize={10}
-          />
+          <div className="space-y-2.5">
+            {queue.map((r) => (
+              <button
+                key={r.id}
+                onClick={() => setSelected(r)}
+                className="block w-full rounded-md border border-border p-3 text-left transition-colors hover:bg-workspace"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-lg font-semibold text-[color:var(--accent)] tnum">
+                    {r.priorityScore}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
+                    {r.title}
+                  </span>
+                  <span className="inline-flex items-center rounded border border-border bg-workspace px-1.5 py-0.5 text-2xs font-medium text-muted">
+                    {r.module}
+                  </span>
+                  <span
+                    className="inline-flex h-5 w-5 items-center justify-center rounded border border-border bg-workspace text-2xs font-semibold text-ink"
+                    title={`Effort: ${EFFORT_LABEL[r.effort]}`}
+                  >
+                    {r.effort}
+                  </span>
+                  <span
+                    className={cn("text-xs font-medium capitalize", CONFIDENCE_COLOR[r.confidence])}
+                  >
+                    {r.confidence}
+                  </span>
+                </div>
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs text-muted">
+                  <span className="font-medium text-ink">{r.estImpact}</span>
+                  <span className="min-w-0 flex-1 truncate" title={r.evidence}>
+                    {r.evidence}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
         )}
       </Card>
 
-      {/* Task board */}
+      {/* Task board — session-local only */}
       <Card className="p-4">
-        <div className="mb-3 flex items-center gap-2">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
           <ClipboardList className="h-4 w-4 text-[color:var(--accent)]" />
           <h3 className="text-sm font-semibold text-ink">Task board</h3>
-          <span className="text-2xs text-muted">Approved recommendations become tracked, owned tasks</span>
+          <span className="text-2xs text-muted">
+            Session-local until task persistence ships — approved tasks reset on reload
+          </span>
         </div>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           {BOARD_COLUMNS.map((col) => {
             const items = board[col.status];
             return (
-              <div key={col.status} className="flex flex-col rounded-md border border-border bg-workspace/40">
+              <div
+                key={col.status}
+                className="flex flex-col rounded-md border border-border bg-workspace/40"
+              >
                 <div className="flex items-center justify-between border-b border-border px-2.5 py-2">
-                  <span className="text-2xs font-semibold uppercase tracking-wide text-muted">{col.label}</span>
+                  <span className="text-2xs font-semibold uppercase tracking-wide text-muted">
+                    {col.label}
+                  </span>
                   <span className="rounded-full bg-card px-1.5 text-2xs font-medium text-muted tnum">
                     {items.length}
                   </span>
                 </div>
                 <div className="flex flex-1 flex-col gap-2 p-2">
                   {items.length === 0 ? (
-                    <p className="px-1 py-4 text-center text-2xs text-muted">No tasks</p>
+                    <EmptyState
+                      title="No tasks yet"
+                      description="Approve a recommendation to create one."
+                    />
                   ) : (
-                    items.map((t) => (
-                      <div key={t.id} className="rounded-md border border-border bg-card p-2.5 shadow-card">
-                        <div className="text-xs font-medium leading-snug text-ink">{t.title}</div>
-                        <div className="mt-1.5 flex items-center justify-between">
-                          <span className="text-2xs text-muted">{t.owner}</span>
-                          <span
-                            className="inline-flex h-4 w-4 items-center justify-center rounded border border-border bg-workspace text-[10px] font-semibold text-ink"
-                            title={EFFORT_LABEL[t.effort]}
-                          >
-                            {t.effort}
-                          </span>
-                        </div>
-                        <div className="mt-1.5 flex items-center justify-between gap-1">
-                          <StatusBadge label={t.approval} tone={approvalTone(t.approval)} />
-                          <span className="text-2xs text-muted tnum">Due {formatDate(t.dueDate)}</span>
-                        </div>
-                        {t.afterMetric ? (
-                          <div className="mt-1.5 rounded border border-success/20 bg-success/5 px-1.5 py-1 text-[10px] text-success">
-                            {t.afterMetric}
+                    items.map((t) => {
+                      const next = NEXT_STATUS[t.status];
+                      return (
+                        <div
+                          key={t.recId}
+                          className="rounded-md border border-border bg-card p-2.5 shadow-card"
+                        >
+                          <div className="text-xs font-medium leading-snug text-ink">{t.title}</div>
+                          <div className="mt-1.5 flex items-center justify-between gap-2">
+                            <span className="text-2xs text-muted">{t.module}</span>
+                            <span
+                              className="inline-flex h-4 w-4 items-center justify-center rounded border border-border bg-workspace text-[10px] font-semibold text-ink"
+                              title={`Effort: ${EFFORT_LABEL[t.effort]}`}
+                            >
+                              {t.effort}
+                            </span>
                           </div>
-                        ) : (
-                          <div className="mt-1.5 text-[10px] text-muted">{t.beforeMetric}</div>
-                        )}
-                      </div>
-                    ))
+                          <div className="mt-1.5 flex items-center justify-between gap-2">
+                            <span className="text-2xs text-muted tnum">
+                              Priority {t.priorityScore}
+                            </span>
+                            {next ? (
+                              <Button variant="ghost" size="sm" onClick={() => advance(t.recId)}>
+                                {next === "in_progress" ? "Start" : "Mark done"}
+                                <ArrowRight className="h-3 w-3" />
+                              </Button>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-2xs font-medium text-success">
+                                <CheckCircle2 className="h-3 w-3" /> Done
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
                   )}
                 </div>
               </div>
@@ -277,7 +363,7 @@ export default function RecommendationsPage() {
         </div>
       </Card>
 
-      {/* Recommendation detail drawer + approval workflow */}
+      {/* Recommendation detail drawer */}
       <Drawer
         open={selected !== null}
         onClose={() => setSelected(null)}
@@ -285,43 +371,27 @@ export default function RecommendationsPage() {
         subtitle={selected ? `${selected.module} · Priority ${selected.priorityScore}` : undefined}
         footer={
           selected ? (
-            selApproval === "approved" ? (
-              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success">
-                <CheckCircle2 className="h-4 w-4" /> Task created (approval required before implementation)
-              </span>
-            ) : selApproval === "rejected" ? (
-              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-critical">
-                <XCircle className="h-4 w-4" /> Recommendation rejected — no task created
-              </span>
-            ) : (
-              <div className="flex items-center justify-end gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setOverrides((o) => ({ ...o, [selected.id]: "rejected" }))}
-                >
-                  <XCircle className="h-3.5 w-3.5" /> Reject
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-2xs text-muted">Tasks are session-local for now</span>
+              <div className="flex items-center gap-2">
+                <Button variant="secondary" size="sm" onClick={() => dismiss(selected)}>
+                  <XCircle className="h-3.5 w-3.5" /> Dismiss
                 </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => setOverrides((o) => ({ ...o, [selected.id]: "approved" }))}
-                >
+                <Button variant="primary" size="sm" onClick={() => approve(selected)}>
                   <CheckCircle2 className="h-3.5 w-3.5" /> Approve &amp; create task
                 </Button>
               </div>
-            )
+            </div>
           ) : undefined
         }
       >
         {selected && (
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2 pb-1">
-              <StatusBadge label={selApproval} tone={approvalTone(selApproval)} />
-              <span className="text-2xs text-muted">{selected.module}</span>
+              <StatusBadge label={selected.module} tone="neutral" />
+              <span className="text-2xs text-muted">{selected.relatedMetric}</span>
             </div>
-            <DrawerField label="Evidence">{selected.evidence}</DrawerField>
-            <DrawerField label="Related metric">{selected.relatedMetric}</DrawerField>
+            <DrawerField label="Evidence (measured)">{selected.evidence}</DrawerField>
             <DrawerField label="Estimated impact">{selected.estImpact}</DrawerField>
             <div className="grid grid-cols-2 gap-2">
               <DrawerField label="Confidence">
@@ -334,18 +404,16 @@ export default function RecommendationsPage() {
               </DrawerField>
             </div>
             <DrawerField label="Priority score">
-              <span className="font-semibold text-[color:var(--accent)] tnum">{selected.priorityScore}</span>
+              <span className="font-semibold text-[color:var(--accent)] tnum">
+                {selected.priorityScore}
+              </span>
               <span className="text-2xs text-muted"> / 100</span>
             </DrawerField>
-            {selApproval === "approved" && (
-              <div className="mt-2 flex items-start gap-2 rounded-md border border-success/20 bg-success/5 p-3">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                <p className="text-xs text-ink">
-                  A tracked task was created from this recommendation. It still requires human approval before
-                  implementation — the platform will never modify the live site automatically.
-                </p>
-              </div>
-            )}
+            <p className="pt-2 text-2xs text-muted">
+              Derived from live measured signals at the last sync. Approving creates a
+              session-local task on the board below — it is not persisted and no change is made to
+              the live site.
+            </p>
           </div>
         )}
       </Drawer>

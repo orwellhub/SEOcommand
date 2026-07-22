@@ -15,6 +15,13 @@
       "when": 1784713709594,
       "tag": "0001_sudden_la_nuit",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784723434757,
+      "tag": "0002_steep_raider",
+      "breakpoints": true
     }
   ]
 }

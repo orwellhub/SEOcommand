@@ -216,38 +216,100 @@ export function backlinkSummaryCounts(rows: Row[]): {
 
 /* -------------------------------- OnPage -------------------------------- */
 
-export function normalizeOnPageHealth(summary: Row | null): {
+/**
+ * OnPage check → issue metadata. Each entry maps a DataForSEO summary check
+ * counter to a human issue with category, severity, fix and impact. Only checks
+ * with a non-zero page count become issues — the counts are real crawl results.
+ */
+const CHECK_ISSUES: {
+  key: string;
+  title: string;
+  category: string;
+  severity: TechnicalIssue["severity"];
+  fix: string;
+  impact: string;
+}[] = [
+  { key: "is_4xx_code", title: "Pages returning 4xx errors", category: "Crawlability", severity: "high", fix: "Restore or redirect the failing URLs; update internal links pointing at them.", impact: "Recovered crawl budget and link equity." },
+  { key: "is_5xx_code", title: "Pages returning 5xx errors", category: "Crawlability", severity: "critical", fix: "Investigate server errors on the affected URLs.", impact: "Restored crawlability of failing pages." },
+  { key: "is_broken", title: "Broken pages", category: "Crawlability", severity: "high", fix: "Fix or redirect broken pages found in the crawl.", impact: "Fewer dead ends for crawlers and users." },
+  { key: "no_index", title: "Pages excluded by noindex", category: "Indexability", severity: "medium", fix: "Confirm each noindex is intentional; remove where pages should rank.", impact: "Recovered indexable inventory." },
+  { key: "canonical_to_another", title: "Pages canonicalised to another URL", category: "Canonicalisation", severity: "medium", fix: "Verify canonical targets consolidate the intended URLs.", impact: "Correct signal consolidation." },
+  { key: "duplicate_title", title: "Duplicate title tags", category: "Metadata", severity: "medium", fix: "Write unique, intent-matched titles per template.", impact: "Reduced cannibalisation, clearer relevance." },
+  { key: "duplicate_description", title: "Duplicate meta descriptions", category: "Metadata", severity: "low", fix: "Author unique descriptions for affected templates.", impact: "Improved SERP CTR control." },
+  { key: "no_title", title: "Pages missing a title tag", category: "Metadata", severity: "high", fix: "Add descriptive title tags to the affected pages.", impact: "Restored core relevance signal." },
+  { key: "no_description", title: "Pages missing meta descriptions", category: "Metadata", severity: "medium", fix: "Author 140–160 character descriptions for affected pages.", impact: "Improved organic CTR." },
+  { key: "no_h1_tag", title: "Pages missing an H1 heading", category: "Content", severity: "low", fix: "Add a single descriptive H1 per page.", impact: "Clearer topical structure." },
+  { key: "broken_links", title: "Broken internal links", category: "Internal linking", severity: "high", fix: "Update or remove links to missing targets.", impact: "Preserved equity flow and UX." },
+  { key: "broken_resources", title: "Broken resources (js/css/img)", category: "Internal linking", severity: "medium", fix: "Fix or remove references to missing assets.", impact: "Clean rendering and fewer wasted requests.", },
+  { key: "duplicate_content", title: "Duplicate content clusters", category: "Content", severity: "medium", fix: "Consolidate or differentiate near-duplicate pages; set canonicals.", impact: "Consolidated ranking signals." },
+  { key: "is_http", title: "Pages served over HTTP", category: "HTTPS & security", severity: "high", fix: "Serve all pages and assets over HTTPS with redirects.", impact: "Restored secure-context guarantees." },
+  { key: "high_loading_time", title: "Slow-loading pages", category: "Core Web Vitals", severity: "medium", fix: "Compress assets, defer non-critical JS, optimise the critical path.", impact: "Better CWV and user experience." },
+  { key: "is_redirect", title: "Internal links via redirects", category: "Redirects", severity: "low", fix: "Point internal links directly at final URLs.", impact: "Faster crawl, fuller equity transfer." },
+  { key: "no_image_alt", title: "Images missing alt text", category: "Accessibility / Images", severity: "low", fix: "Add descriptive alt text to content images.", impact: "Accessibility + image-search visibility." },
+  { key: "seo_friendly_url_characters_check", title: "Non SEO-friendly URL characters", category: "Content", severity: "low", fix: "Normalise URL slugs on new content.", impact: "Cleaner, more shareable URLs." },
+];
+
+export function normalizeOnPageHealth(
+  summary: Row | null,
+  today = "",
+): {
   breakdown: HealthBreakdown[];
   crawlRun: CrawlRun | null;
   issues: TechnicalIssue[];
+  healthScore: number;
 } {
-  if (!summary) return { breakdown: [], crawlRun: null, issues: [] };
+  if (!summary) return { breakdown: [], crawlRun: null, issues: [], healthScore: 0 };
   const pm = summary?.page_metrics ?? {};
   const checks: Row = pm?.checks ?? {};
   const onpageScore = num(pm?.onpage_score, num(summary?.onpage_score));
+  const domainName = str(summary?.domain_info?.name ?? summary?.target);
+  const date = today || str(summary?.crawl_end_time).slice(0, 10);
+
+  const issues: TechnicalIssue[] = CHECK_ISSUES.filter((c) => num(checks?.[c.key]) > 0).map(
+    (c) => ({
+      id: `onpage-${c.key}`,
+      domainId: "",
+      title: c.title,
+      category: c.category,
+      severity: c.severity,
+      explanation: `The latest crawl of ${domainName || "the site"} found ${num(checks?.[c.key])} pages failing the "${c.key}" check.`,
+      affectedPages: num(checks?.[c.key]),
+      samplePages: [],
+      evidence: `OnPage crawl check "${c.key}": ${num(checks?.[c.key])} affected pages.`,
+      recommendedFix: c.fix,
+      potentialImpact: c.impact,
+      firstSeen: date,
+      lastSeen: date,
+      status: "open",
+      taskId: null,
+    }),
+  );
+
+  const catIssues = (cat: string) =>
+    issues.filter((i) => i.category === cat).reduce((s, i) => s + i.affectedPages, 0);
 
   const breakdown: HealthBreakdown[] = [
-    { category: "Crawlability", weight: 0.15, score: onpageScore, issues: num(checks?.is_4xx_code) + num(checks?.is_5xx_code) },
-    { category: "Indexability", weight: 0.15, score: onpageScore, issues: num(checks?.no_index) },
-    { category: "Metadata", weight: 0.1, score: onpageScore, issues: num(checks?.no_title) + num(checks?.no_description) },
-    { category: "Internal linking", weight: 0.1, score: onpageScore, issues: num(checks?.broken_links) },
-    { category: "Canonicalisation", weight: 0.1, score: onpageScore, issues: num(checks?.canonical) },
-    { category: "Structured data", weight: 0.08, score: onpageScore, issues: num(checks?.no_microdata) },
-    { category: "HTTPS & security", weight: 0.07, score: onpageScore, issues: num(checks?.is_http) },
-    { category: "Content quality", weight: 0.05, score: onpageScore, issues: num(checks?.low_content_rate) },
+    { category: "Crawlability", weight: 0.15, score: onpageScore, issues: catIssues("Crawlability") },
+    { category: "Indexability", weight: 0.15, score: onpageScore, issues: catIssues("Indexability") },
+    { category: "Metadata", weight: 0.1, score: onpageScore, issues: catIssues("Metadata") },
+    { category: "Internal linking", weight: 0.1, score: onpageScore, issues: catIssues("Internal linking") },
+    { category: "Canonicalisation", weight: 0.1, score: onpageScore, issues: catIssues("Canonicalisation") },
+    { category: "Structured data", weight: 0.08, score: onpageScore, issues: 0 },
+    { category: "HTTPS & security", weight: 0.07, score: onpageScore, issues: catIssues("HTTPS & security") },
+    { category: "Content quality", weight: 0.05, score: onpageScore, issues: catIssues("Content") },
   ];
 
   const crawlRun: CrawlRun = {
     id: "dfs-crawl-latest",
-    domainId: "mortgagecompare",
+    domainId: "",
     startedAt: str(summary?.crawl_start_time).slice(0, 10),
     completedAt: str(summary?.crawl_end_time).slice(0, 10),
-    pagesCrawled: num(summary?.crawl_progress === "finished" ? summary?.pages_crawled ?? pm?.links_internal : 0),
+    pagesCrawled: num(summary?.pages_crawled ?? pm?.links_internal),
     healthScore: Math.round(onpageScore),
-    newIssues: 0,
+    newIssues: issues.length,
     resolvedIssues: 0,
     status: summary?.crawl_progress === "finished" ? "completed" : "running",
   };
 
-  return { breakdown, crawlRun, issues: [] };
+  return { breakdown, crawlRun, issues, healthScore: Math.round(onpageScore) };
 }

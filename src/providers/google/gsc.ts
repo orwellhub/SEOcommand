@@ -103,6 +103,31 @@ export async function gscBreakdown(
   return toRows(payload);
 }
 
+/** Daily clicks/impressions/CTR/position over a trailing window — real trend data. */
+export async function gscTimeseries(
+  domainId: DomainId,
+  days = 90,
+): Promise<{ date: string; clicks: number; impressions: number; ctr: number; position: number }[]> {
+  const { start, end } = defaultRange(days);
+  const payload = await gscQuery(GSC_SITE_MAP[domainId], {
+    startDate: start,
+    endDate: end,
+    dimensions: ["date"],
+    rowLimit: 1000,
+    type: "web",
+    dataState: "final",
+  });
+  return (payload?.rows ?? [])
+    .map((r: any) => ({
+      date: (r.keys ?? [])[0] ?? "",
+      clicks: r.clicks ?? 0,
+      impressions: r.impressions ?? 0,
+      ctr: Math.round((r.ctr ?? 0) * 1000) / 10,
+      position: Math.round((r.position ?? 0) * 10) / 10,
+    }))
+    .sort((a: { date: string }, b: { date: string }) => a.date.localeCompare(b.date));
+}
+
 export async function gscStrikingDistance(
   domainId: DomainId,
   days = 28,
@@ -129,6 +154,7 @@ export async function gscMovers(
   domainId: DomainId,
   days = 28,
   rowLimit = 25,
+  dimension: "query" | "page" = "query",
 ): Promise<{ gains: GscMover[]; losses: GscMover[] }> {
   const site = GSC_SITE_MAP[domainId];
   const curEnd = new Date();
@@ -144,7 +170,7 @@ export async function gscMovers(
     const payload = await gscQuery(site, {
       startDate: isoDay(s),
       endDate: isoDay(e),
-      dimensions: ["query"],
+      dimensions: [dimension],
       rowLimit: 25000,
       type: "web",
       dataState: "final",

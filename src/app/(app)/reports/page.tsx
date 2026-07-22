@@ -1,175 +1,349 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { FileText, CalendarClock, Download, FileDown, Send } from "lucide-react";
+import { CalendarClock, Download, FileDown, FileText, Send } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { Card, CardHeader, StatusBadge, EmptyState, Button } from "@/components/ui/primitives";
-import { DataTable, type Column } from "@/components/ui/data-table";
-import { Drawer, DrawerField } from "@/components/ui/drawer";
-import { SEED } from "@/data/seed";
-import { DOMAINS, getDomain } from "@/data/domains";
-import { formatDate } from "@/lib/dates";
-import { useDomain } from "@/components/shell/domain-context";
-import type { DomainId, ReportSchedule, ReportTemplate } from "@/lib/types";
+import {
+  Card,
+  CardHeader,
+  StatusBadge,
+  EmptyState,
+  Skeleton,
+  Button,
+} from "@/components/ui/primitives";
+import { Drawer } from "@/components/ui/drawer";
+import { REPORT_TEMPLATES } from "@/data/report-templates";
+import { DOMAINS } from "@/data/domains";
+import type { PortfolioLive } from "@/lib/live";
+import { useLivePortfolio } from "@/lib/use-live";
+import { fullNumber, percent } from "@/lib/format";
+import { relativeFromNow } from "@/lib/dates";
+import type { ReportTemplate } from "@/lib/types";
 
-function cadenceTone(cadence: ReportSchedule["cadence"]): "success" | "info" | "neutral" {
-  switch (cadence) {
-    case "daily":
-      return "info";
-    case "weekly":
-      return "success";
-    default:
-      return "neutral";
+/* ---------------------------------------------------------------------- */
+/* Local types                                                            */
+/* ---------------------------------------------------------------------- */
+
+type Cadence = "daily" | "weekly" | "monthly";
+
+const CADENCE_OPTIONS: Cadence[] = ["daily", "weekly", "monthly"];
+
+/** Session-local schedule draft — nothing is persisted server-side yet. */
+interface DraftSchedule {
+  id: number;
+  templateId: string;
+  templateName: string;
+  cadence: Cadence;
+  recipients: string;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Preview building blocks                                                */
+/* ---------------------------------------------------------------------- */
+
+function SectionNoData({ reason }: { reason?: string }) {
+  return (
+    <p className="rounded-md border border-dashed border-border bg-workspace/50 px-3 py-2 text-xs text-muted">
+      {reason ??
+        "No data yet — this section populates from per-domain live datasets once a sync has stored them."}
+    </p>
+  );
+}
+
+function PreviewStat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="rounded-md border border-border p-3">
+      <div className="text-2xs font-medium uppercase tracking-wide text-muted">{label}</div>
+      <div className="mt-1 text-lg font-semibold text-ink tnum">{value}</div>
+      {hint && <div className="mt-0.5 text-2xs text-muted">{hint}</div>}
+    </div>
+  );
+}
+
+/** Domain leaderboard rows for the executive preview — live headlines only. */
+function LeaderboardPreview({ pm }: { pm: PortfolioLive }) {
+  const rows = pm.domains
+    .filter((d) => d.lastSync !== null)
+    .map((d) => {
+      const meta = DOMAINS.find((x) => x.id === d.domainId);
+      return {
+        ...d,
+        name: meta?.name ?? d.domainId,
+        accent: meta?.accent ?? "var(--accent)",
+      };
+    })
+    .sort((a, b) => (b.clicks28d ?? -1) - (a.clicks28d ?? -1));
+
+  if (rows.length === 0) return <SectionNoData />;
+
+  return (
+    <div className="overflow-x-auto rounded-md border border-border">
+      <table className="w-full min-w-[380px] border-collapse text-xs">
+        <thead>
+          <tr className="border-b border-border bg-workspace/70 text-left text-2xs font-semibold uppercase tracking-wide text-muted">
+            <th className="px-3 py-2">Domain</th>
+            <th className="px-3 py-2 text-right">Clicks 28d</th>
+            <th className="px-3 py-2 text-right">Sessions 28d</th>
+            <th className="px-3 py-2 text-right">Conv. 28d</th>
+            <th className="px-3 py-2 text-right">Health</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.domainId} className="border-b border-border/70 last:border-0">
+              <td className="px-3 py-2">
+                <span className="flex items-center gap-2">
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: r.accent }} />
+                  <span className="font-medium text-ink">{r.name}</span>
+                </span>
+              </td>
+              <td className="px-3 py-2 text-right text-ink tnum">
+                {r.clicks28d == null ? "—" : fullNumber(r.clicks28d)}
+              </td>
+              <td className="px-3 py-2 text-right text-ink tnum">
+                {r.sessions28d == null ? "—" : fullNumber(r.sessions28d)}
+              </td>
+              <td className="px-3 py-2 text-right text-ink tnum">
+                {r.conversions28d == null ? "—" : fullNumber(r.conversions28d)}
+              </td>
+              <td className="px-3 py-2 text-right text-ink tnum">
+                {r.health == null ? "—" : String(r.health)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/**
+ * Render one report section for the preview drawer, filled with REAL numbers
+ * from the live portfolio read-model where they exist. Sections whose data is
+ * per-domain (not aggregated into PortfolioLive) honestly say "no data yet".
+ */
+function renderSection(template: ReportTemplate, section: string, pm: PortfolioLive): React.ReactNode {
+  const synced = pm.totals.domainsSynced > 0;
+
+  if (template.id === "tpl-exec") {
+    switch (section) {
+      case "Portfolio KPIs":
+        if (!synced) return <SectionNoData />;
+        return (
+          <div className="grid grid-cols-2 gap-2">
+            <PreviewStat label="Organic clicks" value={fullNumber(pm.totals.clicks28d)} hint="28d · GSC" />
+            <PreviewStat
+              label="Organic sessions"
+              value={fullNumber(pm.totals.sessions28d)}
+              hint="28d · GA4-mapped domains"
+            />
+            <PreviewStat
+              label="Conversions"
+              value={fullNumber(pm.totals.conversions28d)}
+              hint="28d · GA4-mapped domains"
+            />
+            <PreviewStat
+              label="Avg site health"
+              value={pm.totals.avgHealth == null ? "—" : String(Math.round(pm.totals.avgHealth))}
+              hint="Across synced domains"
+            />
+          </div>
+        );
+      case "Visibility trend":
+        if (pm.totals.avgVisibility == null) return <SectionNoData />;
+        return (
+          <PreviewStat
+            label="Avg visibility index"
+            value={percent(pm.totals.avgVisibility)}
+            hint="The series accumulates one point per sync day — a trend line appears once ≥2 points exist."
+          />
+        );
+      case "Winners & losers":
+        return <LeaderboardPreview pm={pm} />;
+      case "Priority actions":
+        return (
+          <SectionNoData reason="No data yet — priority actions come from per-domain derived recommendations, which are not aggregated into the portfolio read-model." />
+        );
+    }
   }
+
+  if (template.id === "tpl-tech" && section === "Health score") {
+    if (pm.totals.avgHealth == null) return <SectionNoData />;
+    return (
+      <PreviewStat
+        label="Avg health score"
+        value={String(Math.round(pm.totals.avgHealth))}
+        hint="Portfolio average across synced domains · per-domain breakdown renders on generation"
+      />
+    );
+  }
+
+  if (template.id === "tpl-backlink" && section === "Referring domains") {
+    if (!synced) return <SectionNoData />;
+    return (
+      <PreviewStat
+        label="Referring domains"
+        value={fullNumber(pm.totals.referringDomains)}
+        hint="Portfolio total from the latest sync"
+      />
+    );
+  }
+
+  if (template.id === "tpl-ai" && section === "Mention rate") {
+    const tracked = pm.domains.filter((d) => d.aiMentionRate != null);
+    if (tracked.length === 0) return <SectionNoData />;
+    return (
+      <div className="space-y-1.5">
+        {tracked.map((d) => {
+          const meta = DOMAINS.find((x) => x.id === d.domainId);
+          return (
+            <div
+              key={d.domainId}
+              className="flex items-center justify-between rounded-md border border-border px-3 py-2"
+            >
+              <span className="flex items-center gap-2 text-xs font-medium text-ink">
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ background: meta?.accent ?? "var(--accent)" }}
+                />
+                {meta?.name ?? d.domainId}
+              </span>
+              <span className="text-xs text-ink tnum">{percent(d.aiMentionRate as number)}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return <SectionNoData />;
 }
 
-function domainLabel(id: DomainId | "portfolio"): string {
-  return id === "portfolio" ? "Portfolio (all domains)" : getDomain(id).name;
-}
+/* ---------------------------------------------------------------------- */
+/* Page                                                                   */
+/* ---------------------------------------------------------------------- */
 
-function truncateRecipients(recipients: string[], max = 2): string {
-  if (recipients.length <= max) return recipients.join(", ");
-  return `${recipients.slice(0, max).join(", ")} +${recipients.length - max}`;
-}
-
-const CADENCE_OPTIONS: ReportSchedule["cadence"][] = ["daily", "weekly", "monthly"];
+const PAGE_TITLE = "Reports";
+const PAGE_DESCRIPTION =
+  "Report templates previewed against live portfolio data. Report persistence, export and scheduled delivery are the next milestone.";
 
 export default function ReportsPage() {
-  const { activeDomain } = useDomain();
-
-  const templates = SEED.reportTemplates;
-  const schedules = SEED.schedules;
+  const { data: pm, loading, error } = useLivePortfolio();
 
   const [previewTemplate, setPreviewTemplate] = useState<ReportTemplate | null>(null);
-  const [selectedSchedule, setSelectedSchedule] = useState<ReportSchedule | null>(null);
 
-  // Custom report builder — purely local state, no persistence.
-  const [builderName, setBuilderName] = useState("");
-  const [builderSections, setBuilderSections] = useState<string[]>([]);
-  const [builderCadence, setBuilderCadence] = useState<ReportSchedule["cadence"]>("weekly");
-  const [builderRecipients, setBuilderRecipients] = useState("");
-  const [builderSaved, setBuilderSaved] = useState(false);
+  // Draft schedule form — session-local only, no persistence layer yet.
+  const [draftTemplateId, setDraftTemplateId] = useState<string>(REPORT_TEMPLATES[0]?.id ?? "");
+  const [draftCadence, setDraftCadence] = useState<Cadence>("weekly");
+  const [draftRecipients, setDraftRecipients] = useState("");
+  const [drafts, setDrafts] = useState<DraftSchedule[]>([]);
 
-  const sectionOptions = useMemo(
-    () => Array.from(new Set(templates.flatMap((t) => t.sections))),
-    [templates],
-  );
+  // Latest sync across the whole portfolio — null when nothing has synced.
+  const lastSync = useMemo(() => {
+    if (!pm) return null;
+    return pm.domains.reduce<string | null>(
+      (max, d) => (d.lastSync && (!max || d.lastSync > max) ? d.lastSync : max),
+      null,
+    );
+  }, [pm]);
 
-  const kpis = useMemo(() => {
-    const delivered = schedules.filter((s) => s.lastDelivered !== null).length;
-    const nextRun = schedules.reduce<string | null>((earliest, s) => {
-      if (!earliest || s.nextRun < earliest) return s.nextRun;
-      return earliest;
-    }, null);
-    return {
-      templates: templates.length,
-      scheduled: schedules.length,
-      delivered,
-      nextRun,
-    };
-  }, [templates, schedules]);
+  function saveDraft() {
+    const tpl = REPORT_TEMPLATES.find((t) => t.id === draftTemplateId);
+    if (!tpl) return;
+    setDrafts((prev) => [
+      ...prev,
+      {
+        id: prev.length + 1,
+        templateId: tpl.id,
+        templateName: tpl.name,
+        cadence: draftCadence,
+        recipients: draftRecipients.trim(),
+      },
+    ]);
+    setDraftRecipients("");
+  }
 
-  const columns: Column<ReportSchedule>[] = [
-    {
-      key: "templateName",
-      header: "Report",
-      sortValue: (r) => r.templateName,
-      render: (r) => <span className="font-medium text-ink">{r.templateName}</span>,
-    },
-    {
-      key: "domain",
-      header: "Scope",
-      sortValue: (r) => domainLabel(r.domainId),
-      render: (r) => <span className="text-muted">{domainLabel(r.domainId)}</span>,
-    },
-    {
-      key: "cadence",
-      header: "Cadence",
-      width: "104px",
-      sortValue: (r) => r.cadence,
-      render: (r) => <StatusBadge label={r.cadence} tone={cadenceTone(r.cadence)} />,
-    },
-    {
-      key: "format",
-      header: "Format",
-      width: "96px",
-      sortValue: (r) => r.format,
-      render: (r) => <span className="text-xs text-muted">{r.format}</span>,
-    },
-    {
-      key: "recipients",
-      header: "Recipients",
-      sortValue: (r) => r.recipients.join(", "),
-      render: (r) => (
-        <span className="block max-w-[200px] truncate text-xs text-muted" title={r.recipients.join(", ")}>
-          {truncateRecipients(r.recipients)}
-        </span>
-      ),
-    },
-    {
-      key: "nextRun",
-      header: "Next run",
-      align: "right",
-      width: "128px",
-      sortValue: (r) => r.nextRun,
-      render: (r) => <span className="text-muted">{formatDate(r.nextRun)}</span>,
-    },
-    {
-      key: "lastDelivered",
-      header: "Last delivered",
-      align: "right",
-      width: "128px",
-      sortValue: (r) => r.lastDelivered ?? "",
-      render: (r) => (
-        <span className="text-muted">{r.lastDelivered ? formatDate(r.lastDelivered) : "—"}</span>
-      ),
-    },
-  ];
+  if (loading && !pm) {
+    return (
+      <div className="animate-in space-y-5">
+        <PageHeader title={PAGE_TITLE} description={PAGE_DESCRIPTION} lastSync={null} loading />
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-24" />
+          ))}
+        </div>
+        <Skeleton className="h-72" />
+        <Skeleton className="h-56" />
+      </div>
+    );
+  }
 
-  function toggleSection(section: string) {
-    setBuilderSaved(false);
-    setBuilderSections((prev) =>
-      prev.includes(section) ? prev.filter((s) => s !== section) : [...prev, section],
+  if (error && !pm) {
+    return (
+      <div className="animate-in space-y-5">
+        <PageHeader title={PAGE_TITLE} description={PAGE_DESCRIPTION} lastSync={null} />
+        <EmptyState title="Could not load live data" description={error} />
+      </div>
+    );
+  }
+
+  if (!pm) {
+    return (
+      <div className="animate-in space-y-5">
+        <PageHeader title={PAGE_TITLE} description={PAGE_DESCRIPTION} lastSync={null} />
+        <EmptyState
+          title="No portfolio data available"
+          description="The live portfolio read-model returned nothing. Run a sync to populate it."
+        />
+      </div>
     );
   }
 
   return (
     <div className="animate-in space-y-5">
       <PageHeader
-        title="Reports"
-        description="Report templates, scheduled delivery and a custom builder — spanning the whole portfolio and every pilot domain."
+        title={PAGE_TITLE}
+        description={PAGE_DESCRIPTION}
+        lastSync={lastSync}
+        loading={loading}
       />
-
-      {activeDomain && (
-        <p className="-mt-2 text-2xs text-muted">
-          Reports span every domain. The rail is scoped to{" "}
-          <span className="font-medium text-ink">{activeDomain.name}</span>, but this module covers all{" "}
-          {DOMAINS.length} pilots plus portfolio-level reporting.
-        </p>
-      )}
 
       {/* KPI row */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label="Report templates" value={String(kpis.templates)} hint="Reusable report definitions" />
-        <KpiCard label="Scheduled reports" value={String(kpis.scheduled)} hint="Active delivery schedules" />
-        <KpiCard label="Delivered (last 30 days)" value={String(kpis.delivered)} hint="Schedules with a delivery" />
         <KpiCard
-          label="Next scheduled"
-          value={kpis.nextRun ? formatDate(kpis.nextRun) : "—"}
-          hint="Earliest upcoming run"
+          label="Report templates"
+          value={String(REPORT_TEMPLATES.length)}
+          hint="Reusable report definitions"
+        />
+        <KpiCard
+          label="Domains with live data"
+          value={String(pm.totals.domainsSynced)}
+          hint={`Of ${DOMAINS.length} registered domains`}
+        />
+        <KpiCard
+          label="Scheduled reports"
+          value="0"
+          hint="Scheduling persistence has not shipped yet"
+        />
+        <KpiCard
+          label="Last data refresh"
+          value={lastSync ? relativeFromNow(lastSync) : "never"}
+          hint="Latest provider sync across the portfolio"
         />
       </div>
 
-      {/* Report templates gallery */}
+      {/* Template gallery */}
       <Card className="p-4">
-        <div className="mb-3 flex items-center gap-2">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
           <FileText className="h-4 w-4 text-purple" />
           <h3 className="text-sm font-semibold text-ink">Report templates</h3>
-          <span className="text-2xs text-muted">Generate a preview from any template</span>
+          <span className="text-2xs text-muted">
+            “Generate” previews a report against the live portfolio snapshot
+          </span>
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {templates.map((t) => (
+          {REPORT_TEMPLATES.map((t) => (
             <div key={t.id} className="flex flex-col rounded-md border border-border p-3">
               <div className="mb-1 flex items-start justify-between gap-2">
                 <div className="text-sm font-semibold text-ink">{t.name}</div>
@@ -194,135 +368,124 @@ export default function ReportsPage() {
             </div>
           ))}
         </div>
-      </Card>
-
-      {/* Scheduled reports */}
-      <Card className="p-4">
-        <div className="mb-3 flex items-center gap-2">
-          <CalendarClock className="h-4 w-4 text-purple" />
-          <h3 className="text-sm font-semibold text-ink">Scheduled reports</h3>
-          <span className="text-2xs text-muted">Click a row for schedule detail</span>
-        </div>
-        {schedules.length === 0 ? (
-          <EmptyState
-            title="No scheduled reports"
-            description="Create a schedule from a template to deliver reports automatically."
-            icon={<CalendarClock className="h-5 w-5" />}
-          />
-        ) : (
-          <DataTable
-            rows={schedules}
-            columns={columns}
-            searchKeys={(r) => `${r.templateName} ${domainLabel(r.domainId)} ${r.recipients.join(" ")}`}
-            onRowClick={setSelectedSchedule}
-            exportName="report-schedules"
-            pageSize={10}
-          />
+        {pm.totals.domainsSynced === 0 && (
+          <p className="mt-3 text-2xs text-muted">
+            No domain has synced yet — previews will show every section as “no data yet” until the
+            first scheduled sync stores live datasets.
+          </p>
         )}
       </Card>
 
-      {/* Custom report builder teaser */}
+      {/* Scheduling */}
       <Card className="p-4">
         <CardHeader
-          title="Custom report builder"
-          subtitle="Compose a bespoke report and delivery schedule — local preview only in this demo."
+          title="Scheduled delivery"
+          subtitle="Delivery is configured on the daily sync cadence — report persistence is the next milestone"
         />
-        <div className="grid grid-cols-1 gap-4 pt-4 lg:grid-cols-2">
-          <div className="space-y-3">
+        <div className="space-y-4 pt-4">
+          <div className="flex items-start gap-2.5 rounded-md border border-border bg-workspace/40 p-3">
+            <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-purple" />
+            <p className="text-xs text-muted">
+              Reports draw from snapshots refreshed by the daily full sync (06:00 UTC). Once report
+              persistence ships, saved schedules will render each template on that cadence and
+              deliver it to the listed recipients. Until then you can draft a schedule below —
+              drafts live only in this browser session and are not persisted or delivered.
+            </p>
+          </div>
+
+          {/* Draft schedule form — session-local state only */}
+          <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,1.2fr)_auto]">
             <div>
-              <label className="text-2xs font-medium uppercase tracking-wide text-muted">Report name</label>
+              <label className="text-2xs font-medium uppercase tracking-wide text-muted">
+                Template
+              </label>
+              <select
+                value={draftTemplateId}
+                onChange={(e) => setDraftTemplateId(e.target.value)}
+                className="mt-1 h-8 w-full rounded-md border border-border bg-card px-2 text-xs text-ink focus:outline-none focus-visible:outline-2"
+              >
+                {REPORT_TEMPLATES.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-2xs font-medium uppercase tracking-wide text-muted">
+                Cadence
+              </label>
+              <select
+                value={draftCadence}
+                onChange={(e) => setDraftCadence(e.target.value as Cadence)}
+                className="mt-1 h-8 w-full rounded-md border border-border bg-card px-2 text-xs capitalize text-ink focus:outline-none focus-visible:outline-2"
+              >
+                {CADENCE_OPTIONS.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-2xs font-medium uppercase tracking-wide text-muted">
+                Recipients
+              </label>
               <input
-                value={builderName}
-                onChange={(e) => {
-                  setBuilderName(e.target.value);
-                  setBuilderSaved(false);
-                }}
-                placeholder="e.g. Q3 Mortgage Performance"
+                value={draftRecipients}
+                onChange={(e) => setDraftRecipients(e.target.value)}
+                placeholder="team@orwell.io, cc@orwell.io"
                 className="mt-1 h-8 w-full rounded-md border border-border bg-card px-3 text-xs text-ink placeholder:text-muted focus:outline-none focus-visible:outline-2"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-2xs font-medium uppercase tracking-wide text-muted">Cadence</label>
-                <select
-                  value={builderCadence}
-                  onChange={(e) => {
-                    setBuilderCadence(e.target.value as ReportSchedule["cadence"]);
-                    setBuilderSaved(false);
-                  }}
-                  className="mt-1 h-8 w-full rounded-md border border-border bg-card px-2 text-xs capitalize text-ink focus:outline-none focus-visible:outline-2"
-                >
-                  {CADENCE_OPTIONS.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-2xs font-medium uppercase tracking-wide text-muted">Recipients</label>
-                <input
-                  value={builderRecipients}
-                  onChange={(e) => {
-                    setBuilderRecipients(e.target.value);
-                    setBuilderSaved(false);
-                  }}
-                  placeholder="team@orwell.io"
-                  className="mt-1 h-8 w-full rounded-md border border-border bg-card px-3 text-xs text-ink placeholder:text-muted focus:outline-none focus-visible:outline-2"
-                />
-              </div>
-            </div>
+            <Button variant="primary" size="sm" onClick={saveDraft}>
+              <Send className="h-3.5 w-3.5" /> Save draft
+            </Button>
           </div>
-          <div>
-            <label className="text-2xs font-medium uppercase tracking-wide text-muted">
-              Sections ({builderSections.length} selected)
-            </label>
-            <div className="mt-1 grid max-h-40 grid-cols-2 gap-1.5 overflow-y-auto rounded-md border border-border bg-workspace/40 p-2">
-              {sectionOptions.map((s) => (
-                <label key={s} className="flex cursor-pointer items-center gap-1.5 text-xs text-ink">
-                  <input
-                    type="checkbox"
-                    checked={builderSections.includes(s)}
-                    onChange={() => toggleSection(s)}
-                    className="h-3.5 w-3.5 rounded border-border"
-                  />
-                  <span className="truncate">{s}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="mt-4 flex items-center justify-between gap-3">
-          {builderSaved ? (
-            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success">
-              <Send className="h-4 w-4" /> Schedule saved locally (demo) — {builderName || "Untitled report"},{" "}
-              {builderCadence}, {builderSections.length} sections
-            </span>
+
+          {drafts.length === 0 ? (
+            <p className="text-2xs text-muted">
+              No drafts in this session. Saved drafts appear here — session-local only.
+            </p>
           ) : (
-            <span className="text-2xs text-muted">
-              Builder is visual only — no schedule is persisted and no data leaves this session.
-            </span>
+            <div className="space-y-2">
+              {drafts.map((d) => (
+                <div
+                  key={d.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-2"
+                >
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <span className="text-xs font-medium text-ink">{d.templateName}</span>
+                    <StatusBadge label={d.cadence} tone="info" />
+                    <span className="truncate text-2xs text-muted">
+                      {d.recipients || "No recipients listed"}
+                    </span>
+                  </div>
+                  <StatusBadge label="session-local draft" tone="neutral" />
+                </div>
+              ))}
+              <p className="text-2xs text-muted">
+                Drafts are held in local component state only — they are cleared on reload and
+                nothing is scheduled or delivered.
+              </p>
+            </div>
           )}
-          <Button
-            variant="primary"
-            size="sm"
-            disabled={builderSections.length === 0}
-            onClick={() => setBuilderSaved(true)}
-          >
-            Save schedule
-          </Button>
         </div>
       </Card>
 
-      {/* Template preview drawer */}
+      {/* Report preview drawer */}
       <Drawer
         open={previewTemplate !== null}
         onClose={() => setPreviewTemplate(null)}
         title={previewTemplate?.name ?? ""}
-        subtitle={previewTemplate ? `${previewTemplate.type} report · preview` : undefined}
+        subtitle={
+          previewTemplate
+            ? `${previewTemplate.type} report · live-data preview${lastSync ? ` · data as of ${relativeFromNow(lastSync)}` : " · awaiting first sync"}`
+            : undefined
+        }
         footer={
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-2xs text-muted">PDF / CSV export</span>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="text-2xs text-muted">PDF/CSV export ships with report persistence.</span>
             <div className="flex gap-2">
               <Button variant="secondary" size="sm" disabled>
                 <Download className="h-3.5 w-3.5" /> Export PDF
@@ -335,65 +498,24 @@ export default function ReportsPage() {
         }
       >
         {previewTemplate && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <p className="text-sm text-muted">{previewTemplate.description}</p>
-            <div>
-              <div className="text-2xs font-medium uppercase tracking-wide text-muted">Report outline</div>
-              <ol className="mt-2 space-y-1.5">
-                {previewTemplate.sections.map((s, i) => (
-                  <li key={s} className="flex items-start gap-2 rounded-md border border-border px-3 py-2">
-                    <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-purple/10 text-2xs font-semibold text-purple tnum">
-                      {i + 1}
-                    </span>
-                    <span className="text-sm text-ink">{s}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
-            <p className="rounded-md border border-warning/25 bg-warning/10 px-3 py-2 text-xs text-[#9A6B12]">
-              This preview renders demo data. Live figures populate once GA4, Search Console and DataForSEO
-              providers are connected.
+            {previewTemplate.sections.map((s, i) => (
+              <div key={s}>
+                <div className="mb-1.5 flex items-center gap-2">
+                  <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-purple/10 text-2xs font-semibold text-purple tnum">
+                    {i + 1}
+                  </span>
+                  <span className="text-sm font-semibold text-ink">{s}</span>
+                </div>
+                {renderSection(previewTemplate, s, pm)}
+              </div>
+            ))}
+            <p className="text-2xs text-muted">
+              Preview numbers come from the live portfolio read-model — nothing is estimated.
+              Per-domain sections render in full when reports are generated against a domain
+              bundle.
             </p>
-          </div>
-        )}
-      </Drawer>
-
-      {/* Schedule detail drawer */}
-      <Drawer
-        open={selectedSchedule !== null}
-        onClose={() => setSelectedSchedule(null)}
-        title={selectedSchedule?.templateName ?? ""}
-        subtitle={selectedSchedule ? domainLabel(selectedSchedule.domainId) : undefined}
-      >
-        {selectedSchedule && (
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2 pb-1">
-              <StatusBadge label={selectedSchedule.cadence} tone={cadenceTone(selectedSchedule.cadence)} />
-              <span className="text-2xs text-muted">{selectedSchedule.format}</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <DrawerField label="Next run">{formatDate(selectedSchedule.nextRun)}</DrawerField>
-              <DrawerField label="Last delivered">
-                {selectedSchedule.lastDelivered ? formatDate(selectedSchedule.lastDelivered) : "—"}
-              </DrawerField>
-            </div>
-            <DrawerField label="Scope">{domainLabel(selectedSchedule.domainId)}</DrawerField>
-            <DrawerField label={`Recipients (${selectedSchedule.recipients.length})`}>
-              <ul className="space-y-1">
-                {selectedSchedule.recipients.map((r) => (
-                  <li key={r} className="text-xs text-ink">
-                    {r}
-                  </li>
-                ))}
-              </ul>
-            </DrawerField>
-            <DrawerField label="Delivery history">
-              <p className="text-xs text-muted">
-                {selectedSchedule.lastDelivered
-                  ? `Last delivered ${formatDate(selectedSchedule.lastDelivered)}. Full delivery history and audit log activate once live providers are connected.`
-                  : "Not yet delivered. The first delivery runs on the next scheduled date."}
-              </p>
-            </DrawerField>
           </div>
         )}
       </Drawer>

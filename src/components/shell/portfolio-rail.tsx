@@ -1,17 +1,18 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { Layers, Settings, ChevronRight, Circle } from "lucide-react";
 import { DOMAINS } from "@/data/domains";
-import { portfolioMetrics } from "@/data/metrics";
 import { useDomain } from "./domain-context";
+import { useLivePortfolio } from "@/lib/use-live";
 import { cn } from "@/lib/cn";
 import { compactNumber } from "@/lib/format";
 
 export function PortfolioRail() {
   const { scope, setScope } = useDomain();
-  const [pm] = useState(() => portfolioMetrics());
+  const { data: pm } = useLivePortfolio();
+
+  const headline = (id: string) => pm?.domains.find((d) => d.domainId === id);
 
   return (
     <aside className="hidden w-[248px] shrink-0 flex-col bg-rail text-white lg:flex">
@@ -43,13 +44,13 @@ export function PortfolioRail() {
         </button>
       </div>
 
-      <div className="mt-4 px-3">
+      <div className="mt-4 min-h-0 flex-1 overflow-y-auto px-3">
         <div className="px-2 pb-1.5 text-2xs font-semibold uppercase tracking-wider text-white/40">
           Domains
         </div>
         <nav className="space-y-0.5">
           {DOMAINS.map((d) => {
-            const m = pm.domains.find((x) => x.domainId === d.id)!;
+            const h = headline(d.id);
             const active = scope === d.id;
             return (
               <button
@@ -66,8 +67,10 @@ export function PortfolioRail() {
                   <div className="truncate text-2xs text-white/45">{d.host}</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-2xs font-medium text-white/80 tnum">{m.health}</div>
-                  <div className="text-[10px] text-white/40">health</div>
+                  <div className="text-2xs font-medium text-white/80 tnum">
+                    {h?.clicks28d != null ? compactNumber(h.clicks28d) : "—"}
+                  </div>
+                  <div className="text-[10px] text-white/40">clicks</div>
                 </div>
               </button>
             );
@@ -77,17 +80,32 @@ export function PortfolioRail() {
 
       <div className="mx-3 my-4 rounded-md bg-nav/60 p-3">
         <div className="mb-2 text-2xs font-semibold uppercase tracking-wider text-white/40">
-          Portfolio totals
+          Portfolio · last 28 days
         </div>
         <div className="grid grid-cols-2 gap-2 text-xs">
-          <RailStat label="Clicks" value={compactNumber(pm.totalClicks)} />
-          <RailStat label="Avg health" value={String(pm.avgHealth)} />
-          <RailStat label="Visibility" value={`${pm.avgVisibility}%`} />
-          <RailStat label="Critical" value={String(pm.criticalIssues)} tone="critical" />
+          <RailStat label="Clicks" value={pm ? compactNumber(pm.totals.clicks28d) : "—"} />
+          <RailStat
+            label="Sessions"
+            value={pm ? compactNumber(pm.totals.sessions28d) : "—"}
+          />
+          <RailStat
+            label="Avg health"
+            value={pm?.totals.avgHealth != null ? String(pm.totals.avgHealth) : "—"}
+          />
+          <RailStat
+            label="Critical"
+            value={pm ? String(pm.totals.criticalIssues) : "—"}
+            tone={pm && pm.totals.criticalIssues > 0 ? "critical" : undefined}
+          />
         </div>
+        {pm && pm.totals.domainsSynced === 0 && (
+          <p className="mt-2 text-[10px] leading-snug text-white/40">
+            No sync has run yet — trigger the sync job to populate live data.
+          </p>
+        )}
       </div>
 
-      <div className="mt-auto border-t border-white/10 px-3 py-3">
+      <div className="border-t border-white/10 px-3 py-3">
         <Link
           href="/settings"
           className="flex items-center justify-between rounded-md px-3 py-2 text-sm text-white/70 hover:bg-nav hover:text-white"

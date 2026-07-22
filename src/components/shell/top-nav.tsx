@@ -4,12 +4,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NAV_ITEMS } from "@/lib/nav";
 import { cn } from "@/lib/cn";
-import { Bell } from "lucide-react";
-import { SEED } from "@/data/seed";
+import { useLivePortfolio } from "@/lib/use-live";
+import { SyncBadge } from "@/components/ui/sync-badge";
 
 export function TopNav() {
   const pathname = usePathname();
-  const unread = SEED.alerts.filter((a) => !a.read).length;
+  const { data: pm, loading } = useLivePortfolio();
+  const lastSync =
+    pm?.domains.reduce<string | null>(
+      (acc, d) => (d.lastSync && (!acc || d.lastSync > acc) ? d.lastSync : acc),
+      null,
+    ) ?? null;
 
   return (
     <div className="flex h-11 items-center justify-between bg-nav px-2 text-white">
@@ -32,20 +37,9 @@ export function TopNav() {
           );
         })}
       </nav>
-      <div className="flex items-center gap-1 pr-1">
-        <Link
-          href="/settings"
-          className="relative rounded-md p-1.5 text-white/60 hover:bg-rail-selected/50 hover:text-white"
-          aria-label={`Alerts (${unread} unread)`}
-        >
-          <Bell className="h-4 w-4" />
-          {unread > 0 && (
-            <span className="absolute right-1 top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-critical px-0.5 text-[9px] font-semibold tnum">
-              {unread}
-            </span>
-          )}
-        </Link>
-        <div className="ml-1 flex items-center gap-2 rounded-md px-2 py-1">
+      <div className="flex items-center gap-2 pr-1">
+        <SyncBadge lastSync={lastSync} loading={loading} className="hidden sm:inline-flex" />
+        <div className="flex items-center gap-2 rounded-md px-2 py-1">
           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-purple text-2xs font-semibold">
             OA
           </div>

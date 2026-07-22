@@ -43,15 +43,11 @@ services:
         value: "22.22.2"
       - key: PORT
         value: "10000"
-      # Start in demo mode. Flip to "dataforseo" only after credentials are set
-      # AND the DataForSEO adapter is implemented.
-      - key: SEO_PROVIDER
-        value: demo
-      # Client-safe mirror controlling the "Demo data" banner. Flip both
-      # SEO_PROVIDER and this to "dataforseo" when going live.
-      - key: NEXT_PUBLIC_SEO_PROVIDER
-        value: demo
       - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      # Bearer token for the manual POST /api/sync trigger. Set a long random
+      # value in the dashboard; the route refuses all requests while unset.
+      - key: SYNC_TOKEN
         sync: false
       - key: MONTHLY_BUDGET_USD
         value: "200"
@@ -97,10 +93,11 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22.22.2"
-      - key: SEO_PROVIDER
-        value: demo
       - key: CRON_ENABLED
         value: "true"
+      # Set to "1" to force OnPage crawls on a run (otherwise: first-time + Sundays).
+      - key: SYNC_INCLUDE_CRAWL
+        value: "0"
       - key: MONTHLY_BUDGET_USD
         value: "200"
       - key: DATABASE_URL

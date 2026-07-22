@@ -3,14 +3,24 @@
 ## Overview
 
 Orwell SEO Command Centre is a single Next.js (App Router) application that presents a
-portfolio-first SEO operations platform. It is deliberately structured as a coherent
-product — typed entities, reusable components, a provider-adapter data layer and a
-production database model — not a set of static mockups.
+portfolio-first SEO operations platform running **exclusively on live provider data**.
 
-The current build renders **deterministic seeded demo data** so the entire product is
-walkable with zero external dependencies. The seams for live data are already cut: the
-same UI reads through a provider contract that the demo provider and (later) the
-DataForSEO / Google adapters both satisfy.
+```
+cron (daily 06:00 UTC) ──► sync engine ──► DataForSEO + GSC + GA4 APIs
+                               │
+                               ▼
+                    canonical snapshots (Postgres
+                    dataset_snapshots, per domain/dataset/day)
+                               │
+                               ▼
+                   /api/live/[domain] · /api/live/portfolio
+                               │
+                               ▼
+                    client pages (useLiveDomain hook)
+```
+
+Un-synced surfaces render explicit "awaiting first sync" states — the product never
+fabricates a number. The former demo-seed layer has been removed.
 
 ## Layers
 
@@ -37,15 +47,14 @@ DataForSEO / Google adapters both satisfy.
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Why the demo reads seed modules directly
+### The sync → snapshot → read-model pattern
 
-For a walkthrough build, the route modules read the deterministic `SEED` object and the
-derived `metrics.ts` helpers synchronously. This keeps the product instant, avoids a
-mandatory database, and keeps hydration stable (all data is generated from a seeded PRNG,
-never `Math.random()`). The **provider contract** (`providers/contracts`) is the
-production data path: the demo provider serves the exact same `SEED` through it, and the
-live adapters will replace the demo provider without any UI change. See
-`docs/provider-contracts.md`.
+Provider data is NOT fetched on page view. The sync engine (`src/sync/engine.ts`)
+collects each dataset (budget-guarded for DataForSEO; free for Google), normalises to
+canonical models and upserts one snapshot per (domain, dataset, day). Pages read the
+latest snapshot through `/api/live/*` via a small SWR-style client hook. This keeps page
+loads instant, spend deliberate, history reconstructable and provenance attached to every
+dataset. OnPage crawls are async and resume across sync runs via stored task ids.
 
 ## State & domain scope
 

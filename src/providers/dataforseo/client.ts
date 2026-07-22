@@ -126,13 +126,15 @@ export class DataForSeoClient {
   }
 
   /**
-   * OnPage is asynchronous: post a crawl task, then poll the summary until
-   * `crawl_progress === "finished"` (or a timeout). Returns the final summary.
+   * OnPage is asynchronous. `postOnPageTask` starts a crawl and returns the task
+   * id; `fetchOnPageSummary` reads its current summary (zero-cost). The sync
+   * engine stores the task id and resumes polling across runs, so a slow crawl
+   * never blocks or double-pays.
    */
-  async onPageSummary(
+  async postOnPageTask(
     target: string,
-    opts: { maxPages?: number; pollMs?: number; timeoutMs?: number; domainSlug?: string | null } = {},
-  ): Promise<{ summary: Record<string, unknown> | null; guard: GuardResult }> {
+    opts: { maxPages?: number; domainSlug?: string | null } = {},
+  ): Promise<{ taskId: string; guard: GuardResult }> {
     const post = await this.post<{ id: string }>(
       "onPageTaskPost",
       ENDPOINTS.onPageTaskPost,
@@ -141,15 +143,25 @@ export class DataForSeoClient {
     );
     const taskId = post.result[0]?.id;
     if (!taskId) throw new DataForSeoError("OnPage task_post returned no task id", 0, ENDPOINTS.onPageTaskPost);
+    return { taskId, guard: post.guard };
+  }
 
+  async fetchOnPageSummary(taskId: string): Promise<Record<string, unknown> | null> {
+    const rows = await this.getMeta<Record<string, unknown>>(ENDPOINTS.onPageSummary(taskId));
+    return rows[0] ?? null;
+  }
+
+  /** Post + poll convenience used by one-shot flows. */
+  async onPageSummary(
+    target: string,
+    opts: { maxPages?: number; pollMs?: number; timeoutMs?: number; domainSlug?: string | null } = {},
+  ): Promise<{ summary: Record<string, unknown> | null; guard: GuardResult }> {
+    const { taskId, guard } = await this.postOnPageTask(target, opts);
     const pollMs = opts.pollMs ?? 5000;
     const deadline = Date.now() + (opts.timeoutMs ?? 120_000);
-    // Polling the summary is a zero-cost read on DataForSEO's side.
     while (Date.now() < deadline) {
-      const rows = await this.getMeta<Record<string, unknown>>(ENDPOINTS.onPageSummary(taskId));
-      const summary = rows[0] ?? null;
-      const progress = summary?.["crawl_progress"];
-      if (progress === "finished") return { summary, guard: post.guard };
+      const summary = await this.fetchOnPageSummary(taskId);
+      if (summary?.["crawl_progress"] === "finished") return { summary, guard };
       await new Promise((r) => setTimeout(r, pollMs));
     }
     throw new DataForSeoError("OnPage crawl did not finish before timeout", 0, ENDPOINTS.onPageTaskPost);

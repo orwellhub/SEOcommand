@@ -1,197 +1,110 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Globe,
   PlugZap,
-  MapPin,
   CalendarClock,
   Users,
   Wallet,
-  Bell,
-  History,
-  Plus,
-  Monitor,
-  Smartphone,
-  Check,
-  Circle,
-  ShieldAlert,
   Lock,
-  Trash2,
+  Bot,
+  RefreshCw,
+  ShieldCheck,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import {
   Card,
   CardHeader,
-  SectionTitle,
-  SeverityBadge,
   StatusBadge,
-  Button,
   EmptyState,
+  Skeleton,
 } from "@/components/ui/primitives";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { Drawer, DrawerField } from "@/components/ui/drawer";
 import { UsageMeter } from "@/components/ui/usage-meter";
 import { DOMAINS, getDomain } from "@/data/domains";
-import { SEED } from "@/data/seed";
-import { currency, fullNumber } from "@/lib/format";
-import { relativeFromNow } from "@/lib/dates";
+import { TRACKED_AI_PROMPTS } from "@/data/ai-prompts";
+import { useLivePortfolio } from "@/lib/use-live";
+import { currency } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import type { Domain, ProviderConnection, UsageLedgerEntry } from "@/lib/types";
+import type { Domain, DomainId } from "@/lib/types";
 
 /* ---------------------------------------------------------------------- */
-/* Local, self-contained demo primitives (read-only visual affordances)   */
+/* API response shapes (from /api/health/* and /api/usage)                */
 /* ---------------------------------------------------------------------- */
 
-function ReadOnlySwitch({ on, label }: { on: boolean; label?: string }) {
-  return (
-    <span className="inline-flex items-center gap-2">
-      <span
-        aria-hidden
-        className={cn(
-          "relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors",
-          on ? "bg-success" : "bg-workspace border border-border",
-        )}
-      >
-        <span
-          className={cn(
-            "inline-block h-3 w-3 transform rounded-full bg-white shadow-sm transition-transform",
-            on ? "translate-x-3.5" : "translate-x-0.5",
-          )}
-        />
-      </span>
-      {label && <span className="text-xs text-muted">{label}</span>}
-    </span>
-  );
+interface BudgetStatus {
+  spentUsd: number;
+  limitUsd: number;
+  remainingUsd: number;
+  pctUsed: number;
+  crossed: number[];
 }
 
-function ToggleRow({
-  title,
-  detail,
-  on,
-}: {
-  title: string;
-  detail: string;
-  on: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4 px-4 py-3">
-      <div className="min-w-0">
-        <div className="text-sm font-medium text-ink">{title}</div>
-        <div className="text-2xs text-muted">{detail}</div>
-      </div>
-      <div className="flex items-center gap-2 whitespace-nowrap">
-        <span className="text-2xs font-medium text-muted">{on ? "On" : "Off"}</span>
-        <ReadOnlySwitch on={on} />
-      </div>
-    </div>
-  );
+interface UsageResponse {
+  ok: boolean;
+  note?: string;
+  budget: BudgetStatus;
 }
 
-function ConnStateChip({ label, on }: { label: string; on: boolean }) {
-  return (
-    <StatusBadge label={on ? label : `${label}: off`} tone={on ? "success" : "neutral"} />
-  );
+interface DataForSeoHealth {
+  configured: boolean;
+  spend?: BudgetStatus;
+  models?: number;
+  error?: string;
+}
+
+interface GoogleHealth {
+  configured: boolean;
+  gscReachable?: boolean;
+  propertiesVisible?: number;
+  gscSiteMap?: Record<string, string>;
+  ga4PropertyMap?: Record<string, string | null>;
+  error?: string;
+}
+
+/** Plain fetch state — loading / error / loaded, no fake fallbacks. */
+type FetchState<T> =
+  | { status: "loading" }
+  | { status: "error"; message: string }
+  | { status: "done"; data: T };
+
+function useProbe<T>(url: string): FetchState<T> {
+  const [state, setState] = useState<FetchState<T>>({ status: "loading" });
+  useEffect(() => {
+    let cancelled = false;
+    fetch(url)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`Request failed (${res.status})`);
+        return (await res.json()) as T;
+      })
+      .then((data) => {
+        if (!cancelled) setState({ status: "done", data });
+      })
+      .catch((err) => {
+        if (!cancelled)
+          setState({ status: "error", message: err instanceof Error ? err.message : String(err) });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [url]);
+  return state;
 }
 
 /* ---------------------------------------------------------------------- */
 /* Sub-navigation                                                         */
 /* ---------------------------------------------------------------------- */
 
-type SectionId =
-  | "domains"
-  | "connections"
-  | "locations"
-  | "crawl"
-  | "users"
-  | "usage"
-  | "notifications"
-  | "sync";
+type SectionId = "domains" | "connections" | "sync" | "usage" | "users";
 
 const SECTIONS: { id: SectionId; label: string; icon: typeof Globe; hint: string }[] = [
   { id: "domains", label: "Domains & properties", icon: Globe, hint: "Portfolio registry" },
-  { id: "connections", label: "Data connections", icon: PlugZap, hint: "Providers & OAuth" },
-  { id: "locations", label: "Locations & devices", icon: MapPin, hint: "Tracking targets" },
-  { id: "crawl", label: "Crawl & frequency", icon: CalendarClock, hint: "Schedules" },
-  { id: "users", label: "Users & roles", icon: Users, hint: "Access control" },
-  { id: "usage", label: "Usage & guardrails", icon: Wallet, hint: "Cost controls" },
-  { id: "notifications", label: "Notifications & alerts", icon: Bell, hint: "Rules & feed" },
-  { id: "sync", label: "Sync history & cache", icon: History, hint: "Logs & retention" },
+  { id: "connections", label: "Data connections", icon: PlugZap, hint: "Live provider probes" },
+  { id: "sync", label: "Sync & scheduling", icon: CalendarClock, hint: "Cadences & triggers" },
+  { id: "usage", label: "Budget & usage", icon: Wallet, hint: "Real spend guardrail" },
+  { id: "users", label: "Users & roles", icon: Users, hint: "Access model" },
 ];
-
-/* ---------------------------------------------------------------------- */
-/* Static demo configuration                                              */
-/* ---------------------------------------------------------------------- */
-
-interface DemoUser {
-  id: string;
-  name: string;
-  email: string;
-  role: "admin" | "manager" | "seo_analyst" | "viewer";
-}
-
-const DEMO_USERS: DemoUser[] = [
-  { id: "u-1", name: "Orwell Admin", email: "admin@orwell.demo", role: "admin" },
-];
-
-const ROLE_PERMISSIONS: Record<DemoUser["role"], string> = {
-  admin: "Settings, providers, domains, users and all data across the portfolio.",
-  manager: "All domains, reports, approvals and tasks. No provider/user administration.",
-  seo_analyst: "Research, analysis, recommendations and tasks for assigned domains.",
-  viewer: "Read-only access to dashboards and reports.",
-};
-
-const ROLE_TONE: Record<DemoUser["role"], "info" | "success" | "warning" | "neutral"> = {
-  admin: "info",
-  manager: "success",
-  seo_analyst: "warning",
-  viewer: "neutral",
-};
-
-const CRAWL_SETTINGS: { title: string; cadence: string; detail: string }[] = [
-  {
-    title: "Technical site crawl",
-    cadence: "Weekly (default)",
-    detail: "Full on-page + Core Web Vitals crawl. Configurable per domain once connected.",
-  },
-  {
-    title: "Rank tracking",
-    cadence: "Daily",
-    detail: "Desktop + mobile SERP positions across all tracked keywords.",
-  },
-  {
-    title: "Backlink change detection",
-    cadence: "Daily",
-    detail: "New, lost and toxic referring-domain deltas.",
-  },
-  {
-    title: "Competitor refresh",
-    cadence: "Weekly",
-    detail: "Share-of-voice, overlap and authority recomputation.",
-  },
-  {
-    title: "AI-prompt visibility checks",
-    cadence: "Configurable",
-    detail: "Mention & citation checks across AI platforms on a per-prompt schedule.",
-  },
-];
-
-const REQUEST_MODES: { id: string; label: string; detail: string }[] = [
-  { id: "normal", label: "Normal", detail: "Cached-first, batched — lowest cost." },
-  { id: "priority", label: "Priority", detail: "Faster refresh, higher per-request cost." },
-  { id: "live", label: "Live", detail: "Bypass cache — real-time, most expensive." },
-];
-
-const NOTIFICATION_RULES: { title: string; detail: string; on: boolean }[] = [
-  { title: "Ranking gains", detail: "Keyword enters top 3 or top 10.", on: true },
-  { title: "Ranking losses", detail: "Keyword drops out of top 10 or 5+ positions.", on: true },
-  { title: "New backlinks", detail: "New referring domain acquired.", on: true },
-  { title: "Lost backlinks", detail: "Previously active link removed.", on: true },
-  { title: "Technical criticals", detail: "New critical or high site-audit issue.", on: true },
-  { title: "Budget thresholds", detail: "Spend crosses 50 / 75 / 90 / 100%.", on: true },
-];
-
-const BUDGET_THRESHOLDS = [50, 75, 90, 100];
 
 /* ---------------------------------------------------------------------- */
 /* Page                                                                   */
@@ -199,60 +112,24 @@ const BUDGET_THRESHOLDS = [50, 75, 90, 100];
 
 export default function SettingsPage() {
   const [section, setSection] = useState<SectionId>("domains");
-  const [connectDrawer, setConnectDrawer] = useState<ProviderConnection | null>(null);
-  const [emergencyPaused, setEmergencyPaused] = useState(false);
-  const [cacheCleared, setCacheCleared] = useState(false);
+  const { data: pm, loading: pmLoading } = useLivePortfolio();
 
-  const usageLedger = SEED.usageLedger;
-
-  // Illustrative per-domain sub-budgets that sum to the $200 global guardrail,
-  // split evenly across the portfolio (scales to any number of domains).
-  const perDomainBudgets = useMemo(() => {
-    const share = Math.round((200 / DOMAINS.length) * 100) / 100;
-    return DOMAINS.map((d) => ({ domain: d, limit: share }));
-  }, []);
-
-  const totalRequests = useMemo(
-    () => usageLedger.reduce((sum, e) => sum + e.requests, 0),
-    [usageLedger],
-  );
-
-  const ledgerColumns: Column<UsageLedgerEntry>[] = [
-    { key: "date", header: "Date", sortValue: (r) => r.date, render: (r) => r.date },
-    {
-      key: "provider",
-      header: "Provider",
-      sortValue: (r) => r.provider,
-      render: (r) => <span className="capitalize">{r.provider}</span>,
-    },
-    { key: "module", header: "Module", sortValue: (r) => r.module, render: (r) => r.module },
-    {
-      key: "domain",
-      header: "Domain",
-      sortValue: (r) => (r.domainId === "portfolio" ? "Portfolio" : getDomain(r.domainId).name),
-      render: (r) => (r.domainId === "portfolio" ? "Portfolio" : getDomain(r.domainId).name),
-    },
-    {
-      key: "requests",
-      header: "Requests",
-      align: "right",
-      sortValue: (r) => r.requests,
-      render: (r) => fullNumber(r.requests),
-    },
-    {
-      key: "cost",
-      header: "Cost",
-      align: "right",
-      sortValue: (r) => r.cost,
-      render: (r) => <span className={r.cost === 0 ? "text-muted" : "text-ink"}>{currency(r.cost)}</span>,
-    },
-  ];
+  // Latest sync across the portfolio, purely for the header badge.
+  const lastSync = useMemo(() => {
+    if (!pm) return null;
+    return pm.domains.reduce<string | null>(
+      (max, d) => (d.lastSync && (!max || d.lastSync > max) ? d.lastSync : max),
+      null,
+    );
+  }, [pm]);
 
   return (
     <div className="animate-in space-y-5">
       <PageHeader
-        title="Settings & cost controls"
-        description="Portfolio-level configuration: data providers, tracking, access control and spending guardrails. Everything here is a read-only demo of the production control surface — no live credentials or spend."
+        title="Settings"
+        description="Portfolio-level configuration: the domain registry, live provider connection health, sync cadences and the real spending guardrail."
+        lastSync={lastSync}
+        loading={pmLoading && !pm}
       />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
@@ -292,51 +169,12 @@ export default function SettingsPage() {
         {/* Right content */}
         <div className="min-w-0 space-y-5">
           {section === "domains" && <DomainsSection />}
-          {section === "connections" && (
-            <ConnectionsSection onConnect={setConnectDrawer} />
-          )}
-          {section === "locations" && <LocationsSection />}
-          {section === "crawl" && <CrawlSection />}
+          {section === "connections" && <ConnectionsSection />}
+          {section === "sync" && <SyncSection />}
+          {section === "usage" && <UsageSection />}
           {section === "users" && <UsersSection />}
-          {section === "usage" && (
-            <UsageSection
-              perDomainBudgets={perDomainBudgets}
-              ledger={usageLedger}
-              ledgerColumns={ledgerColumns}
-              totalRequests={totalRequests}
-              emergencyPaused={emergencyPaused}
-              onToggleEmergency={() => setEmergencyPaused((v) => !v)}
-            />
-          )}
-          {section === "notifications" && <NotificationsSection />}
-          {section === "sync" && (
-            <SyncSection
-              cacheCleared={cacheCleared}
-              onClearCache={() => setCacheCleared(true)}
-            />
-          )}
         </div>
       </div>
-
-      {/* Connection drawer */}
-      <Drawer
-        open={connectDrawer !== null}
-        onClose={() => setConnectDrawer(null)}
-        title={connectDrawer ? `Connect ${connectDrawer.label}` : "Connect provider"}
-        subtitle="Demo — no credentials are captured or transmitted"
-        footer={
-          <div className="flex items-center justify-between gap-3">
-            <span className="inline-flex items-center gap-1.5 text-2xs text-muted">
-              <Lock className="h-3.5 w-3.5" /> Secrets are stored server-side, never in the browser.
-            </span>
-            <Button variant="secondary" onClick={() => setConnectDrawer(null)}>
-              Close
-            </Button>
-          </div>
-        }
-      >
-        {connectDrawer && <ConnectDrawerBody conn={connectDrawer} />}
-      </Drawer>
     </div>
   );
 }
@@ -346,345 +184,569 @@ export default function SettingsPage() {
 /* ---------------------------------------------------------------------- */
 
 function DomainsSection() {
-  const columns: Column<Domain>[] = [
-    {
-      key: "name",
-      header: "Domain",
-      sortValue: (d) => d.name,
-      render: (d) => (
-        <div className="flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full" style={{ background: d.accent }} />
-          <div>
-            <div className="font-medium text-ink">{d.name}</div>
-            <div className="text-2xs text-muted">{d.host}</div>
+  const columns = useMemo<Column<Domain>[]>(
+    () => [
+      {
+        key: "name",
+        header: "Domain",
+        sortValue: (d) => d.name,
+        render: (d) => (
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: d.accent }} />
+            <span className="font-medium text-ink">{d.name}</span>
           </div>
-        </div>
-      ),
-    },
-    { key: "industry", header: "Industry", sortValue: (d) => d.industry, render: (d) => d.industry },
-    {
-      key: "market",
-      header: "Primary market",
-      sortValue: (d) => d.primaryMarket,
-      render: (d) => d.primaryMarket,
-    },
-    {
-      key: "connections",
-      header: "Connections",
-      render: (d) => {
-        const any = d.gscConnected || d.ga4Connected || d.dataForSeoConnected;
-        if (!any) return <StatusBadge label="Not connected" tone="neutral" />;
-        return (
-          <div className="flex flex-wrap gap-1">
-            <ConnStateChip label="GSC" on={d.gscConnected} />
-            <ConnStateChip label="GA4" on={d.ga4Connected} />
-            <ConnStateChip label="DataForSEO" on={d.dataForSeoConnected} />
-          </div>
-        );
+        ),
       },
-    },
-  ];
+      {
+        key: "host",
+        header: "Host",
+        sortValue: (d) => d.host,
+        render: (d) => <span className="text-muted">{d.host}</span>,
+      },
+      {
+        key: "market",
+        header: "Primary market",
+        sortValue: (d) => d.primaryMarket,
+        render: (d) => d.primaryMarket,
+      },
+      {
+        key: "gscSite",
+        header: "GSC property",
+        sortValue: (d) => d.gscSite,
+        render: (d) => <code className="text-xs text-muted">{d.gscSite}</code>,
+      },
+      {
+        key: "ga4",
+        header: "GA4 property",
+        sortValue: (d) => d.ga4PropertyId ?? "",
+        render: (d) =>
+          d.ga4PropertyId ? (
+            <code className="text-xs text-muted tnum">{d.ga4PropertyId}</code>
+          ) : (
+            <StatusBadge label="No GA4 property" tone="warning" />
+          ),
+      },
+    ],
+    [],
+  );
 
   return (
     <Card className="p-4">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-semibold text-ink">Domains & properties</h3>
-          <p className="text-2xs text-muted">
-            {DOMAINS.length} domains in the pilot portfolio. The registry is data-driven — adding a
-            domain scales every module automatically.
-          </p>
-        </div>
-        <Button variant="primary" size="sm">
-          <Plus className="h-3.5 w-3.5" /> Add domain
-        </Button>
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold text-ink">Domains & properties</h3>
+        <p className="text-2xs text-muted">
+          {DOMAINS.length} domains in the portfolio. The registry (src/data/domains.ts) is the
+          source of truth — every module, provider mapping and sync job derives from it.
+        </p>
       </div>
-      <DataTable rows={DOMAINS} columns={columns} exportName="domains" pageSize={10} />
+      <DataTable
+        rows={DOMAINS}
+        columns={columns}
+        searchKeys={(d) => `${d.name} ${d.host} ${d.primaryMarket}`}
+        exportName="domains"
+        pageSize={12}
+      />
       <p className="mt-3 text-2xs text-muted">
-        All pilot domains are currently unconnected — modules render seeded demo data until providers
-        are activated under Data connections.
+        Domains without a GA4 property still sync Search Console and ranking data; sessions and
+        conversions stay “—” until a property id is mapped in the registry.
       </p>
     </Card>
   );
 }
 
 /* ---------------------------------------------------------------------- */
-/* 2. Data connections                                                    */
+/* 2. Data connections — live health probes, no fake states               */
 /* ---------------------------------------------------------------------- */
 
-function ConnectionsSection({
-  onConnect,
+function ConnectionCard({
+  title,
+  detail,
+  badge,
+  children,
 }: {
-  onConnect: (c: ProviderConnection) => void;
+  title: string;
+  detail: string;
+  badge: React.ReactNode;
+  children?: React.ReactNode;
 }) {
-  const conns = SEED.providerConnections;
+  return (
+    <Card className="flex flex-col p-4">
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <div className="text-sm font-semibold text-ink">{title}</div>
+        {badge}
+      </div>
+      <p className="text-2xs text-muted">{detail}</p>
+      {children && <div className="mt-3 border-t border-border pt-3 text-xs text-ink">{children}</div>}
+    </Card>
+  );
+}
+
+function ConnectionsSection() {
+  const dfs = useProbe<DataForSeoHealth>("/api/health/dataforseo");
+  const google = useProbe<GoogleHealth>("/api/health/google");
+
+  const ga4Mapped = useMemo(() => {
+    if (google.status !== "done" || !google.data.ga4PropertyMap) return null;
+    return Object.values(google.data.ga4PropertyMap).filter((v) => v != null).length;
+  }, [google]);
 
   return (
     <div className="space-y-5">
-      <Card className="border-warning/30 bg-warning/5 p-4">
-        <div className="flex items-start gap-2.5">
-          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-[#B9791A]" />
+      <Card className="p-4">
+        <div className="mb-3">
+          <h3 className="text-sm font-semibold text-ink">Data connections</h3>
+          <p className="text-2xs text-muted">
+            Each card reflects a live health probe run just now against the real provider — nothing
+            here is simulated. Credentials live server-side only.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+          {/* DataForSEO */}
+          {dfs.status === "loading" ? (
+            <Skeleton className="h-36" />
+          ) : dfs.status === "error" ? (
+            <ConnectionCard
+              title="DataForSEO"
+              detail="Rankings, keywords, backlinks, on-page crawls and AI visibility checks."
+              badge={<StatusBadge label="Probe failed" tone="critical" />}
+            >
+              <span className="text-critical">{dfs.message}</span>
+            </ConnectionCard>
+          ) : !dfs.data.configured ? (
+            <ConnectionCard
+              title="DataForSEO"
+              detail="Rankings, keywords, backlinks, on-page crawls and AI visibility checks."
+              badge={<StatusBadge label="Not configured" tone="neutral" />}
+            >
+              <span className="text-muted">
+                Set DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD in the environment to connect.
+              </span>
+            </ConnectionCard>
+          ) : dfs.data.error ? (
+            <ConnectionCard
+              title="DataForSEO"
+              detail="Rankings, keywords, backlinks, on-page crawls and AI visibility checks."
+              badge={<StatusBadge label="Error" tone="critical" />}
+            >
+              <span className="text-critical">{dfs.data.error}</span>
+            </ConnectionCard>
+          ) : (
+            <ConnectionCard
+              title="DataForSEO"
+              detail="Rankings, keywords, backlinks, on-page crawls and AI visibility checks."
+              badge={<StatusBadge label="Connected" tone="success" />}
+            >
+              {dfs.data.models != null && (
+                <div className="tnum">{dfs.data.models} LLM models visible (zero-cost probe)</div>
+              )}
+              {dfs.data.spend && (
+                <div className="mt-1 text-2xs text-muted tnum">
+                  Month-to-date spend {currency(dfs.data.spend.spentUsd)} of{" "}
+                  {currency(dfs.data.spend.limitUsd)}
+                </div>
+              )}
+            </ConnectionCard>
+          )}
+
+          {/* Google Search Console */}
+          {google.status === "loading" ? (
+            <Skeleton className="h-36" />
+          ) : google.status === "error" ? (
+            <ConnectionCard
+              title="Google Search Console"
+              detail="Clicks, impressions, queries, pages and movers per domain — free API."
+              badge={<StatusBadge label="Probe failed" tone="critical" />}
+            >
+              <span className="text-critical">{google.message}</span>
+            </ConnectionCard>
+          ) : !google.data.configured ? (
+            <ConnectionCard
+              title="Google Search Console"
+              detail="Clicks, impressions, queries, pages and movers per domain — free API."
+              badge={<StatusBadge label="Not configured" tone="neutral" />}
+            >
+              <span className="text-muted">
+                Set the Google service-account credentials in the environment to connect.
+              </span>
+            </ConnectionCard>
+          ) : google.data.error ? (
+            <ConnectionCard
+              title="Google Search Console"
+              detail="Clicks, impressions, queries, pages and movers per domain — free API."
+              badge={<StatusBadge label="Error" tone="critical" />}
+            >
+              <span className="text-critical">{google.data.error}</span>
+            </ConnectionCard>
+          ) : (
+            <ConnectionCard
+              title="Google Search Console"
+              detail="Clicks, impressions, queries, pages and movers per domain — free API."
+              badge={
+                google.data.gscReachable ? (
+                  <StatusBadge label="Connected" tone="success" />
+                ) : (
+                  <StatusBadge label="Unreachable" tone="critical" />
+                )
+              }
+            >
+              {google.data.gscReachable ? (
+                <div className="tnum">
+                  {google.data.propertiesVisible ?? 0} properties visible to the service account
+                </div>
+              ) : (
+                <span className="text-muted">
+                  Credentials are configured but the property listing call did not succeed.
+                </span>
+              )}
+            </ConnectionCard>
+          )}
+
+          {/* GA4 */}
+          {google.status === "loading" ? (
+            <Skeleton className="h-36" />
+          ) : google.status === "error" ? (
+            <ConnectionCard
+              title="Google Analytics 4"
+              detail="Organic sessions, engagement and conversions for mapped properties — free API."
+              badge={<StatusBadge label="Probe failed" tone="critical" />}
+            >
+              <span className="text-critical">{google.message}</span>
+            </ConnectionCard>
+          ) : !google.data.configured ? (
+            <ConnectionCard
+              title="Google Analytics 4"
+              detail="Organic sessions, engagement and conversions for mapped properties — free API."
+              badge={<StatusBadge label="Not configured" tone="neutral" />}
+            >
+              <span className="text-muted">
+                GA4 uses the same Google credentials as Search Console.
+              </span>
+            </ConnectionCard>
+          ) : google.data.error ? (
+            <ConnectionCard
+              title="Google Analytics 4"
+              detail="Organic sessions, engagement and conversions for mapped properties — free API."
+              badge={<StatusBadge label="Error" tone="critical" />}
+            >
+              <span className="text-critical">{google.data.error}</span>
+            </ConnectionCard>
+          ) : (
+            <ConnectionCard
+              title="Google Analytics 4"
+              detail="Organic sessions, engagement and conversions for mapped properties — free API."
+              badge={
+                ga4Mapped != null && ga4Mapped > 0 ? (
+                  <StatusBadge label="Mapped" tone="success" />
+                ) : (
+                  <StatusBadge label="No properties mapped" tone="warning" />
+                )
+              }
+            >
+              {ga4Mapped != null ? (
+                <div className="tnum">
+                  {ga4Mapped} of {DOMAINS.length} domains have a GA4 property mapped
+                </div>
+              ) : (
+                <span className="text-muted">The probe returned no GA4 property map.</span>
+              )}
+            </ConnectionCard>
+          )}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/* 3. Sync & scheduling — read-only description of the real cadences      */
+/* ---------------------------------------------------------------------- */
+
+function SyncSection() {
+  const trackedDomainIds = Object.keys(TRACKED_AI_PROMPTS) as DomainId[];
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Card className="p-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <RefreshCw className="h-4 w-4 text-purple" />
+              <h3 className="text-sm font-semibold text-ink">Daily full sync</h3>
+            </div>
+            <StatusBadge label="06:00 UTC" tone="info" />
+          </div>
+          <p className="mt-2 text-2xs text-muted">
+            A Render cron job runs the full pipeline daily: Search Console totals, timeseries,
+            queries, pages and movers; GA4 overview and landing pages for mapped domains; DataForSEO
+            rankings, keywords, backlinks and competitors. Each run appends one visibility point per
+            domain.
+          </p>
+        </Card>
+
+        <Card className="p-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Globe className="h-4 w-4 text-purple" />
+              <h3 className="text-sm font-semibold text-ink">OnPage crawls</h3>
+            </div>
+            <StatusBadge label="Weekly · Sundays" tone="info" />
+          </div>
+          <p className="mt-2 text-2xs text-muted">
+            Technical crawls run once on a domain&apos;s first sync, then refresh weekly on Sundays.
+            Health score, issue counts and category breakdowns come from the latest completed
+            crawl.
+          </p>
+        </Card>
+      </div>
+
+      <Card className="p-4">
+        <div className="mb-2 flex items-center gap-2">
+          <Bot className="h-4 w-4 text-purple" />
+          <h3 className="text-sm font-semibold text-ink">AI prompt checks</h3>
+        </div>
+        <p className="text-2xs text-muted">
+          Only domains listed in the tracking config (src/data/ai-prompts.ts) run paid LLM checks
+          during sync, keeping AI spend deliberate. Currently tracked:
+        </p>
+        {trackedDomainIds.length === 0 ? (
+          <div className="mt-3">
+            <EmptyState
+              title="No domains tracked"
+              description="Add domains and prompts to TRACKED_AI_PROMPTS to start AI visibility checks."
+            />
+          </div>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {trackedDomainIds.map((id) => {
+              const domain = getDomain(id);
+              const prompts = TRACKED_AI_PROMPTS[id] ?? [];
+              return (
+                <div
+                  key={id}
+                  className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ background: domain.accent }}
+                    />
+                    <span className="text-xs font-medium text-ink">{domain.name}</span>
+                    <span className="text-2xs text-muted">{domain.host}</span>
+                  </div>
+                  <span className="text-2xs text-muted tnum">{prompts.length} prompts</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+
+      <Card className="p-4">
+        <div className="mb-2 flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-purple" />
+          <h3 className="text-sm font-semibold text-ink">Manual trigger</h3>
+        </div>
+        <p className="text-2xs text-muted">
+          A sync can be triggered outside the schedule via the protected endpoint{" "}
+          <code className="rounded bg-workspace px-1 py-0.5 text-[10px] text-ink">
+            POST /api/sync
+          </code>{" "}
+          (requires the SYNC_TOKEN secret), or from the Render cron job&apos;s “Trigger Run” button. No
+          in-app trigger exists yet — the token never reaches the browser.
+        </p>
+      </Card>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/* 4. Budget & usage — real spend from /api/usage                         */
+/* ---------------------------------------------------------------------- */
+
+const BUDGET_THRESHOLDS = [50, 75, 90, 100] as const;
+
+function UsageSection() {
+  const usage = useProbe<UsageResponse>("/api/usage");
+
+  if (usage.status === "loading") {
+    return (
+      <div className="space-y-5">
+        <Skeleton className="h-40" />
+        <Skeleton className="h-28" />
+      </div>
+    );
+  }
+
+  if (usage.status === "error") {
+    return <EmptyState title="Could not load usage data" description={usage.message} />;
+  }
+
+  const { budget } = usage.data;
+
+  return (
+    <div className="space-y-5">
+      <Card className="p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="text-sm font-medium text-ink">No live connections are active.</div>
+            <h3 className="text-sm font-semibold text-ink">Monthly spending guardrail</h3>
             <p className="text-2xs text-muted">
-              Every provider below is disconnected. Nothing on this screen implies a live data feed —
-              the whole application is running on deterministic demo data.
+              Month-to-date DataForSEO spend against the app-owned cap. Requests are refused once
+              the cap is hit.
             </p>
+          </div>
+          {!usage.data.ok && usage.data.note && (
+            <StatusBadge label={usage.data.note} tone="warning" />
+          )}
+        </div>
+        <UsageMeter spent={budget.spentUsd} limit={budget.limitUsd} label="Global monthly budget" />
+        <div className="mt-3 grid grid-cols-3 gap-3">
+          <div className="rounded-md border border-border p-3">
+            <div className="text-2xs text-muted">Spent (month to date)</div>
+            <div className="text-lg font-semibold text-ink tnum">{currency(budget.spentUsd)}</div>
+          </div>
+          <div className="rounded-md border border-border p-3">
+            <div className="text-2xs text-muted">Remaining</div>
+            <div className="text-lg font-semibold text-ink tnum">{currency(budget.remainingUsd)}</div>
+          </div>
+          <div className="rounded-md border border-border p-3">
+            <div className="text-2xs text-muted">Budget used</div>
+            <div className="text-lg font-semibold text-ink tnum">{budget.pctUsed.toFixed(1)}%</div>
           </div>
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        {conns.map((c) => (
-          <Card key={c.id} className="flex flex-col p-4">
-            <div className="mb-2 flex items-start justify-between gap-2">
-              <div className="text-sm font-semibold text-ink">{c.label}</div>
-              <StatusBadge label={c.status} tone="neutral" />
-            </div>
-            <p className="flex-1 text-2xs text-muted">{c.detail}</p>
-            <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
-              <span className="text-2xs text-muted">
-                {c.lastSync ? `Synced ${relativeFromNow(c.lastSync)}` : "Never synced"}
-              </span>
-              <Button variant="primary" size="sm" onClick={() => onConnect(c)}>
-                Connect
-              </Button>
-            </div>
-          </Card>
-        ))}
-      </div>
-
       <Card className="p-4">
         <div className="mb-3">
-          <h3 className="text-sm font-semibold text-ink">Property mapping</h3>
+          <h3 className="text-sm font-semibold text-ink">Alert thresholds</h3>
           <p className="text-2xs text-muted">
-            Read-only — GSC and GA4 properties are mapped per domain after OAuth completes.
+            Thresholds highlight as cumulative spend crosses each share of the cap.
           </p>
         </div>
-        <div className="overflow-x-auto rounded-md border border-border">
-          <table className="w-full min-w-[560px] border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-border bg-workspace/70 text-left text-2xs font-semibold uppercase tracking-wide text-muted">
-                <th className="px-3 py-2.5">Domain</th>
-                <th className="px-3 py-2.5">GSC property</th>
-                <th className="px-3 py-2.5">GA4 property</th>
-              </tr>
-            </thead>
-            <tbody>
-              {DOMAINS.map((d) => (
-                <tr key={d.id} className="border-b border-border/70 last:border-0">
-                  <td className="px-3 py-2.5">
-                    <div className="flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full" style={{ background: d.accent }} />
-                      <span className="font-medium text-ink">{d.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-3 py-2.5 text-muted">To be mapped after connection</td>
-                  <td className="px-3 py-2.5 text-muted">To be mapped after connection</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-    </div>
-  );
-}
-
-function ConnectDrawerBody({ conn }: { conn: ProviderConnection }) {
-  const isDfs = conn.provider === "dataforseo";
-  return (
-    <div className="space-y-4">
-      <div className="rounded-md border border-border bg-workspace/50 p-3">
-        <StatusBadge label={conn.status} tone="neutral" />
-        <p className="mt-2 text-xs text-muted">{conn.detail}</p>
-      </div>
-
-      <div>
-        <SectionTitle>What connecting requires</SectionTitle>
-        <dl className="mt-2 divide-y divide-border">
-          {isDfs ? (
-            <>
-              <DrawerField label="API login">
-                DataForSEO account login — stored encrypted server-side, never exposed to the browser.
-              </DrawerField>
-              <DrawerField label="API password">
-                Paired API password / key — held in the server secret store.
-              </DrawerField>
-              <DrawerField label="Base URL">
-                API base endpoint (e.g. https://api.dataforseo.com). Requests are proxied server-side.
-              </DrawerField>
-            </>
-          ) : (
-            <>
-              <DrawerField label="OAuth authorisation">
-                Google OAuth consent grants read access to your {conn.label} data. Tokens are stored
-                server-side and refreshed automatically.
-              </DrawerField>
-              <DrawerField label="Property selection">
-                After consent, select the {conn.provider === "google-analytics" ? "GA4 property" : "Search Console property"}
-                {" "}to map to each domain.
-              </DrawerField>
-              <DrawerField label="Scope">
-                Read-only analytics scope. No write access is requested.
-              </DrawerField>
-            </>
-          )}
-        </dl>
-      </div>
-
-      <div className="rounded-md border border-dashed border-border p-3 text-2xs text-muted">
-        This is a demo boundary. The connect action is intentionally inert — no fields are rendered,
-        no secrets are captured, and no network request is made.
-      </div>
-    </div>
-  );
-}
-
-/* ---------------------------------------------------------------------- */
-/* 3. Locations & devices                                                 */
-/* ---------------------------------------------------------------------- */
-
-function LocationsSection() {
-  return (
-    <div className="space-y-5">
-      <Card className="p-4">
-        <div className="mb-3">
-          <h3 className="text-sm font-semibold text-ink">Tracked locations</h3>
-          <p className="text-2xs text-muted">
-            Read-only demo config — one primary market per domain drives SERP location targeting.
-          </p>
-        </div>
-        <div className="divide-y divide-border">
-          {DOMAINS.map((d) => (
-            <div key={d.id} className="flex items-center justify-between gap-3 py-3">
-              <div className="flex items-center gap-2.5">
-                <MapPin className="h-4 w-4 text-muted" />
-                <div>
-                  <div className="text-sm font-medium text-ink">{d.name}</div>
-                  <div className="text-2xs text-muted">{d.host}</div>
-                </div>
-              </div>
-              <StatusBadge label={d.primaryMarket} tone="info" />
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      <Card className="p-4">
-        <div className="mb-3">
-          <h3 className="text-sm font-semibold text-ink">Devices</h3>
-          <p className="text-2xs text-muted">Both device profiles are tracked for every keyword.</p>
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {[
-            { icon: Monitor, label: "Desktop", detail: "Desktop SERP + Core Web Vitals" },
-            { icon: Smartphone, label: "Mobile", detail: "Mobile-first SERP + CWV" },
-          ].map((dev) => {
-            const Icon = dev.icon;
+        <div className="grid grid-cols-4 gap-3">
+          {BUDGET_THRESHOLDS.map((t) => {
+            const crossed = budget.crossed.includes(t);
             return (
               <div
-                key={dev.label}
-                className="flex items-center justify-between rounded-md border border-border p-3"
+                key={t}
+                className={cn(
+                  "rounded-md border p-3 text-center",
+                  crossed
+                    ? t >= 90
+                      ? "border-critical/40 bg-critical/10"
+                      : "border-warning/40 bg-warning/10"
+                    : "border-border",
+                )}
               >
-                <div className="flex items-center gap-2.5">
-                  <Icon className="h-4 w-4 text-purple" />
-                  <div>
-                    <div className="text-sm font-medium text-ink">{dev.label}</div>
-                    <div className="text-2xs text-muted">{dev.detail}</div>
-                  </div>
+                <div
+                  className={cn(
+                    "text-lg font-semibold tnum",
+                    crossed ? (t >= 90 ? "text-critical" : "text-[#B9791A]") : "text-ink",
+                  )}
+                >
+                  {t}%
                 </div>
-                <ReadOnlySwitch on label="Tracked" />
+                <div className="text-2xs text-muted tnum">{currency((budget.limitUsd * t) / 100)}</div>
+                <div className="mt-1 text-2xs font-medium">
+                  {crossed ? (
+                    <span className={t >= 90 ? "text-critical" : "text-[#B9791A]"}>Crossed</span>
+                  ) : (
+                    <span className="text-muted">Not crossed</span>
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
       </Card>
+
+      <Card className="p-4">
+        <h3 className="text-sm font-semibold text-ink">How spend is recorded</h3>
+        <p className="mt-2 text-2xs text-muted">
+          DataForSEO is the only paid provider — Google Search Console and GA4 APIs are free. Spend
+          is recorded per real API call using the actual cost the provider returns, so the meter
+          above reflects genuine month-to-date usage, not estimates.
+        </p>
+      </Card>
     </div>
   );
 }
 
 /* ---------------------------------------------------------------------- */
-/* 4. Crawl settings & tracking frequency                                 */
+/* 5. Users & roles — access-model description (auth is a next milestone) */
 /* ---------------------------------------------------------------------- */
 
-function CrawlSection() {
-  return (
-    <Card className="p-4">
-      <div className="mb-3">
-        <h3 className="text-sm font-semibold text-ink">Crawl settings & tracking frequency</h3>
-        <p className="text-2xs text-muted">
-          Read-only demo schedules. Cadences become editable per domain once providers are connected.
-        </p>
-      </div>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        {CRAWL_SETTINGS.map((c) => (
-          <div key={c.title} className="rounded-md border border-border p-3">
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-sm font-medium text-ink">{c.title}</div>
-              <StatusBadge label={c.cadence} tone="info" />
-            </div>
-            <p className="mt-1.5 text-2xs text-muted">{c.detail}</p>
-          </div>
-        ))}
-      </div>
-    </Card>
-  );
+interface AppUser {
+  id: string;
+  name: string;
+  email: string;
+  role: "admin" | "manager" | "seo_analyst" | "viewer";
 }
 
-/* ---------------------------------------------------------------------- */
-/* 5. Users & roles                                                       */
-/* ---------------------------------------------------------------------- */
+const USERS: AppUser[] = [{ id: "u-1", name: "Orwell Admin", email: "admin@orwell.io", role: "admin" }];
+
+const ROLE_PERMISSIONS: Record<AppUser["role"], string> = {
+  admin: "Settings, providers, domains, users and all data across the portfolio.",
+  manager: "All domains, reports, approvals and tasks. No provider/user administration.",
+  seo_analyst: "Research, analysis, recommendations and tasks for assigned domains.",
+  viewer: "Read-only access to dashboards and reports.",
+};
+
+const ROLE_TONE: Record<AppUser["role"], "info" | "success" | "warning" | "neutral"> = {
+  admin: "info",
+  manager: "success",
+  seo_analyst: "warning",
+  viewer: "neutral",
+};
 
 function UsersSection() {
-  const columns: Column<DemoUser>[] = [
-    {
-      key: "name",
-      header: "User",
-      sortValue: (u) => u.name,
-      render: (u) => (
-        <div>
-          <div className="font-medium text-ink">{u.name}</div>
-          <div className="text-2xs text-muted">{u.email}</div>
-        </div>
-      ),
-    },
-    {
-      key: "role",
-      header: "Role",
-      sortValue: (u) => u.role,
-      render: (u) => <StatusBadge label={u.role} tone={ROLE_TONE[u.role]} />,
-    },
-    {
-      key: "permissions",
-      header: "Permissions",
-      render: (u) => <span className="text-muted">{ROLE_PERMISSIONS[u.role]}</span>,
-    },
-  ];
+  const columns = useMemo<Column<AppUser>[]>(
+    () => [
+      {
+        key: "name",
+        header: "User",
+        sortValue: (u) => u.name,
+        render: (u) => (
+          <div>
+            <div className="font-medium text-ink">{u.name}</div>
+            <div className="text-2xs text-muted">{u.email}</div>
+          </div>
+        ),
+      },
+      {
+        key: "role",
+        header: "Role",
+        sortValue: (u) => u.role,
+        render: (u) => <StatusBadge label={u.role} tone={ROLE_TONE[u.role]} />,
+      },
+      {
+        key: "permissions",
+        header: "Permissions",
+        render: (u) => <span className="text-muted">{ROLE_PERMISSIONS[u.role]}</span>,
+      },
+    ],
+    [],
+  );
 
   return (
     <div className="space-y-5">
       <Card className="p-4">
         <div className="mb-3">
           <h3 className="text-sm font-semibold text-ink">Users</h3>
-          <p className="text-2xs text-muted">Demo directory — one seeded administrator.</p>
+          <p className="text-2xs text-muted">
+            The pilot runs with a single administrator. This is a description of the intended
+            access model, not live account data.
+          </p>
         </div>
-        {DEMO_USERS.length === 0 ? (
-          <EmptyState title="No users" description="Invite users once authentication is configured." />
-        ) : (
-          <DataTable rows={DEMO_USERS} columns={columns} exportName="users" pageSize={10} />
-        )}
+        <DataTable rows={USERS} columns={columns} exportName="users" pageSize={10} />
       </Card>
 
       <Card className="p-4">
         <div className="mb-3">
           <h3 className="text-sm font-semibold text-ink">Roles</h3>
-          <p className="text-2xs text-muted">
-            Four role tiers govern what each user can see and do.
-          </p>
+          <p className="text-2xs text-muted">Four role tiers govern what each user can see and do.</p>
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {(Object.keys(ROLE_PERMISSIONS) as DemoUser["role"][]).map((role) => (
+          {(Object.keys(ROLE_PERMISSIONS) as AppUser["role"][]).map((role) => (
             <div key={role} className="rounded-md border border-border p-3">
               <StatusBadge label={role} tone={ROLE_TONE[role]} />
               <p className="mt-2 text-2xs text-muted">{ROLE_PERMISSIONS[role]}</p>
@@ -692,353 +754,8 @@ function UsersSection() {
           ))}
         </div>
         <p className="mt-3 inline-flex items-center gap-1.5 text-2xs text-muted">
-          <Lock className="h-3.5 w-3.5" /> Authentication is a demo boundary — no credentials or
-          secrets are hard-coded, and sign-in is stubbed for the pilot.
-        </p>
-      </Card>
-    </div>
-  );
-}
-
-/* ---------------------------------------------------------------------- */
-/* 6. API usage & spending guardrails (cost controls)                     */
-/* ---------------------------------------------------------------------- */
-
-function UsageSection({
-  perDomainBudgets,
-  ledger,
-  ledgerColumns,
-  totalRequests,
-  emergencyPaused,
-  onToggleEmergency,
-}: {
-  perDomainBudgets: { domain: Domain; limit: number }[];
-  ledger: UsageLedgerEntry[];
-  ledgerColumns: Column<UsageLedgerEntry>[];
-  totalRequests: number;
-  emergencyPaused: boolean;
-  onToggleEmergency: () => void;
-}) {
-  return (
-    <div className="space-y-5">
-      {/* Global guardrail */}
-      <Card className="p-4">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-semibold text-ink">Global monthly spending guardrail</h3>
-            <p className="text-2xs text-muted">
-              Hard cap across every provider and domain. Requests are refused once the cap is hit.
-            </p>
-          </div>
-          <StatusBadge label="Demo — $0 spent" tone="success" />
-        </div>
-        <UsageMeter spent={0} limit={200} label="Global monthly budget" />
-        <div className="mt-3 grid grid-cols-3 gap-3">
-          <div className="rounded-md border border-border p-3">
-            <div className="text-2xs text-muted">Requests (30d)</div>
-            <div className="text-lg font-semibold text-ink tnum">{fullNumber(totalRequests)}</div>
-          </div>
-          <div className="rounded-md border border-border p-3">
-            <div className="text-2xs text-muted">Spend (30d)</div>
-            <div className="text-lg font-semibold text-ink tnum">{currency(0)}</div>
-          </div>
-          <div className="rounded-md border border-border p-3">
-            <div className="text-2xs text-muted">Remaining</div>
-            <div className="text-lg font-semibold text-ink tnum">{currency(200)}</div>
-          </div>
-        </div>
-      </Card>
-
-      {/* Per-domain sub-budgets */}
-      <Card className="p-4">
-        <div className="mb-3">
-          <h3 className="text-sm font-semibold text-ink">Per-domain sub-budgets</h3>
-          <p className="text-2xs text-muted">
-            Illustrative split of the $200 global cap across the portfolio. Each domain spent $0.
-          </p>
-        </div>
-        <div className="space-y-3">
-          {perDomainBudgets.map(({ domain, limit }) => (
-            <div key={domain.id} className="rounded-md border border-border p-3">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full" style={{ background: domain.accent }} />
-                <span className="text-sm font-medium text-ink">{domain.name}</span>
-              </div>
-              <UsageMeter spent={0} limit={limit} label={`${domain.host} budget`} />
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      {/* Budget thresholds */}
-      <Card className="p-4">
-        <div className="mb-3">
-          <h3 className="text-sm font-semibold text-ink">Budget alert thresholds</h3>
-          <p className="text-2xs text-muted">
-            Alerts fire as cumulative spend crosses each threshold of the guardrail.
-          </p>
-        </div>
-        <div className="grid grid-cols-4 gap-3">
-          {BUDGET_THRESHOLDS.map((t) => (
-            <div key={t} className="rounded-md border border-border p-3 text-center">
-              <div
-                className={cn(
-                  "text-lg font-semibold tnum",
-                  t >= 90 ? "text-critical" : t >= 75 ? "text-warning" : "text-ink",
-                )}
-              >
-                {t}%
-              </div>
-              <div className="text-2xs text-muted">{currency((200 * t) / 100)}</div>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      {/* Request efficiency controls */}
-      <Card>
-        <CardHeader
-          title="Request efficiency & safety controls"
-          subtitle="Read-only demo — how cost is kept down under live operation"
-        />
-        <div className="divide-y divide-border">
-          <ToggleRow
-            title="Caching & deduplication"
-            detail="Reuse recent provider responses; collapse duplicate in-flight requests."
-            on
-          />
-          <ToggleRow
-            title="Request batching"
-            detail="Group keyword / SERP lookups into batched provider calls."
-            on
-          />
-          <ToggleRow
-            title="Retry limit + exponential backoff"
-            detail="Max 3 retries with exponential backoff to avoid runaway request storms."
-            on
-          />
-          <div className="flex items-center justify-between gap-4 px-4 py-3">
-            <div className="min-w-0">
-              <div className="text-sm font-medium text-ink">Emergency pause — non-critical jobs</div>
-              <div className="text-2xs text-muted">
-                Immediately halt all non-critical provider jobs. Critical alerts still run.
-              </div>
-            </div>
-            <button
-              onClick={onToggleEmergency}
-              role="switch"
-              aria-checked={emergencyPaused}
-              className="flex items-center gap-2 whitespace-nowrap"
-            >
-              <span
-                className={cn(
-                  "text-2xs font-medium",
-                  emergencyPaused ? "text-critical" : "text-muted",
-                )}
-              >
-                {emergencyPaused ? "Paused" : "Active"}
-              </span>
-              <span
-                aria-hidden
-                className={cn(
-                  "relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors",
-                  emergencyPaused ? "bg-critical" : "bg-workspace border border-border",
-                )}
-              >
-                <span
-                  className={cn(
-                    "inline-block h-3 w-3 transform rounded-full bg-white shadow-sm transition-transform",
-                    emergencyPaused ? "translate-x-3.5" : "translate-x-0.5",
-                  )}
-                />
-              </span>
-            </button>
-          </div>
-        </div>
-      </Card>
-
-      {/* Request modes */}
-      <Card className="p-4">
-        <div className="mb-3">
-          <h3 className="text-sm font-semibold text-ink">Request mode</h3>
-          <p className="text-2xs text-muted">
-            Default demo mode is Normal — cached-first and batched for lowest cost.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {REQUEST_MODES.map((m) => {
-            const active = m.id === "normal";
-            return (
-              <div
-                key={m.id}
-                className={cn(
-                  "rounded-md border p-3",
-                  active ? "border-purple bg-purple/5" : "border-border",
-                )}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium text-ink">{m.label}</span>
-                  {active ? (
-                    <Check className="h-4 w-4 text-purple" />
-                  ) : (
-                    <Circle className="h-3.5 w-3.5 text-muted" />
-                  )}
-                </div>
-                <p className="mt-1 text-2xs text-muted">{m.detail}</p>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
-
-      {/* Usage ledger */}
-      <Card className="p-4">
-        <div className="mb-3">
-          <h3 className="text-sm font-semibold text-ink">Usage ledger</h3>
-          <p className="text-2xs text-muted">
-            Per-day provider activity over the last 30 days. All spend is {currency(0)} in demo mode.
-          </p>
-        </div>
-        {ledger.length === 0 ? (
-          <EmptyState title="No usage recorded" description="Provider calls will appear here once connected." />
-        ) : (
-          <DataTable
-            rows={ledger}
-            columns={ledgerColumns}
-            searchKeys={(r) => `${r.module} ${r.provider}`}
-            exportName="usage-ledger"
-            pageSize={12}
-          />
-        )}
-      </Card>
-    </div>
-  );
-}
-
-/* ---------------------------------------------------------------------- */
-/* 7. Notifications & alerts                                              */
-/* ---------------------------------------------------------------------- */
-
-function NotificationsSection() {
-  const alerts = SEED.alerts;
-
-  return (
-    <div className="space-y-5">
-      <Card className="p-4">
-        <div className="mb-3">
-          <h3 className="text-sm font-semibold text-ink">Notification rules</h3>
-          <p className="text-2xs text-muted">Read-only demo toggles — which events raise an alert.</p>
-        </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {NOTIFICATION_RULES.map((r) => (
-            <div
-              key={r.title}
-              className="flex items-center justify-between gap-3 rounded-md border border-border p-3"
-            >
-              <div className="min-w-0">
-                <div className="text-sm font-medium text-ink">{r.title}</div>
-                <div className="text-2xs text-muted">{r.detail}</div>
-              </div>
-              <ReadOnlySwitch on={r.on} />
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      <Card className="p-4">
-        <div className="mb-3">
-          <h3 className="text-sm font-semibold text-ink">Recent alerts</h3>
-          <p className="text-2xs text-muted">{alerts.length} alerts in the demo feed.</p>
-        </div>
-        {alerts.length === 0 ? (
-          <EmptyState title="No alerts" description="You are all caught up." />
-        ) : (
-          <div className="space-y-2">
-            {alerts.map((a) => (
-              <div
-                key={a.id}
-                className={cn(
-                  "flex items-start justify-between gap-3 rounded-md border border-border p-3",
-                  !a.read && "bg-workspace/40",
-                )}
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <SeverityBadge severity={a.severity} />
-                    {!a.read && <span className="h-1.5 w-1.5 rounded-full bg-purple" aria-label="Unread" />}
-                  </div>
-                  <div className="mt-1.5 text-sm font-medium text-ink">{a.title}</div>
-                  <p className="text-2xs text-muted">{a.detail}</p>
-                </div>
-                <div className="shrink-0 whitespace-nowrap text-right">
-                  <div className="text-2xs text-muted">{a.module}</div>
-                  <div className="text-2xs text-muted">{relativeFromNow(a.createdAt)}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
-    </div>
-  );
-}
-
-/* ---------------------------------------------------------------------- */
-/* 8. Sync history & error logs / cache controls                          */
-/* ---------------------------------------------------------------------- */
-
-function SyncSection({
-  cacheCleared,
-  onClearCache,
-}: {
-  cacheCleared: boolean;
-  onClearCache: () => void;
-}) {
-  return (
-    <div className="space-y-5">
-      <Card className="p-4">
-        <div className="mb-3">
-          <h3 className="text-sm font-semibold text-ink">Sync history & error logs</h3>
-          <p className="text-2xs text-muted">
-            Provider sync runs and errors are logged here once connections are live.
-          </p>
-        </div>
-        <EmptyState
-          title="No sync runs yet"
-          description="Demo mode — no provider has synced. Connect a provider under Data connections to begin populating this log."
-          icon={<History className="h-6 w-6" />}
-        />
-      </Card>
-
-      <Card className="p-4">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-semibold text-ink">Cache controls</h3>
-            <p className="text-2xs text-muted">
-              Clearing the cache forces the next request to hit the provider directly.
-            </p>
-          </div>
-          <Button variant="secondary" size="sm" onClick={onClearCache} disabled={cacheCleared}>
-            <Trash2 className="h-3.5 w-3.5" /> {cacheCleared ? "Cache cleared" : "Clear cache"}
-          </Button>
-        </div>
-        {cacheCleared && (
-          <div className="rounded-md border border-success/25 bg-success/10 px-3 py-2 text-2xs text-success">
-            Local cache cleared. In demo mode this is a no-op — no cached provider data exists.
-          </div>
-        )}
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="rounded-md border border-border p-3">
-            <div className="text-2xs text-muted">Cache retention</div>
-            <div className="text-sm font-medium text-ink">24 hours (default)</div>
-          </div>
-          <div className="rounded-md border border-border p-3">
-            <div className="text-2xs text-muted">Log retention</div>
-            <div className="text-sm font-medium text-ink">90 days</div>
-          </div>
-        </div>
-        <p className="mt-3 text-2xs text-muted">
-          Retention windows are illustrative demo defaults and become configurable in production.
+          <Lock className="h-3.5 w-3.5" /> Auth integration is a next milestone — sign-in is not
+          yet wired, and no credentials are stored in the app.
         </p>
       </Card>
     </div>

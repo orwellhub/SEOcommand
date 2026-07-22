@@ -4,7 +4,6 @@ import { PortfolioRail } from "./portfolio-rail";
 import { TopNav } from "./top-nav";
 import { ContextBar } from "./context-bar";
 import { MobileNav } from "./mobile-nav";
-import { DemoBanner } from "./demo-banner";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
@@ -18,7 +17,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         <ContextBar />
-        <DemoBanner />
         <main className="flex-1 overflow-y-auto">
           <div className="mx-auto max-w-[1400px] px-4 py-5 sm:px-6">{children}</div>
         </main>
