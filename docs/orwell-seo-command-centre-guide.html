@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>The SEO Command Centre: a plain-English guide and roadmap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#465478; --indigo:#7584d6; --indigo-deep:#545c9e; --lavender:#a5a4fa;
+  --cyan:#80e5ff; --pink:#ff9fd7; --orange:#fa6e43; --bg:#f9fafb; --surface:#ffffff;
+  --surface2:#f1f2f9; --tint:#e3e6fa; --border:#dfe1f5; --muted:#888891;
+  --radius-card:14px; --radius-btn:24px;
+  --shadow-card:0 2px 6px rgba(84,92,158,.06),0 12px 28px rgba(84,92,158,.08);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:24px}
+body{background:var(--bg);color:var(--ink);font-family:'Manrope',system-ui,sans-serif;
+  font-size:16.5px;line-height:1.7;font-weight:400;padding:56px 0 80px}
+.wrap{max-width:1080px;margin:0 auto;padding:0 28px;position:relative}
+.narrow{max-width:820px}
+h1{font-size:52px;line-height:1.06;font-weight:500;letter-spacing:-0.045em;max-width:820px;color:var(--ink)}
+h2{font-size:34px;font-weight:500;letter-spacing:-0.03em;margin-bottom:16px;max-width:680px;color:var(--ink)}
+h3{font-size:18px;font-weight:700;color:var(--ink)}
+p{margin-bottom:14px;max-width:70ch}
+a{color:var(--indigo);text-decoration:none}
+a:hover{color:var(--indigo-deep)}
+.eyebrow{font-size:12.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--indigo);display:block;margin-bottom:14px}
+.lead{font-size:19.5px;max-width:640px;margin-top:22px}
+.section{margin-top:72px}
+.section-intro{font-size:17.5px;max-width:640px;margin-bottom:8px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-card);
+  padding:28px 32px;box-shadow:var(--shadow-card)}
+.card .tag{font-size:11.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--indigo);display:block;margin-bottom:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+@media(max-width:860px){.grid2,.grid3{grid-template-columns:1fr}h1{font-size:38px}}
+.meta-strip{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
+.meta-strip .chip{background:var(--surface);border:1px solid var(--border);border-radius:999px;
+  padding:7px 16px;font-size:13px;font-weight:600;color:var(--indigo-deep)}
+.toc{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-card);padding:26px 32px;margin-top:44px}
+.toc ol{margin:8px 0 0 20px}
+.toc li{margin-bottom:6px;font-weight:600}
+.toc li a{color:var(--indigo-deep)}
+.toc .sub{font-weight:400;color:var(--muted);font-size:14px;margin-left:6px}
+.module{margin-top:28px}
+.module h3{font-size:22px;font-weight:600;letter-spacing:-0.02em;margin-bottom:4px}
+.module .route{font-family:ui-monospace,monospace;font-size:12.5px;color:var(--muted);background:var(--surface2);
+  border:1px solid var(--border);border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:middle;letter-spacing:0}
+.module .blocks{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:18px}
+@media(max-width:860px){.module .blocks{grid-template-columns:1fr}}
+.block{background:var(--surface2);border-radius:10px;padding:18px 20px}
+.block b{display:block;font-size:11.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--indigo);margin-bottom:8px}
+.block p{font-size:14.5px;margin-bottom:8px;line-height:1.6}
+.block p:last-child{margin-bottom:0}
+.gloss{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px}
+@media(max-width:720px){.gloss{grid-template-columns:1fr}}
+.gloss .g{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;font-size:14.5px;line-height:1.6}
+.gloss .g b{color:var(--indigo-deep)}
+.idea{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;box-shadow:var(--shadow-card)}
+.idea h4{font-size:15.5px;font-weight:700;margin-bottom:6px;color:var(--ink)}
+.idea p{font-size:14px;line-height:1.6;margin-bottom:0;color:var(--ink)}
+.idea .lift{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  border-radius:999px;padding:2px 10px;margin-bottom:10px}
+.lift.watch{background:#e6f7fd;color:#1f7f9c}
+.lift.triage{background:var(--tint);color:var(--indigo-deep)}
+.lift.act{background:#ffe9f5;color:#b04a86}
+.lift.data{background:#eef1e6;color:#5f7a3d}
+.lift.geo{background:#f3e8ff;color:#7a4ab0}
+.lift.money{background:#fff0e8;color:#b05a2e}
+.lift.rails{background:#e8ecf7;color:#3d4d8a}
+.lift.flow{background:#fdf3d8;color:#9a7a1a}
+.tiers{width:100%;border-collapse:collapse;margin-top:18px;font-size:14.5px;background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--radius-card);overflow:hidden}
+.tiers th{background:var(--surface2);text-align:left;padding:12px 16px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--indigo-deep)}
+.tiers td{padding:12px 16px;border-top:1px solid var(--border);vertical-align:top;line-height:1.55}
+.tiers td:first-child{white-space:nowrap;font-weight:700}
+.pill{display:inline-block;border-radius:999px;padding:3px 12px;font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.pill.now{background:linear-gradient(123deg,#5967b5 -12%,#908eed 88.69%);color:#fff}
+.pill.next{background:var(--tint);color:var(--indigo-deep)}
+.pill.later{background:var(--surface2);color:var(--muted);border:1px solid var(--border)}
+.rule{border:none;border-top:1px solid var(--border);margin:56px 0}
+.note{background:var(--surface2);border-left:3px solid var(--indigo);border-radius:0 10px 10px 0;
+  padding:16px 22px;font-size:14.5px;margin:20px 0}
+.sources{font-size:13.5px;color:var(--muted)}
+.sources a{color:var(--indigo)}
+.sources li{margin-bottom:4px}
+footer{margin-top:80px;padding-top:24px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <span class="eyebrow">Orwell Lab · Internal · July 2026</span>
+  <h1>The SEO Command Centre, explained, and where it goes next</h1>
+  <p class="lead">A plain-English walkthrough of every screen on the platform, written for someone who has never touched SEO, followed by a roadmap of upgrades for running a growing portfolio of websites with a small team.</p>
+  <div class="meta-strip">
+    <span class="chip">12 live properties</span>
+    <span class="chip">3 data sources, all live</span>
+    <span class="chip">$200/month spend guardrail</span>
+    <span class="chip">Daily free sync, weekly and monthly paid pulls</span>
+  </div>
+
+  <div class="toc">
+    <span class="eyebrow" style="margin-bottom:6px">Contents</span>
+    <ol>
+      <li><a href="#data">Where the numbers come from</a> <span class="sub">the three feeds, and what each one costs</span></li>
+      <li><a href="#glossary">Eight words that unlock everything</a></li>
+      <li><a href="#tour">The guided tour</a> <span class="sub">all eleven screens, in plain English</span></li>
+      <li><a href="#roadmap">The roadmap</a> <span class="sub">the operating problem, and sixty ways to solve it</span></li>
+      <li><a href="#sequence">A suggested build order</a></li>
+    </ol>
+  </div>
+
+  <!-- ============================ DATA SOURCES ============================ -->
+  <div class="section" id="data">
+    <span class="eyebrow">Part one · Foundations</span>
+    <h2>Where the numbers come from</h2>
+    <p class="section-intro">Every figure on the platform is pulled from one of three live sources and stored with a timestamp. Nothing is estimated by hand and nothing is invented. If a screen has no data yet, it says so.</p>
+
+    <div class="grid3" style="margin-top:24px">
+      <div class="card">
+        <span class="tag">Google Search Console · Free</span>
+        <h3>Google's own receipts</h3>
+        <p style="font-size:14.5px">Google tells us, for each of our sites, how many times we appeared in search results, how many people clicked, and what they searched for. This is first-party truth, straight from the source, and it costs nothing. The platform refreshes it every day.</p>
+      </div>
+      <div class="card">
+        <span class="tag">Google Analytics 4 · Free</span>
+        <h3>What visitors did next</h3>
+        <p style="font-size:14.5px">Once someone lands on a site, GA4 records what they did: how long they stayed, which pages they used, and whether they completed something valuable such as an enquiry. Seven of the twelve properties have GA4 connected today; the other five report search data only.</p>
+      </div>
+      <div class="card">
+        <span class="tag">DataForSEO · Paid</span>
+        <h3>Binoculars on the market</h3>
+        <p style="font-size:14.5px">A commercial data provider that watches the wider market: which keywords each site ranks for, who the competitors are, who links to us, and what an automated crawl finds wrong with each site. Every call is metered against a hard $200 monthly ceiling the platform enforces itself.</p>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>The pull schedule, in one line.</b> Free Google data refreshes every day at 06:00 UTC. Paid market data refreshes weekly on Mondays. The expensive items, full site crawls and AI answer checks, run monthly on the 1st. Any property can be refreshed on demand. Typical running cost is $10 to $15 a month; the first full month of building and testing recorded $5.98.
+    </div>
+  </div>
+
+  <!-- ============================ GLOSSARY ============================ -->
+  <div class="section" id="glossary">
+    <span class="eyebrow">Part one · Foundations</span>
+    <h2>Eight words that unlock everything</h2>
+    <div class="gloss">
+      <div class="g"><b>Impression.</b> One appearance of your site in someone's search results, whether or not they clicked. Think of it as a shop window: an impression means someone walked past.</div>
+      <div class="g"><b>Click.</b> Someone actually chose your result and visited. Clicks divided by impressions is the <b>CTR</b> (click-through rate): the share of passers-by who came in.</div>
+      <div class="g"><b>Position.</b> Where you appeared on the results page. Position 1 is top. Most clicks go to the first three results, so moving from position 12 to position 3 is transformative, not incremental.</div>
+      <div class="g"><b>Keyword.</b> A search phrase people type, such as "mortgage rates uae". Each keyword has a monthly search volume (how many people search it) and a difficulty (how hard it is to rank for).</div>
+      <div class="g"><b>Backlink.</b> A link from someone else's website to yours. Search engines treat links from reputable, relevant sites as votes of confidence. Links from spammy sites can hurt instead.</div>
+      <div class="g"><b>Crawl.</b> An automated robot visits every page of a site and checks it for problems: broken links, missing titles, slow pages, and so on. Search engines run their own crawlers, so what our crawl finds, Google finds too.</div>
+      <div class="g"><b>Conversion.</b> A visit that turned into something valuable: an enquiry, a sign-up, a call. Traffic is a means; conversions are the point.</div>
+      <div class="g"><b>Organic.</b> Traffic that arrived from unpaid search results, as opposed to adverts. This entire platform is about growing organic traffic, which compounds and is free per visit.</div>
+    </div>
+  </div>
+
+  <hr class="rule">
+
+  <!-- ============================ GUIDED TOUR ============================ -->
+  <div class="section" id="tour">
+    <span class="eyebrow">Part two · The guided tour</span>
+    <h2>Every screen, in plain English</h2>
+    <p class="section-intro">The platform has eleven screens. Each one answers a specific question. The left rail lists all twelve properties; pick one and every screen switches to it. Green "Live" badges show when the data was last refreshed.</p>
+
+    <div class="module card">
+      <h3>Portfolio <span class="route">/portfolio</span></h3>
+      <p style="font-size:14px;color:var(--muted)">The question it answers: how is the whole estate doing, and which site needs me today?</p>
+      <div class="blocks">
+        <div class="block"><b>What you see</b>
+          <p>Totals across all twelve sites (clicks, visits, conversions, average site health), then a leaderboard table with one row per property: traffic, health, authority, critical issues, and when it last synced.</p></div>
+        <div class="block"><b>What it means</b>
+          <p>The leaderboard is a triage list. A site with high clicks and low health is earning traffic despite technical problems. A site with critical issues in red is at risk. "GSC only" chips mark sites without analytics connected yet.</p></div>
+        <div class="block"><b>How to use it</b>
+          <p>Start every session here. Sort by whatever worries you (critical issues, falling clicks), click the site that stands out, and drill in. This screen exists so nothing gets forgotten as the portfolio grows.</p></div>
+      </div>
+    </div>
+
+    <div class="module card">
+      <h3>Domain overview <span class="route">/domain</span></h3>
+      <p style="font-size:14px;color:var(--muted)">The question it answers: how is this one site doing, end to end?</p>
+      <div class="blocks">
+        <div class="block"><b>What you see</b>
+          <p>Headline numbers from Google (clicks, impressions, CTR, average position) and from analytics (visits, engagement, conversions), a 90-day traffic chart, top pages, the searches gaining and losing clicks, competitors, a technical summary, and the top recommendations.</p></div>
+        <div class="block"><b>What it means</b>
+          <p>The 90-day chart is real daily history, so trends are visible at a glance. "Query movers" show which searches grew or shrank against the previous 28 days: the earliest warning system for a page that is fading.</p></div>
+        <div class="block"><b>How to use it</b>
+          <p>This is the weekly check-in per site. Rising movers tell you what to double down on; falling movers tell you what to repair. MortgageCompare also shows share of market: measured clicks against the researched pool of 33,090 monthly searches.</p></div>
+      </div>
+    </div>
+
+    <div class="module card">
+      <h3>Research <span class="route">/research</span></h3>
+      <p style="font-size:14px;color:var(--muted)">The question it answers: which searches could this site win?</p>
+      <div class="blocks">
+        <div class="block"><b>What you see</b>
+          <p>Four tabs. Ranked keywords: every search the site currently appears for, with volume, difficulty and position. Search queries: the real phrases people used before clicking. Organic competitors: who else ranks for the same things. Striking distance: searches ranked 4 to 20.</p></div>
+        <div class="block"><b>What it means</b>
+          <p>Striking distance is the cheapest growth available. A search at position 8 with 500 impressions already likes your page; a modest improvement can triple its clicks. Difficulty scores tell you which fights to pick.</p></div>
+        <div class="block"><b>How to use it</b>
+          <p>Filter to high volume and low difficulty for new content ideas. Work the striking-distance list before writing anything new: improving an existing page is usually faster than earning a new ranking from scratch.</p></div>
+      </div>
+    </div>
+
+    <div class="module card">
+      <h3>Rankings <span class="route">/rankings</span></h3>
+      <p style="font-size:14px;color:var(--muted)">The question it answers: where exactly do we stand, and are we moving up or down?</p>
+      <div class="blocks">
+        <div class="block"><b>What you see</b>
+          <p>How many keywords sit in each band (top 3, top 10, and so on), a position trend over time from Google's own data, a full tracked-keyword table, and winners and losers measured in actual clicks.</p></div>
+        <div class="block"><b>What it means</b>
+          <p>The distribution matters more than any single ranking. A healthy site steadily shifts keywords from the 21-50 band into the 4-10 band, then into the top 3. Winners and losers use measured clicks, not guesses.</p></div>
+        <div class="block"><b>How to use it</b>
+          <p>Watch the bands month over month. If the top 10 count falls, something happened: a competitor, a technical problem, or a Google algorithm change. That is your cue to investigate before traffic follows rankings down.</p></div>
+      </div>
+    </div>
+
+    <div class="module card">
+      <h3>Site Audit <span class="route">/site-audit</span></h3>
+      <p style="font-size:14px;color:var(--muted)">The question it answers: is anything broken that could hold rankings back?</p>
+      <div class="blocks">
+        <div class="block"><b>What you see</b>
+          <p>A health score out of 100 from a full monthly crawl, a category breakdown with published weightings, and an issues table: what is wrong, how many pages it affects, how severe it is, and how to fix it.</p></div>
+        <div class="block"><b>What it means</b>
+          <p>The score is a transparent weighted average, no black box. Current scores run from 99 (MortgageCompare, 3,443 pages crawled) down to 39 (MyEnergyClaim), so it genuinely discriminates between healthy and struggling sites.</p></div>
+        <div class="block"><b>How to use it</b>
+          <p>Fix critical and high issues first; they are ordered by severity with a recommended fix attached to each. A rising health score removes the handbrake so that content and link work actually pays off.</p></div>
+      </div>
+    </div>
+
+    <div class="module card">
+      <h3>Backlinks <span class="route">/backlinks</span></h3>
+      <p style="font-size:14px;color:var(--muted)">The question it answers: who vouches for this site, and is any of it risky?</p>
+      <div class="blocks">
+        <div class="block"><b>What you see</b>
+          <p>Every known link pointing at the site, the domains they come from, the anchor text used, and an Orwell Authority Score built from five published components: referring authority, topical relevance, link diversity, visibility, and a spam penalty.</p></div>
+        <div class="block"><b>What it means</b>
+          <p>More links from relevant, reputable sites lift rankings across the whole domain. The risk review flags links with high spam scores; a clean profile today is confirmed by the "no high-risk links detected" state.</p></div>
+        <div class="block"><b>How to use it</b>
+          <p>Watch for new links after PR or content pushes to see what worked. Check the risk tab occasionally; a sudden cluster of spammy links is worth knowing about early.</p></div>
+      </div>
+    </div>
+
+    <div class="module card">
+      <h3>AI Visibility <span class="route">/ai-visibility</span></h3>
+      <p style="font-size:14px;color:var(--muted)">The question it answers: when people ask AI assistants instead of Google, do we get mentioned?</p>
+      <div class="blocks">
+        <div class="block"><b>What you see</b>
+          <p>A set of tracked questions per brand ("What are the best mortgage rates in the UAE?") actually put to an AI assistant each month, with the real response text stored, and verdicts on whether the brand was mentioned or cited.</p></div>
+        <div class="block"><b>What it means</b>
+          <p>A growing share of buying research now happens inside AI answers rather than search results pages. Being the cited source in those answers is the new front door. Uncited prompts are flagged as coverage gaps.</p></div>
+        <div class="block"><b>How to use it</b>
+          <p>Read the stored responses for uncited prompts: they show exactly what the AI said instead, which tells you what content or authority is missing. Three pilot brands are tracked today; adding a brand is a config change.</p></div>
+      </div>
+    </div>
+
+    <div class="module card">
+      <h3>Content <span class="route">/content</span></h3>
+      <p style="font-size:14px;color:var(--muted)">The question it answers: which pages are earning their keep, and which are decaying?</p>
+      <div class="blocks">
+        <div class="block"><b>What you see</b>
+          <p>Every page that received search traffic in the last 28 days, with clicks, impressions and average position, plus two measured lists: pages gaining clicks and pages losing them.</p></div>
+        <div class="block"><b>What it means</b>
+          <p>Content ages. A page that led its market two years ago drifts down as competitors publish fresher material. The decay list is measured against the previous 28 days, so it catches the slide early, while it is still cheap to reverse.</p></div>
+        <div class="block"><b>How to use it</b>
+          <p>Treat the decay list as a maintenance queue: refresh, expand, or consolidate those pages. Rising pages show which topics the market is rewarding right now; make more of those.</p></div>
+      </div>
+    </div>
+
+    <div class="module card">
+      <h3>Recommendations <span class="route">/recommendations</span></h3>
+      <p style="font-size:14px;color:var(--muted)">The question it answers: of everything the data shows, what should we actually do?</p>
+      <div class="blocks">
+        <div class="block"><b>What you see</b>
+          <p>A priority-scored queue of actions derived automatically from the measured data at each sync: push these striking-distance queries, investigate this click decay, fix these crawl issues, review these risky links. Each carries its evidence.</p></div>
+        <div class="block"><b>What it means</b>
+          <p>This is the platform doing the analysis for you. Every recommendation cites the measurement it came from, and nothing executes on its own: a human approves each one into a task first.</p></div>
+        <div class="block"><b>How to use it</b>
+          <p>Work top of the queue first; scores blend impact, confidence and effort. Approve what you accept, dismiss what you do not, and the queue counts update as you go.</p></div>
+      </div>
+    </div>
+
+    <div class="module card">
+      <h3>Reports <span class="route">/reports</span></h3>
+      <p style="font-size:14px;color:var(--muted)">The question it answers: how do I hand this to someone else?</p>
+      <div class="blocks">
+        <div class="block"><b>What you see</b>
+          <p>Six report templates (executive, per-domain, rankings, technical, backlinks, AI visibility) that preview with live numbers, plus a draft scheduler for recurring delivery.</p></div>
+        <div class="block"><b>What it means</b>
+          <p>Reports are assembled from the same stored snapshots as the screens, so a report never disagrees with the dashboard.</p></div>
+        <div class="block"><b>How to use it</b>
+          <p>Use the executive template for a portfolio summary in one page. PDF export and scheduled email delivery are on the roadmap below; previews are live today.</p></div>
+      </div>
+    </div>
+
+    <div class="module card">
+      <h3>Settings <span class="route">/settings</span></h3>
+      <p style="font-size:14px;color:var(--muted)">The question it answers: is the machinery itself healthy?</p>
+      <div class="blocks">
+        <div class="block"><b>What you see</b>
+          <p>The domain registry with each site's Google properties, live connection checks for all three data sources, the sync schedule, and the budget meter showing real spend against the $200 ceiling.</p></div>
+        <div class="block"><b>What it means</b>
+          <p>The connection cards run genuine probes, not status labels someone typed. If a credential breaks, this page shows it first.</p></div>
+        <div class="block"><b>How to use it</b>
+          <p>Glance monthly. If a sync badge anywhere goes stale or a probe fails, this is where you diagnose it.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="rule">
+
+  <!-- ============================ ROADMAP ============================ -->
+  <div class="section" id="roadmap">
+    <span class="eyebrow">Part three · The roadmap</span>
+    <h2>The operating problem, and sixty ways to solve it</h2>
+    <p class="section-intro">The plan is to run many more websites through this system. At five sites, a person can hold everything in their head. At twenty-five, nobody can. The scarce resource stops being data and becomes <b>attention</b>: knowing what changed, what matters, and what to do, without reading forty screens a day.</p>
+    <p class="section-intro">The upgrades below are organised around how institutional-grade systems solve this. Market data terminals answer "what changed and why" with indices, watchlists and annotated events. Observability platforms answer "what needs me now" with baselines, anomaly alerts and on-call routing. Enterprise SEO platforms (Conductor, BrightEdge, seoClarity, Botify) sell share-of-voice reporting, predictive forecasting and automated recommendations at $50,000 to $300,000 a year. We can build the useful parts of all three, because building is not our constraint.</p>
+    <p class="section-intro">Guiding principle throughout: <b>the system watches, triages, and drafts; humans approve.</b></p>
+
+    <h3 style="font-size:22px;margin-top:44px;letter-spacing:-0.02em">A · Watching at scale</h3>
+    <p style="font-size:15px;color:var(--muted);max-width:640px">Nothing important should depend on someone remembering to look.</p>
+    <div class="grid3" style="margin-top:16px">
+      <div class="idea"><span class="lift watch">Watch</span><h4>Baseline anomaly detection</h4><p>Learn each metric's normal range per site from stored history, then alert on genuine deviations: a click drop beyond two standard deviations, a ranking-band collapse, a health-score fall. This is the single highest-leverage upgrade for scale.</p></div>
+      <div class="idea"><span class="lift watch">Watch</span><h4>Morning portfolio digest</h4><p>One daily email or Slack message: what changed across all sites overnight, ranked by importance, with links straight to the relevant screen. Most days it should say "nothing needs you".</p></div>
+      <div class="idea"><span class="lift watch">Watch</span><h4>Algorithm update tracker</h4><p>Ingest public SERP volatility feeds and Google's confirmed update announcements, and mark them as events on every chart. When traffic moves, the first question is always "was it us or was it Google?"; this answers it instantly.</p></div>
+      <div class="idea"><span class="lift watch">Watch</span><h4>Uptime, SSL and domain expiry monitors</h4><p>A site that is down or serving an expired certificate loses rankings fast. Cheap pings and expiry checks across all properties, with immediate alerts, close an embarrassing failure mode entirely.</p></div>
+      <div class="idea"><span class="lift watch">Watch</span><h4>Sitemap and robots watchers</h4><p>Diff each site's robots.txt and sitemaps daily. An accidental "Disallow: /" or a vanished sitemap is a catastrophe that looks like nothing happened; catch it the day it ships.</p></div>
+      <div class="idea"><span class="lift watch">Watch</span><h4>Index coverage alerts</h4><p>Sample key URLs through Google's URL Inspection API and alert when pages fall out of the index or get flagged. Deindexing is the silent killer; today nothing tells us.</p></div>
+      <div class="idea"><span class="lift watch">Watch</span><h4>404 and redirect watch</h4><p>Track pages that previously earned traffic and now return errors, and redirect chains that leak authority. Fed from the crawl plus GSC page data already stored.</p></div>
+      <div class="idea"><span class="lift watch">Watch</span><h4>Backlink velocity alerts</h4><p>Alert on sudden gains (a PR win to amplify) or sudden losses and spam surges (a risk to review). The link data is already synced weekly; this adds memory and comparison.</p></div>
+      <div class="idea"><span class="lift watch">Watch</span><h4>Wallboard mode</h4><p>A full-screen, auto-refreshing status wall: every property as a tile, green, amber or red, with the day's headline movers. Made for a second monitor, glanceable from across the room.</p></div>
+    </div>
+
+    <h3 style="font-size:22px;margin-top:44px;letter-spacing:-0.02em">B · Triage and prioritisation</h3>
+    <p style="font-size:15px;color:var(--muted);max-width:640px">Twenty-five sites produce more findings than one team can action. The system should rank them.</p>
+    <div class="grid3" style="margin-top:16px">
+      <div class="idea"><span class="lift triage">Triage</span><h4>The Orwell Index</h4><p>One composite number per property blending traffic trend, health, authority, and conversion performance, tracked over time like a share price. The portfolio view becomes an index board: what is up, what is down, what is volatile.</p></div>
+      <div class="idea"><span class="lift triage">Triage</span><h4>Opportunity valuation in money</h4><p>Price every striking-distance keyword: search volume × achievable click share × the market cost-per-click already in the data. "Fix this page, gain roughly $840 a month of equivalent traffic" beats any abstract score for deciding what to do first.</p></div>
+      <div class="idea"><span class="lift triage">Triage</span><h4>Cross-portfolio priority queue</h4><p>Merge every site's recommendations into one ranked list weighted by that money value, effort and confidence. The team works one queue, not twelve.</p></div>
+      <div class="idea"><span class="lift triage">Triage</span><h4>Risk register</h4><p>A standing list of what could hurt each property: toxic link clusters, single points of failure (one page earning 60% of clicks), thin GA4 coverage, expiring assets. Reviewed monthly, like an audit committee.</p></div>
+      <div class="idea"><span class="lift triage">Triage</span><h4>Portfolio heatmap</h4><p>Properties × dimensions (traffic, health, links, AI visibility, conversions) as a colour grid. Weak columns show systemic gaps; weak rows show struggling sites. One glance replaces forty screens.</p></div>
+      <div class="idea"><span class="lift triage">Triage</span><h4>Sector benchmarks</h4><p>Group sites by market (UAE finance, UK claims, services) and benchmark within the group. A 2% CTR may be excellent in one market and poor in another; context makes numbers meaningful.</p></div>
+      <div class="idea"><span class="lift triage">Triage</span><h4>Movers feed</h4><p>A chronological feed of significant changes across the whole estate, filterable by type and severity. The "what happened while I was away" answer after any absence.</p></div>
+      <div class="idea"><span class="lift triage">Triage</span><h4>Watchlists</h4><p>Pin any set of keywords, pages or competitors across any sites into a named list with its own mini-dashboard and alerts. "UAE money terms", "Q3 launches", "Competitor X watch".</p></div>
+    </div>
+
+    <h3 style="font-size:22px;margin-top:44px;letter-spacing:-0.02em">C · Acting: agentic operations</h3>
+    <p style="font-size:15px;color:var(--muted);max-width:640px">We build AI systems. The endgame is a platform that not only finds the work but drafts it, with a human approving each change.</p>
+    <div class="grid3" style="margin-top:16px">
+      <div class="idea"><span class="lift act">Act</span><h4>Recommendation to pull request</h4><p>Connect each site's code repository. When a recommendation is approved (fix these titles, add this schema, repair these links), an agent drafts the actual change as a pull request for review. The loop from insight to shipped fix collapses from weeks to hours.</p></div>
+      <div class="idea"><span class="lift act">Act</span><h4>Anomaly investigator</h4><p>When an alert fires, an agent gathers the evidence before a human arrives: what moved, when, which pages and queries, whether an algorithm update coincided, what changed in the repo. The alert arrives with a diagnosis attached.</p></div>
+      <div class="idea"><span class="lift act">Act</span><h4>Brief and draft pipeline</h4><p>For an approved content opportunity, generate a data-backed brief (target queries, questions to answer, competitors to beat) and a first draft, pushed to the CMS or repo as a draft awaiting human edit and sign-off.</p></div>
+      <div class="idea"><span class="lift act">Act</span><h4>Content refresh agent</h4><p>Point it at the decay list: it re-reads the page, compares against the queries it is losing and the pages now winning them, and drafts the specific update. Decay maintenance becomes a reviewed pipeline instead of a chore.</p></div>
+      <div class="idea"><span class="lift act">Act</span><h4>Internal link suggester</h4><p>From the crawl graph and keyword data, propose specific internal links (this page should link to that one, with this anchor) as one-click accepted changes. Internal linking is high-value and almost never done systematically.</p></div>
+      <div class="idea"><span class="lift act">Act</span><h4>Schema generator</h4><p>Detect templates missing structured data and generate correct FAQ, Service, Product or Breadcrumb markup per page type, shipped through the PR pipeline. Rich results and AI answers both feed on schema.</p></div>
+      <div class="idea"><span class="lift act">Act</span><h4>Title and meta optimiser</h4><p>Rewrite weak titles and descriptions for pages with high impressions but poor CTR, then measure the before and after in GSC automatically. A contained, measurable, endlessly repeatable win.</p></div>
+      <div class="idea"><span class="lift act">Act</span><h4>Fix verification loop</h4><p>Every completed task gets an automatic before-and-after measurement window with a verdict: did the metric move? Closes the loop institutions care most about: proving the work worked.</p></div>
+      <div class="idea"><span class="lift act">Act</span><h4>Weekly narrative writer</h4><p>An agent writes the Monday morning story per property and for the portfolio: what changed, why we think so, what we did, what is queued. Reads like an analyst's note, grounded in stored numbers only.</p></div>
+    </div>
+
+    <h3 style="font-size:22px;margin-top:44px;letter-spacing:-0.02em">D · Deeper data</h3>
+    <p style="font-size:15px;color:var(--muted);max-width:640px">Additions to the collection layer that unlock the analysis above. Most reuse APIs we already pay for or free ones we have not tapped.</p>
+    <div class="grid3" style="margin-top:16px">
+      <div class="idea"><span class="lift data">Data</span><h4>True daily rank history</h4><p>Store every keyword's position every day (the snapshot table already supports it) so any keyword shows a real position chart, not just current-versus-previous. Trend charts become forensic.</p></div>
+      <div class="idea"><span class="lift data">Data</span><h4>Keyword gap analysis</h4><p>Use the domain-intersection endpoint to list keywords where a competitor ranks and we do not. The classic "steal their homework" report, and the provider already offers it.</p></div>
+      <div class="idea"><span class="lift data">Data</span><h4>SERP feature tracking</h4><p>Record which results carry featured snippets, AI overviews, local packs and who owns them. Some positions are worth triple; knowing which changes priorities.</p></div>
+      <div class="idea"><span class="lift data">Data</span><h4>Core Web Vitals via CrUX</h4><p>Google publishes real-user speed data through the free CrUX API. Page experience scores per site with zero marginal cost; slow templates surface themselves.</p></div>
+      <div class="idea"><span class="lift data">Data</span><h4>New and lost backlink ledger</h4><p>Diff each weekly backlink pull against the last to build a permanent gained-and-lost history with dates. Velocity, trends and alerting all fall out of it.</p></div>
+      <div class="idea"><span class="lift data">Data</span><h4>Log file analysis</h4><p>Ingest server logs to see exactly which pages search engine bots crawl, how often, and what they skip. The ground truth of crawl budget, and a Botify-class capability we can have for the cost of a parser.</p></div>
+      <div class="idea"><span class="lift data">Data</span><h4>Geo and device splits</h4><p>Break rankings and traffic down by country and device, both already dimensions in the data we pull. Mobile-only problems and country-specific wins are invisible in blended numbers.</p></div>
+      <div class="idea"><span class="lift data">Data</span><h4>Full content inventory</h4><p>Extend the crawl to store word count, last-modified and template per page, joined to traffic. Finds orphan pages, thin pages and stale sections mechanically.</p></div>
+      <div class="idea"><span class="lift data">Data</span><h4>Bing and other engines</h4><p>Bing Webmaster Tools has a free API and feeds ChatGPT's browsing. Small effort, and it covers the second search ecosystem plus an AI answer source.</p></div>
+    </div>
+
+    <h3 style="font-size:22px;margin-top:44px;letter-spacing:-0.02em">E · AI visibility, expanded</h3>
+    <p style="font-size:15px;color:var(--muted);max-width:640px">Buying research is shifting into AI answers. The industry now calls this GEO, generative engine optimisation, and every major platform pivoted to it in 2025 and 2026. Our checks run today against one model; the provider already exposes the others.</p>
+    <div class="grid3" style="margin-top:16px">
+      <div class="idea"><span class="lift geo">GEO</span><h4>Multi-model coverage</h4><p>Run the same tracked prompts against Claude, Gemini and Perplexity alongside ChatGPT. Sibling endpoints already exist on our provider; coverage becomes a per-model scoreboard.</p></div>
+      <div class="idea"><span class="lift geo">GEO</span><h4>Share of model voice</h4><p>Track brand mention and citation rates over time per model and against named competitors. The AI-era equivalent of share of voice, charted like any other KPI.</p></div>
+      <div class="idea"><span class="lift geo">GEO</span><h4>Prompt discovery</h4><p>Use AI keyword data to find which questions people actually ask assistants in each market, and grow the tracked-prompt sets from evidence rather than guesswork.</p></div>
+      <div class="idea"><span class="lift geo">GEO</span><h4>AI crawler access audit</h4><p>Check every property's robots rules for GPTBot, ClaudeBot, PerplexityBot and friends. Many sites block AI discovery by accident; a five-minute check per site protects the whole channel.</p></div>
+      <div class="idea"><span class="lift geo">GEO</span><h4>llms.txt management</h4><p>Generate and maintain llms.txt files describing each site to AI systems. Evidence of direct impact is still emerging, so treat it as cheap insurance and measure.</p></div>
+      <div class="idea"><span class="lift geo">GEO</span><h4>Citation source analysis</h4><p>When models answer our tracked prompts, record which sites they cite. That list is simultaneously the competitor set and the link-target list for the AI channel.</p></div>
+    </div>
+
+    <h3 style="font-size:22px;margin-top:44px;letter-spacing:-0.02em">F · Money and forecasting</h3>
+    <p style="font-size:15px;color:var(--muted);max-width:640px">Traffic is an input. The portfolio is run on outcomes.</p>
+    <div class="grid3" style="margin-top:16px">
+      <div class="idea"><span class="lift money">Money</span><h4>Conversion value mapping</h4><p>Assign a value per conversion type per site (a mortgage lead is not a pest-control enquiry) so every screen can translate traffic into money. Prioritisation sharpens immediately.</p></div>
+      <div class="idea"><span class="lift money">Money</span><h4>Revenue per page and keyword</h4><p>Join conversion values to landing pages and their queries to see which content earns and which merely draws visitors. The content plan follows the earners.</p></div>
+      <div class="idea"><span class="lift money">Money</span><h4>Traffic and revenue forecasting</h4><p>Time-series forecasts per property from stored daily history, with confidence bands drawn on charts. Answers "where does this trend take us by December?" and makes anomaly detection sharper too.</p></div>
+      <div class="idea"><span class="lift money">Money</span><h4>Scenario models</h4><p>"If we win half the striking-distance list", "if this decay continues", "if we ship 20 posts in this cluster": modelled outcomes with assumptions stated. Institutional planning, not vibes.</p></div>
+      <div class="idea"><span class="lift money">Money</span><h4>Per-property P&amp;L</h4><p>Blend costs (hosting, content, API spend already metered per domain) against organic value delivered. Twenty-five sites need a view of which are worth further investment.</p></div>
+      <div class="idea"><span class="lift money">Money</span><h4>Equivalent ad value</h4><p>Value organic clicks at the market cost-per-click already in our keyword data: what this traffic would cost if bought. A blunt but persuasive executive number.</p></div>
+    </div>
+
+    <h3 style="font-size:22px;margin-top:44px;letter-spacing:-0.02em">G · Institutional rails</h3>
+    <p style="font-size:15px;color:var(--muted);max-width:640px">The plumbing that makes a serious multi-user, multi-year system trustworthy.</p>
+    <div class="grid3" style="margin-top:16px">
+      <div class="idea"><span class="lift rails">Rails</span><h4>Real authentication and roles</h4><p>Replace the demo boundary with proper login and the four designed roles (admin, manager, analyst, viewer), enforced server-side. The prerequisite for every in-app action that spends money or changes state.</p></div>
+      <div class="idea"><span class="lift rails">Rails</span><h4>Audit log</h4><p>An append-only record of who changed what: approvals, dismissals, setting edits, manual pulls. Boring until the day it is priceless.</p></div>
+      <div class="idea"><span class="lift rails">Rails</span><h4>Chart annotations and event studies</h4><p>Mark deploys, content pushes, and algorithm updates on every chart, and compute before-and-after deltas around each event. This is how finance decides what actually moved a line.</p></div>
+      <div class="idea"><span class="lift rails">Rails</span><h4>Alert routing</h4><p>Severity-based delivery: critical pages someone by phone or Slack immediately, medium goes to the daily digest, low waits in the feed. Borrowed directly from on-call engineering practice.</p></div>
+      <div class="idea"><span class="lift rails">Rails</span><h4>Scheduled report delivery</h4><p>Finish the reports module: PDF rendering and emailed schedules with delivery history. The templates and live previews already exist.</p></div>
+      <div class="idea"><span class="lift rails">Rails</span><h4>Public API and webhooks</h4><p>Expose the stored snapshots over an authenticated API and push events (alerts, sync completions) as webhooks. Lets every future Orwell system, and our own agents, build on this one.</p></div>
+      <div class="idea"><span class="lift rails">Rails</span><h4>Warehouse export</h4><p>Nightly export of all snapshots to files or a warehouse table. Insurance for reprocessing, and freedom to analyse with any tool later.</p></div>
+      <div class="idea"><span class="lift rails">Rails</span><h4>Data quality monitors</h4><p>The watcher for the watchers: alert when a sync stops writing, a source drifts, or a metric goes silently to zero. Trust in the numbers is the platform's core asset.</p></div>
+    </div>
+
+    <h3 style="font-size:22px;margin-top:44px;letter-spacing:-0.02em">H · Workflow and scale</h3>
+    <p style="font-size:15px;color:var(--muted);max-width:640px">Day-to-day ergonomics for a growing estate and, eventually, a growing team.</p>
+    <div class="grid3" style="margin-top:16px">
+      <div class="idea"><span class="lift flow">Flow</span><h4>One-click property refresh</h4><p>A refresh button on every domain page with the estimated cost shown before it runs, gated by role. The manual pull already exists as an API; this is the missing front door.</p></div>
+      <div class="idea"><span class="lift flow">Flow</span><h4>Bulk onboarding wizard</h4><p>Paste a domain, and the platform finds its GSC property, detects GA4, registers it, and runs the first sync. Adding site number twenty-six should take five minutes, not a code change.</p></div>
+      <div class="idea"><span class="lift flow">Flow</span><h4>Persistent tasks</h4><p>Move the approval workflow from session state into the database tables already designed for it, with owners, due dates and status history. Work must survive a page reload.</p></div>
+      <div class="idea"><span class="lift flow">Flow</span><h4>Editorial calendar</h4><p>A publishing pipeline view across all sites: briefs, drafts, scheduled, live, refresh-due. Content is the biggest recurring workstream; give it a home.</p></div>
+      <div class="idea"><span class="lift flow">Flow</span><h4>Domain groups and tags</h4><p>Organise properties into named groups (UAE finance, UK claims) that filter every screen and every report. The rail already scales; the grouping makes it navigable at fifty sites.</p></div>
+      <div class="idea"><span class="lift flow">Flow</span><h4>Comments and mentions</h4><p>Discuss a keyword, page or task where the data lives, with mentions that notify. Context that dies in chat apps survives next quarter here.</p></div>
+      <div class="idea"><span class="lift flow">Flow</span><h4>Saved views and keyboard palette</h4><p>Save any filtered table as a named view, and add a command palette (jump to any site or screen by typing). Small touches that compound across a hundred uses a day.</p></div>
+      <div class="idea"><span class="lift flow">Flow</span><h4>Mobile digest surface</h4><p>The portfolio wallboard and daily digest, readable on a phone. Not the full console: just "is anything on fire" from anywhere.</p></div>
+    </div>
+  </div>
+
+  <!-- ============================ SEQUENCE ============================ -->
+  <div class="section" id="sequence">
+    <span class="eyebrow">Part four · Sequencing</span>
+    <h2>A suggested build order</h2>
+    <p class="section-intro">Ordered so each phase makes the next one stronger: history enables anomalies, anomalies enable alerts, alerts enable agents, agents need auth. Effort assumes AI-speed development.</p>
+
+    <table class="tiers">
+      <tr><th>Phase</th><th>Contents</th><th>Why this order</th></tr>
+      <tr>
+        <td><span class="pill now">Now</span></td>
+        <td>Real authentication and roles · persistent tasks · one-click property refresh with cost estimate · daily digest v1 · GA4 properties for the remaining five sites · service-account key rotation · true daily rank history and the new-and-lost backlink ledger (start accumulating immediately)</td>
+        <td>Auth unlocks every in-app action that spends or changes state. History starts compounding from the day it ships, so it cannot come last. The digest delivers the first "the system watches for me" moment with minimal machinery.</td>
+      </tr>
+      <tr>
+        <td><span class="pill next">Next</span></td>
+        <td>Baseline anomaly detection and alert routing · algorithm update tracker with chart annotations · uptime, SSL, robots and sitemap monitors · keyword gap and SERP feature tracking · multi-model AI checks with share of model voice · opportunity valuation in money · cross-portfolio priority queue · scheduled PDF reports</td>
+        <td>This phase turns the platform from a set of dashboards into a monitoring system with a ranked to-do list priced in money. Everything here reads from data phase one started collecting.</td>
+      </tr>
+      <tr>
+        <td><span class="pill later">Later</span></td>
+        <td>Recommendation-to-pull-request pipeline · anomaly investigator and weekly narrative agents · brief-and-draft content pipeline with editorial calendar · forecasting and scenario models · per-property P&amp;L · log file analysis · public API, webhooks and warehouse export · wallboard and mobile digest · bulk onboarding wizard</td>
+        <td>The agentic layer pays off most once alerts are trustworthy and tasks are persistent, because agents plug into both. Forecasting wants months of accumulated daily history to be honest.</td>
+      </tr>
+    </table>
+
+    <div class="note" style="margin-top:28px">
+      <b>Cost posture.</b> Almost everything above runs on data already collected or on free APIs (Search Console, GA4, CrUX, Bing). The additions that spend money (multi-model AI checks, keyword gap pulls, daily rank tracking at scale) all flow through the existing per-call spend guardrail, so the $200 ceiling remains the worst case until we choose to raise it.
+    </div>
+  </div>
+
+  <!-- ============================ SOURCES ============================ -->
+  <div class="section">
+    <span class="eyebrow">Appendix</span>
+    <h2 style="font-size:24px">Research notes</h2>
+    <p class="sources" style="max-width:70ch">Market references consulted for the roadmap: enterprise platform capabilities and pricing (<a href="https://www.stackmatix.com/blog/enterprise-ai-seo-platforms">Stackmatix enterprise platform comparison</a>, <a href="https://piperocket.digital/list/best-enterprise-seo-software/">PipeRocket enterprise SEO software review</a>, <a href="https://konabayev.com/blog/enterprise-seo-tools/">Konabayev enterprise tools comparison</a>); anomaly detection and monitoring practice (<a href="https://www.meegle.com/en_us/topics/anomaly-detection/anomaly-detection-in-seo-analytics">Meegle on anomaly detection in SEO analytics</a>, <a href="https://www.swydo.com/blog/best-seo-monitoring-tools/">Swydo monitoring tools review</a>); generative engine optimisation and AI visibility (<a href="https://llmrefs.com/generative-engine-optimization">LLMrefs GEO guide</a>, <a href="https://searchengineland.com/llm-optimization-tracking-visibility-ai-discovery-463860">Search Engine Land on LLM optimisation tracking</a>, <a href="https://www.contentful.com/blog/llms-txt-search-visibility/">Contentful on llms.txt evidence</a>); current Semrush and Ahrefs direction including AI agents and MCP servers (<a href="https://www.demandsage.com/semrush-vs-ahrefs/">Demandsage 2026 comparison</a>, <a href="https://slashdev.io/answers/ai-seo-agents-vs-semrush-ahrefs">Slashdev on AI SEO agents</a>).</p>
+  </div>
+
+  <footer>
+    Orwell Lab · The SEO Command Centre · Prepared July 2026 · Internal document, not for distribution.
+  </footer>
+</div>
+
+</body>
+</html>
