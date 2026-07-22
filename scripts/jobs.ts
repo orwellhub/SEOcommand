@@ -1,30 +1,29 @@
 /**
- * Scheduled sync runner (Render cron: `npm run jobs`, daily 06:00 UTC — and the
- * "Trigger Run" button for on-demand syncs).
+ * Scheduled sync runner (Render cron: `npm run jobs`, daily 06:00 UTC).
  *
- * Runs the sync engine across every domain in the registry: DataForSEO
- * intelligence + first-party GSC/GA4, written as canonical snapshots that the
- * dashboard serves via /api/live. Idempotent per day, budget-guarded, and
- * OnPage crawls resume across runs via stored task ids.
+ * Split-cadence cost policy (see scheduledTiers):
+ *  - Google GSC/GA4 (FREE)                     → every day
+ *  - DataForSEO keywords/rankings/backlinks    → weekly (Mondays)
+ *  - DataForSEO OnPage crawls + AI checks      → monthly (1st)
+ * Pending OnPage crawls are polled for free on the daily runs, so a monthly
+ * crawl still finishes within a day or two. Env overrides: SYNC_GOOGLE=0,
+ * SYNC_DFS_LIGHT=1, SYNC_DFS_HEAVY=1 force a tier for a single run.
  *
- * Crawl policy: a domain with no completed crawl always crawls; otherwise
- * crawls run on Sundays (weekly cadence) or when SYNC_INCLUDE_CRAWL=1.
+ * Manual/ad-hoc pulls use POST /api/sync (full pull by default, or ?tier=...).
  */
-import { syncAll } from "../src/sync/engine";
+import { syncAll, scheduledTiers } from "../src/sync/engine";
 
 async function main() {
   if (!process.env.DATABASE_URL) {
     console.error("[orwell-jobs] DATABASE_URL is not set — cannot store snapshots. Aborting.");
     process.exit(1);
   }
-  const isSunday = new Date().getUTCDay() === 0;
-  const includeCrawl = process.env.SYNC_INCLUDE_CRAWL === "1" || isSunday || undefined;
-  // `undefined` lets the engine crawl any domain that has never been crawled.
-
+  const tiers = scheduledTiers(new Date());
   console.log(
-    `[orwell-jobs] Starting full sync — crawls: ${includeCrawl ? "yes" : "auto (first-time only)"}`,
+    `[orwell-jobs] Starting scheduled sync — tiers: google=${tiers.google} ` +
+      `dfsLight=${tiers.dfsLight} dfsHeavy=${tiers.dfsHeavy}`,
   );
-  const report = await syncAll({ includeCrawl });
+  const report = await syncAll(tiers);
 
   for (const d of report.domains) {
     const ok = d.results.filter((r) => r.status === "ok").length;
@@ -37,9 +36,6 @@ async function main() {
     );
     for (const e of errors) {
       console.log(`[orwell-jobs]   ✗ ${e.dataset}: ${e.note}`);
-    }
-    for (const s of d.results.filter((r) => r.status === "skipped" && r.note)) {
-      console.log(`[orwell-jobs]   ⤺ ${s.dataset}: ${s.note}`);
     }
   }
   console.log(

@@ -95,9 +95,14 @@ services:
         value: "22.22.2"
       - key: CRON_ENABLED
         value: "true"
-      # Set to "1" to force OnPage crawls on a run (otherwise: first-time + Sundays).
-      - key: SYNC_INCLUDE_CRAWL
-        value: "0"
+      # Split-cadence cost policy (see scripts/jobs.ts): Google free daily,
+      # DataForSEO light weekly (Mondays), crawls + AI monthly (1st). These force
+      # a tier ON for a single run when set to "1"; SYNC_GOOGLE=0 disables free
+      # Google. Leave unset for the default schedule.
+      - key: SYNC_DFS_LIGHT
+        sync: false
+      - key: SYNC_DFS_HEAVY
+        sync: false
       - key: MONTHLY_BUDGET_USD
         value: "200"
       - key: DATABASE_URL

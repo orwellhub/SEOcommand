@@ -34,12 +34,32 @@ afterthought. The demo ships with a **$200/month guardrail and $0 actual spend**
    appends to the usage ledger on every real request.
 3. **UI** — surfaces the meters, thresholds and the estimate-before-run affordance.
 
-## Tracking policy
+## Tracking policy — split cadence (cost-optimised)
 
-- Daily: tracked-keyword collection, GSC/GA4 sync, backlink changes, anomaly detection.
-- Weekly: technical crawl, competitor refresh.
-- Configurable: AI-prompt checks.
+Google is free per call; DataForSEO is the entire cost. The scheduled runner
+(`scripts/jobs.ts` → `scheduledTiers`) therefore separates them:
 
-Frequencies are chosen to keep predictable monthly spend well under the guardrail. All
-figures in the current build are demo values with zero real spend until a live provider is
-connected.
+| Tier | Datasets | Cost | Cadence |
+| --- | --- | --- | --- |
+| `google` | GSC clicks/impressions/position/queries/pages/movers, GA4 sessions/conversions/landing pages | **free** | **daily** |
+| `dfsLight` | ranked keywords, rankings, position buckets, competitors, backlinks, referring domains | paid | **weekly** (Mondays) |
+| `dfsHeavy` | OnPage crawls + AI-visibility checks | paid (priciest) | **monthly** (1st) |
+
+Pending OnPage crawls are polled for free on the daily runs, so a monthly crawl
+still finishes within a day or two. One daily cron drives all three cadences by
+date; env overrides (`SYNC_GOOGLE=0`, `SYNC_DFS_LIGHT=1`, `SYNC_DFS_HEAVY=1`)
+force a tier for a single run.
+
+Approximate cost: free daily Google + weekly light + monthly heavy ≈ **$10–15/month**
+against the $200 guardrail. A full every-day pull would be ~$100–110/month.
+
+## Manual / on-demand pulls
+
+`POST /api/sync` (bearer `SYNC_TOKEN`) is a deliberate FULL pull by default:
+
+- `POST /api/sync` — full portfolio pull (all tiers)
+- `POST /api/sync?domain=<id>` — one property, full pull (per-property refresh)
+- `POST /api/sync?domain=<id>&tier=light` — one property, no crawl/AI (cheaper)
+- `POST /api/sync?tier=google` — free GSC/GA4 refresh only
+
+Actual spend per property and per endpoint is available at `GET /api/usage/breakdown`.

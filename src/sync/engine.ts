@@ -92,9 +92,25 @@ async function collect(
   }
 }
 
+/**
+ * Which cost tiers to run this sync:
+ *  - google   : GSC + GA4 (FREE) — safe to run daily
+ *  - dfsLight : DataForSEO keywords, rankings, competitors, backlinks (PAID) — weekly
+ *  - dfsHeavy : DataForSEO OnPage crawls + AI-visibility checks (PAID, priciest) — monthly
+ * Pending OnPage crawls are always polled (free) regardless of dfsHeavy, so a
+ * crawl started in a monthly run finishes on later free runs.
+ */
+export interface SyncTiers {
+  google: boolean;
+  dfsLight: boolean;
+  dfsHeavy: boolean;
+}
+
+export const ALL_TIERS: SyncTiers = { google: true, dfsLight: true, dfsHeavy: true };
+
 export async function syncDomain(
   domainId: DomainId,
-  opts: { includeCrawl?: boolean; includeAi?: boolean } = {},
+  tiers: SyncTiers = ALL_TIERS,
 ): Promise<DomainSyncReport> {
   const startedAt = new Date().toISOString();
   const domain = DOMAIN_MAP[domainId];
@@ -103,8 +119,10 @@ export async function syncDomain(
   const existing = await readLatestSnapshots(domainId).catch(() => []);
   const existingByDataset = new Map(existing.map((s) => [s.dataset, s]));
 
-  const dfsOk = dataForSeoConfigured();
-  const googleOk = googleConfigured();
+  const dfsLightOk = dataForSeoConfigured() && tiers.dfsLight;
+  const dfsHeavyOk = dataForSeoConfigured() && tiers.dfsHeavy;
+  const dfsConfigured = dataForSeoConfigured();
+  const googleOk = googleConfigured() && tiers.google;
 
   const write = (dataset: string, payload: unknown, provenance: Provenance) =>
     writeSnapshot(domainId, dataset, today, payload, provenance);
@@ -116,7 +134,7 @@ export async function syncDomain(
   const collectors: Collector[] = [
     () =>
       collect("keywords", async () => {
-        if (!dfsOk) return "skip";
+        if (!dfsLightOk) return "skip";
         const { keywords, rankSnapshots } = await fetchRankedKeywordsBundle(domainId);
         const p = dfsProv();
         await write("keywords", keywords, p);
@@ -125,7 +143,7 @@ export async function syncDomain(
       }),
     () =>
       collect("position_buckets", async () => {
-        if (!dfsOk) return "skip";
+        if (!dfsLightOk) return "skip";
         const { visibility, buckets } = await fetchDomainOverviewBundle(domainId);
         const p = dfsProv();
         await write("position_buckets", buckets, p);
@@ -134,7 +152,7 @@ export async function syncDomain(
       }),
     () =>
       collect("competitors", async () => {
-        if (!dfsOk) return "skip";
+        if (!dfsLightOk) return "skip";
         const data = await fetchCompetitors(domainId);
         const p = dfsProv();
         await write("competitors", data, p);
@@ -142,7 +160,7 @@ export async function syncDomain(
       }),
     () =>
       collect("backlinks", async () => {
-        if (!dfsOk) return "skip";
+        if (!dfsLightOk) return "skip";
         const data = await fetchBacklinks(domainId);
         const p = dfsProv();
         await write("backlinks", data, p);
@@ -150,7 +168,7 @@ export async function syncDomain(
       }),
     () =>
       collect("referring_domains", async () => {
-        if (!dfsOk) return "skip";
+        if (!dfsLightOk) return "skip";
         const data = await fetchReferringDomains(domainId);
         const p = dfsProv();
         await write("referring_domains", data, p);
@@ -158,8 +176,10 @@ export async function syncDomain(
       }),
     () =>
       collect("onpage", async () => {
-        if (!dfsOk) return "skip";
-        const wantCrawl = opts.includeCrawl ?? !existingByDataset.has("onpage");
+        // Run whenever DataForSEO is configured so pending crawls keep polling
+        // (free); only INITIATE a new crawl on the heavy (monthly) tier.
+        if (!dfsConfigured) return "skip";
+        const wantCrawl = dfsHeavyOk;
         // A finished crawl leaves onpage_task = { taskId: null }; only a real id
         // means "still polling". Check the id, not the row's mere presence.
         const pendingTaskId =
@@ -178,9 +198,8 @@ export async function syncDomain(
       }),
     () =>
       collect("ai_prompts", async () => {
-        if (!dfsOk) return "skip";
-        const wantAi = opts.includeAi ?? Boolean(TRACKED_AI_PROMPTS[domainId]);
-        if (!wantAi) return "skip";
+        if (!dfsHeavyOk) return "skip";
+        if (!TRACKED_AI_PROMPTS[domainId]) return "skip";
         const data = await fetchAiPromptResults(domainId);
         if (!data) return "skip";
         const p = dfsProv();
@@ -395,12 +414,28 @@ export interface FullSyncReport {
   domains: DomainSyncReport[];
 }
 
-/** Sync every domain in the registry. */
-export async function syncAll(opts: { includeCrawl?: boolean } = {}): Promise<FullSyncReport> {
+/** Sync every domain in the registry with the given cost tiers. */
+export async function syncAll(tiers: SyncTiers = ALL_TIERS): Promise<FullSyncReport> {
   const startedAt = new Date().toISOString();
   const reports: DomainSyncReport[] = [];
   for (const d of DOMAINS) {
-    reports.push(await syncDomain(d.id, opts));
+    reports.push(await syncDomain(d.id, tiers));
   }
   return { startedAt, completedAt: new Date().toISOString(), domains: reports };
+}
+
+/**
+ * Resolve the tiers for a scheduled run from the current UTC date, implementing
+ * the split-cadence policy: Google free every day; DataForSEO light weekly
+ * (Mondays); crawls + AI monthly (1st). Env vars force a tier on for a run.
+ */
+export function scheduledTiers(now: Date): SyncTiers {
+  const isMonday = now.getUTCDay() === 1;
+  const isFirstOfMonth = now.getUTCDate() === 1;
+  const dfsHeavy = process.env.SYNC_DFS_HEAVY === "1" || isFirstOfMonth;
+  return {
+    google: process.env.SYNC_GOOGLE !== "0", // free — on by default every day
+    dfsLight: process.env.SYNC_DFS_LIGHT === "1" || isMonday || dfsHeavy,
+    dfsHeavy,
+  };
 }
