@@ -215,8 +215,15 @@ export async function probeDataForSeo(): Promise<{
   if (!cfg) return { configured: false };
   const client = new DataForSeoClient(cfg, makeGuard(cfg.monthlyBudgetUsd));
   try {
+    // The models call is the real credential test (zero cost).
     const models = await client.getMeta<unknown>(ENDPOINTS.aiLlmModels);
-    const spend = await client.guardStatus();
+    // Spend status depends on the DB/migration; don't let it mask a good probe.
+    let spend: Awaited<ReturnType<DataForSeoClient["guardStatus"]>> | undefined;
+    try {
+      spend = await client.guardStatus();
+    } catch {
+      spend = undefined;
+    }
     return { configured: true, spend, models: models.length };
   } catch (err) {
     return { configured: true, error: err instanceof Error ? err.message : String(err) };

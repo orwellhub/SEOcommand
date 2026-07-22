@@ -26,6 +26,8 @@ services:
     region: frankfurt # closest to UAE/EU pilot markets; change if desired
     branch: claude/seo-dashboard-dataforseo-112fbm
     buildCommand: npm ci && npm run build
+    # Apply DB migrations before each deploy goes live (idempotent).
+    preDeployCommand: npm run db:migrate
     startCommand: npm run start
     healthCheckPath: /portfolio
     autoDeploy: true
