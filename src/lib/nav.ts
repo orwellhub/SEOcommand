@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   Search,
+  ScanSearch,
   TrendingUp,
   ShieldCheck,
   Link2,
@@ -24,6 +25,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/portfolio", label: "Portfolio", icon: LayoutDashboard, group: "primary" },
   { href: "/domain", label: "Domain", icon: Gauge, group: "primary" },
   { href: "/research", label: "Research", icon: Search, group: "primary" },
+  { href: "/keyword-research", label: "Keyword Research", icon: ScanSearch, group: "primary" },
   { href: "/rankings", label: "Rankings", icon: TrendingUp, group: "primary" },
   { href: "/site-audit", label: "Site Audit", icon: ShieldCheck, group: "primary" },
   { href: "/backlinks", label: "Backlinks", icon: Link2, group: "primary" },

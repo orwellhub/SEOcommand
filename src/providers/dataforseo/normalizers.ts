@@ -1,10 +1,13 @@
 import type {
   Backlink,
   Competitor,
+  CompetitionLevel,
   CrawlRun,
   DomainId,
   HealthBreakdown,
   Keyword,
+  KeywordMonthlyPoint,
+  KeywordResearchRow,
   PositionBucket,
   RankSnapshot,
   ReferringDomain,
@@ -92,6 +95,69 @@ export function normalizeRankedKeywords(rows: Row[], domainId: DomainId): Keywor
       targetUrl: str(serp?.url) || null,
     };
   });
+}
+
+/* ------------------------- Labs: keyword ideas -------------------------- */
+
+/** Number or null — DataForSEO omits (nulls) metrics for low-signal keywords. */
+function numOrNull(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function competitionLevel(v: unknown): CompetitionLevel | null {
+  const s = str(v).toLowerCase();
+  if (s === "low" || s === "medium" || s === "high") return s;
+  return null;
+}
+
+function intentOrNull(row: Row): SearchIntent | null {
+  const raw = str(row?.search_intent_info?.main_intent ?? row?.keyword_intent?.label).toLowerCase();
+  if (raw.includes("transactional")) return "transactional";
+  if (raw.includes("commercial")) return "commercial";
+  if (raw.includes("navigational")) return "navigational";
+  if (raw.includes("informational")) return "informational";
+  return null;
+}
+
+/**
+ * DataForSEO Labs "keyword_ideas" → canonical research rows (volume, keyword
+ * difficulty, CPC, competition, intent, top-of-page bids, monthly history).
+ */
+export function normalizeKeywordIdeas(rows: Row[]): KeywordResearchRow[] {
+  const items: Row[] = rows[0]?.items ?? rows ?? [];
+  return items
+    .map((it): KeywordResearchRow => {
+      const info = it?.keyword_info ?? {};
+      const monthly: KeywordMonthlyPoint[] = (info?.monthly_searches ?? [])
+        .map((m: Row) => ({
+          year: num(m?.year),
+          month: num(m?.month),
+          volume: num(m?.search_volume),
+        }))
+        .filter((m: KeywordMonthlyPoint) => m.year > 0);
+      // trend: oldest→newest, capped to the most recent 12 months for the sparkline.
+      const trend = monthly
+        .slice()
+        .sort((a, b) => a.year - b.year || a.month - b.month)
+        .slice(-12)
+        .map((m) => m.volume);
+      return {
+        keyword: str(it?.keyword),
+        volume: numOrNull(info?.search_volume),
+        difficulty: numOrNull(it?.keyword_properties?.keyword_difficulty),
+        cpc: numOrNull(info?.cpc),
+        competition: numOrNull(info?.competition),
+        competitionLevel: competitionLevel(info?.competition_level),
+        intent: intentOrNull(it),
+        lowTopBid: numOrNull(info?.low_top_of_page_bid),
+        highTopBid: numOrNull(info?.high_top_of_page_bid),
+        trend,
+        monthlySearches: monthly,
+      };
+    })
+    .filter((r) => r.keyword.length > 0);
 }
 
 export function rankedKeywordsToSnapshots(rows: Row[], domainId: DomainId, capturedOn: string): RankSnapshot[] {

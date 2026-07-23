@@ -118,6 +118,46 @@ export interface KeywordList {
   updatedAt: string;
 }
 
+/* --------------------------- Keyword research --------------------------- */
+
+export type CompetitionLevel = "low" | "medium" | "high";
+
+/** One month of historical search volume for a keyword. */
+export interface KeywordMonthlyPoint {
+  year: number;
+  month: number;
+  volume: number;
+}
+
+/**
+ * A single keyword returned by a seed keyword-research scan (DataForSEO Labs
+ * keyword ideas). Metrics are nullable because DataForSEO omits fields for
+ * low-signal keywords rather than returning zero.
+ */
+export interface KeywordResearchRow {
+  keyword: string;
+  volume: number | null;
+  difficulty: number | null; // 0-100
+  cpc: number | null; // USD
+  competition: number | null; // 0-1
+  competitionLevel: CompetitionLevel | null;
+  intent: SearchIntent | null;
+  lowTopBid: number | null; // USD, low top-of-page bid
+  highTopBid: number | null; // USD, high top-of-page bid
+  trend: number[]; // recent monthly volumes, oldest→newest (for sparkline)
+  monthlySearches: KeywordMonthlyPoint[]; // full 12-month history (for export)
+}
+
+/** Result of one keyword-research scan against a chosen SERP market. */
+export interface KeywordResearchResult {
+  seed: string;
+  locationCode: number;
+  languageCode: string;
+  locationLabel: string;
+  fetchedAt: string;
+  rows: KeywordResearchRow[];
+}
+
 /* ------------------------------- Rankings ------------------------------- */
 
 export interface RankSnapshot {

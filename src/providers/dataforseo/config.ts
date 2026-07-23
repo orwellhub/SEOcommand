@@ -70,6 +70,7 @@ export const ENDPOINTS = {
   aiLlmModels: "/v3/ai_optimization/chat_gpt/llm_responses/models",
   // --- direct siblings on the same (verified) APIs ---
   labsRankedKeywords: "/v3/dataforseo_labs/google/ranked_keywords/live",
+  labsKeywordIdeas: "/v3/dataforseo_labs/google/keyword_ideas/live",
   labsCompetitorsDomain: "/v3/dataforseo_labs/google/competitors_domain/live",
   backlinksList: "/v3/backlinks/backlinks/live",
   backlinksReferringDomains: "/v3/backlinks/referring_domains/live",
@@ -89,6 +90,7 @@ export const COST_ESTIMATE_USD: Record<string, number> = {
   onPageSummary: 0.0,
   aiLlmResponses: 0.06,
   labsRankedKeywords: 0.05,
+  labsKeywordIdeas: 0.05,
   labsCompetitorsDomain: 0.03,
   backlinksList: 0.04,
   backlinksReferringDomains: 0.03,

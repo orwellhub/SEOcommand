@@ -1,4 +1,4 @@
-import type { AiPrompt, Backlink, Competitor, DomainId, Keyword, PositionBucket, RankSnapshot, ReferringDomain } from "@/lib/types";
+import type { AiPrompt, Backlink, Competitor, DomainId, Keyword, KeywordResearchRow, PositionBucket, RankSnapshot, ReferringDomain } from "@/lib/types";
 import type { OnPageResult } from "@/lib/live";
 import { DOMAINS, DOMAIN_MAP } from "@/data/domains";
 import { TRACKED_AI_PROMPTS } from "@/data/ai-prompts";
@@ -12,6 +12,7 @@ import {
   normalizeBacklinks,
   normalizeCompetitors,
   normalizeDomainOverview,
+  normalizeKeywordIdeas,
   normalizeOnPageHealth,
   normalizeRankedKeywords,
   normalizeReferringDomains,
@@ -89,6 +90,35 @@ export async function fetchRankedKeywordsBundle(
       tags: [],
     }));
   return { keywords, rankSnapshots };
+}
+
+/**
+ * Seed keyword research (not tied to a portfolio domain). One guarded Labs
+ * "keyword_ideas" call returns the keyword universe around a seed term for a
+ * chosen SERP market, with volume, keyword difficulty, CPC and competition.
+ */
+export async function researchKeywords(opts: {
+  seed: string;
+  locationCode: number;
+  languageCode: string;
+  limit?: number;
+}): Promise<KeywordResearchRow[]> {
+  const client = getDataForSeoClient();
+  const { result } = await client.post(
+    "labsKeywordIdeas",
+    ENDPOINTS.labsKeywordIdeas,
+    [
+      {
+        keywords: [opts.seed],
+        location_code: opts.locationCode,
+        language_code: opts.languageCode,
+        limit: Math.min(Math.max(opts.limit ?? 100, 1), 1000),
+        order_by: ["keyword_info.search_volume,desc"],
+      },
+    ],
+    { domainSlug: null },
+  );
+  return normalizeKeywordIdeas(result as Record<string, unknown>[]);
 }
 
 /** domain_rank_overview once → visibility point + position buckets + est traffic. */
