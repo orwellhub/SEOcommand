@@ -14,7 +14,7 @@ const RANGES: { key: RangeKey; label: string }[] = [
 ];
 
 export function ContextBar() {
-  const { scope, setScope, comparison, toggleComparison, range, setRange } = useDomain();
+  const { scope, setScope, range, setRange } = useDomain();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const router = useRouter();
@@ -99,31 +99,6 @@ export function ContextBar() {
             </div>
           </>
         )}
-      </div>
-
-      {/* Comparison chips */}
-      <div className="hidden items-center gap-1.5 md:flex">
-        <span className="text-2xs text-muted">Compare:</span>
-        {DOMAINS.map((d) => {
-          const on = comparison.includes(d.id);
-          return (
-            <button
-              key={d.id}
-              onClick={() => toggleComparison(d.id)}
-              className={cn(
-                "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-2xs font-medium transition-colors",
-                on ? "border-transparent text-white" : "border-border bg-card text-muted hover:bg-workspace",
-              )}
-              style={on ? { background: d.accent } : undefined}
-            >
-              <Circle
-                className="h-2 w-2"
-                style={{ fill: on ? "#fff" : d.accent, color: on ? "#fff" : d.accent }}
-              />
-              {d.name}
-            </button>
-          );
-        })}
       </div>
 
       {/* Range selector */}

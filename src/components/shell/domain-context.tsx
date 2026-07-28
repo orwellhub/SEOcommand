@@ -10,8 +10,6 @@ interface DomainState {
   scope: Scope;
   setScope: (s: Scope) => void;
   activeDomain: Domain | null; // null when scope === "portfolio"
-  comparison: DomainId[];
-  toggleComparison: (id: DomainId) => void;
   range: RangeKey;
   setRange: (r: RangeKey) => void;
 }
@@ -22,7 +20,6 @@ const DomainCtx = createContext<DomainState | null>(null);
 
 export function DomainProvider({ children }: { children: React.ReactNode }) {
   const [scope, setScope] = useState<Scope>("portfolio");
-  const [comparison, setComparison] = useState<DomainId[]>([]);
   const [range, setRange] = useState<RangeKey>("28d");
 
   // Persist selection across navigation within the session.
@@ -49,15 +46,10 @@ export function DomainProvider({ children }: { children: React.ReactNode }) {
       scope,
       setScope,
       activeDomain,
-      comparison,
-      toggleComparison: (id) =>
-        setComparison((prev) =>
-          prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-        ),
       range,
       setRange,
     }),
-    [scope, activeDomain, comparison, range],
+    [scope, activeDomain, range],
   );
 
   return <DomainCtx.Provider value={value}>{children}</DomainCtx.Provider>;

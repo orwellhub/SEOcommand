@@ -504,6 +504,38 @@ export const reportDeliverySchedules = pgTable(
   }),
 );
 
+/* ------------------------- Keyword research scans ------------------------ */
+
+/**
+ * Saved seed keyword-research scans.
+ *
+ * Each row is one completed DataForSEO run, stored WITH its result rows so a
+ * past search can be reopened, re-read and re-exported without calling the
+ * provider again — reopening a saved scan costs nothing. Deliberately FK-free
+ * (like dataset_snapshots) so it works without any relational bootstrap.
+ */
+export const keywordScans = pgTable(
+  "keyword_scans",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    seed: text("seed").notNull(),
+    locationCode: integer("location_code").notNull(),
+    languageCode: text("language_code").notNull(),
+    locationLabel: text("location_label").notNull(),
+    /** Canonical KeywordResearchRow[] exactly as the UI renders it. */
+    rows: jsonb("rows").$type<unknown[]>().notNull().default([]),
+    rowCount: integer("row_count").notNull().default(0),
+    totalVolume: integer("total_volume").notNull().default(0),
+    avgDifficulty: integer("avg_difficulty"),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    recentIdx: index("keyword_scans_recent_idx").on(t.createdAt),
+    seedIdx: index("keyword_scans_seed_idx").on(t.seed, t.locationCode),
+  }),
+);
+
 /* --------------------------- Dataset snapshots -------------------------- */
 
 /**

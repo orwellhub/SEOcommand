@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScanSearch, Download, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { KpiCard } from "@/components/ui/kpi-card";
@@ -17,6 +17,7 @@ import { Sparkline } from "@/components/charts/sparkline";
 import { compactNumber, currency } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { MARKETS, DEFAULT_MARKET } from "@/lib/markets";
+import { SavedScans, type SavedScan } from "@/components/keyword-research/saved-scans";
 import type { KeywordResearchResult, KeywordResearchRow } from "@/lib/types";
 
 /* ------------------------------- helpers -------------------------------- */
@@ -57,7 +58,100 @@ export default function KeywordResearchPage() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<KeywordResearchResult | null>(null);
 
+  // Saved search history.
+  const [scans, setScans] = useState<SavedScan[]>([]);
+  const [scansLoading, setScansLoading] = useState(true);
+  const [activeScanId, setActiveScanId] = useState<string | null>(null);
+  const [busyScanId, setBusyScanId] = useState<string | null>(null);
+  const [replayed, setReplayed] = useState(false);
+
   const rows = useMemo(() => result?.rows ?? [], [result]);
+
+  const loadScans = useCallback(async () => {
+    try {
+      const res = await fetch("/api/keyword-research/scans");
+      const data = await res.json();
+      setScans(data.ok ? (data.scans as SavedScan[]) : []);
+    } catch {
+      setScans([]);
+    } finally {
+      setScansLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadScans();
+  }, [loadScans]);
+
+  /** Persist a completed scan so it can be reopened later without re-spending. */
+  const saveScan = useCallback(
+    async (scan: KeywordResearchResult) => {
+      try {
+        const res = await fetch("/api/keyword-research/scans", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            seed: scan.seed,
+            locationCode: scan.locationCode,
+            languageCode: scan.languageCode,
+            locationLabel: scan.locationLabel,
+            rows: scan.rows,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (data?.ok && data.scan?.id) setActiveScanId(data.scan.id as string);
+        await loadScans();
+      } catch {
+        // History is a convenience — a save failure must not lose the results
+        // already on screen, so this stays silent.
+      }
+    },
+    [loadScans],
+  );
+
+  /** Reopen a stored scan. Served from Postgres — no DataForSEO call, no spend. */
+  async function openScan(scan: SavedScan) {
+    if (busyScanId) return;
+    setBusyScanId(scan.id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/keyword-research/scans/${scan.id}`);
+      const data = await res.json();
+      if (!data.ok) {
+        setError(data.error ?? "Could not open that saved search.");
+        return;
+      }
+      setResult(data.result as KeywordResearchResult);
+      setActiveScanId(scan.id);
+      setReplayed(true);
+      setSeed(scan.seed);
+      setLocationCode(scan.locationCode);
+    } catch {
+      setError("Could not open that saved search.");
+    } finally {
+      setBusyScanId(null);
+    }
+  }
+
+  async function deleteScan(scan: SavedScan) {
+    if (busyScanId) return;
+    if (!window.confirm(`Delete the saved search "${scan.seed}"?`)) return;
+    setBusyScanId(scan.id);
+    try {
+      const res = await fetch(`/api/keyword-research/scans/${scan.id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        setError(data.error ?? "Could not delete that saved search.");
+        return;
+      }
+      if (activeScanId === scan.id) setActiveScanId(null);
+      await loadScans();
+    } catch {
+      setError("Could not delete that saved search.");
+    } finally {
+      setBusyScanId(null);
+    }
+  }
 
   const kpis = useMemo(() => {
     const volumes = rows.map((r) => r.volume).filter((v): v is number => v != null);
@@ -92,7 +186,11 @@ export default function KeywordResearchPage() {
         setError(data.message ?? "Keyword research failed.");
         return;
       }
-      setResult(data.result as KeywordResearchResult);
+      const scan = data.result as KeywordResearchResult;
+      setResult(scan);
+      setReplayed(false);
+      setActiveScanId(null);
+      if (scan.rows.length > 0) await saveScan(scan);
     } catch {
       setResult(null);
       setError("Could not reach the keyword-research service. Please try again.");
@@ -270,8 +368,10 @@ export default function KeywordResearchPage() {
         </form>
       </Card>
 
-      {/* States */}
-      {loading ? (
+      {/* Results alongside the saved-search history */}
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="min-w-0">
+          {loading ? (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -304,6 +404,11 @@ export default function KeywordResearchPage() {
               pageSize={15}
             />
             <p className="mt-3 text-2xs text-muted">
+              {replayed && (
+                <span className="mr-1 font-medium text-ink">
+                  Reopened from saved searches — no DataForSEO call was made.
+                </span>
+              )}
               Showing key metrics. Use <span className="font-medium text-ink">Download Excel</span> for the full
               dataset, including competition, top-of-page bids and the complete monthly search history per keyword.
             </p>
@@ -312,10 +417,21 @@ export default function KeywordResearchPage() {
       ) : (
         <EmptyState
           title="Run your first keyword scan"
-          description="Enter a seed keyword and market above, then press Run scan. Results appear here and can be exported to Excel."
+          description="Enter a seed keyword and market above, then press Run scan. Every scan is saved automatically so you can reopen it later."
           icon={<ScanSearch className="h-6 w-6" />}
         />
-      )}
+          )}
+        </div>
+
+        <SavedScans
+          scans={scans}
+          loading={scansLoading}
+          activeId={activeScanId}
+          busyId={busyScanId}
+          onOpen={openScan}
+          onDelete={deleteScan}
+        />
+      </div>
     </div>
   );
 }
