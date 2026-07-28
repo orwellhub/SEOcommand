@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Menu, X, Layers, Circle } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/nav";
 import { DOMAINS } from "@/data/domains";
@@ -14,6 +14,20 @@ export function MobileNav() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const { scope, setScope } = useDomain();
+  const router = useRouter();
+
+  /** Picking a site closes the drawer and lands on that property's page. */
+  function selectDomain(id: string) {
+    setScope(id);
+    router.push(`/domain/${id}`);
+    setOpen(false);
+  }
+
+  function selectPortfolio() {
+    setScope("portfolio");
+    router.push("/portfolio");
+    setOpen(false);
+  }
 
   return (
     <div className="lg:hidden">
@@ -44,7 +58,7 @@ export function MobileNav() {
             <div className="px-3 pb-2">
               <div className="px-2 pb-1 text-2xs uppercase tracking-wider text-white/40">Domain</div>
               <button
-                onClick={() => setScope("portfolio")}
+                onClick={selectPortfolio}
                 className={cn(
                   "mb-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm",
                   scope === "portfolio" ? "bg-rail-selected" : "hover:bg-nav",
@@ -55,7 +69,7 @@ export function MobileNav() {
               {DOMAINS.map((d) => (
                 <button
                   key={d.id}
-                  onClick={() => setScope(d.id)}
+                  onClick={() => selectDomain(d.id)}
                   className={cn(
                     "flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm",
                     scope === d.id ? "bg-rail-selected" : "hover:bg-nav",

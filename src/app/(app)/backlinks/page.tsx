@@ -12,10 +12,11 @@ import {
   Skeleton,
 } from "@/components/ui/primitives";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { ScopeNote } from "@/components/ui/scope-note";
 import { Drawer, DrawerField } from "@/components/ui/drawer";
 import { BarSeries } from "@/components/charts/charts";
 import { useDomain, useResolvedDomain } from "@/components/shell/domain-context";
-import { useLiveDomain } from "@/lib/use-live";
+import { useScopedLive } from "@/lib/use-live";
 import { computeAuthorityScore } from "@/lib/scoring";
 import { fullNumber, percent } from "@/lib/format";
 import { formatDate } from "@/lib/dates";
@@ -80,7 +81,7 @@ function ToxicityMeter({ value }: { value: number }) {
 export default function BacklinksPage() {
   const domain = useResolvedDomain();
   const { scope } = useDomain();
-  const { data: bundle, loading, error } = useLiveDomain(domain.id);
+  const { data: bundle, loading, error, isPortfolio, scopeLabel, scopeHost, scopeId } = useScopedLive();
 
   const [tab, setTab] = useState<SubTab>("backlinks");
   const [selected, setSelected] = useState<Backlink | null>(null);
@@ -353,12 +354,7 @@ export default function BacklinksPage() {
         loading={loading}
       />
 
-      {scope === "portfolio" && (
-        <p className="-mt-2 text-2xs text-muted">
-          Showing <span className="font-medium text-ink">{domain.name}</span> — data follows the domain
-          rail selection.
-        </p>
-      )}
+      <ScopeNote isPortfolio={isPortfolio} noun="backlink data" />
 
       {/* KPI row */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -489,7 +485,7 @@ export default function BacklinksPage() {
               searchKeys={(r) => `${r.sourceDomain} ${r.anchor} ${r.targetUrl}`}
               searchPlaceholder="Search backlinks…"
               onRowClick={setSelected}
-              exportName={`backlinks-${domain.id}`}
+              exportName={`backlinks-${scopeId}`}
               pageSize={12}
             />
           ) : (
@@ -509,7 +505,7 @@ export default function BacklinksPage() {
               columns={referringCols}
               searchKeys={(r) => r.host}
               searchPlaceholder="Search referring domains…"
-              exportName={`referring-domains-${domain.id}`}
+              exportName={`referring-domains-${scopeId}`}
               pageSize={12}
             />
           ) : (
@@ -544,7 +540,7 @@ export default function BacklinksPage() {
               columns={anchorCols}
               searchKeys={(r) => r.anchor}
               searchPlaceholder="Search anchors…"
-              exportName={`anchor-distribution-${domain.id}`}
+              exportName={`anchor-distribution-${scopeId}`}
               pageSize={12}
             />
           )}
@@ -598,7 +594,7 @@ export default function BacklinksPage() {
         open={selected !== null}
         onClose={() => setSelected(null)}
         title={selected?.sourceDomain ?? ""}
-        subtitle={selected ? `Backlink to ${domain.name}` : undefined}
+        subtitle={selected ? `Backlink to ${scopeLabel}` : undefined}
       >
         {selected && (
           <div>

@@ -17,6 +17,7 @@ import {
   readSnapshotHistory,
   type StoredSnapshot,
 } from "./store";
+import { aggregateBundles, PORTFOLIO_SCOPE_ID } from "./aggregate";
 
 /**
  * Assembles API read-models from stored snapshots. Pure reads — no provider
@@ -57,6 +58,27 @@ export async function buildDomainBundle(domainId: string): Promise<DomainLiveBun
     };
   }
   return bundle;
+}
+
+/**
+ * Portfolio-wide bundle: every domain's latest snapshots merged into one bundle
+ * shaped like a single-domain bundle. Snapshots are read in ONE batched query
+ * rather than a per-domain round-trip.
+ */
+export async function buildAggregateBundle(): Promise<DomainLiveBundle> {
+  if (!hasDatabase()) {
+    return { domainId: PORTFOLIO_SCOPE_ID, lastSync: null, datasets: {} };
+  }
+  const map = await readLatestForDomains(DOMAINS.map((d) => d.id));
+  const bundles: DomainLiveBundle[] = [];
+  for (const d of DOMAINS) {
+    const snaps = map.get(d.id);
+    if (!snaps || snaps.length === 0) continue;
+    const bundle: DomainLiveBundle = { domainId: d.id, lastSync: null, datasets: {} };
+    attach(bundle, snaps);
+    bundles.push(bundle);
+  }
+  return aggregateBundles(bundles);
 }
 
 function headlineFrom(domainId: string, snaps: StoredSnapshot[]): DomainHeadline {

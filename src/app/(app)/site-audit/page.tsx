@@ -13,9 +13,10 @@ import {
   Skeleton,
 } from "@/components/ui/primitives";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { ScopeNote } from "@/components/ui/scope-note";
 import { Drawer, DrawerField } from "@/components/ui/drawer";
 import { useDomain, useResolvedDomain } from "@/components/shell/domain-context";
-import { useLiveDomain } from "@/lib/use-live";
+import { useScopedLive } from "@/lib/use-live";
 import { formatDate } from "@/lib/dates";
 import { fullNumber } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -38,7 +39,7 @@ function barTone(score: number): { bar: string; text: string } {
 export default function SiteAuditPage() {
   const domain = useResolvedDomain();
   const { scope } = useDomain();
-  const { data: bundle, loading, error } = useLiveDomain(domain.id);
+  const { data: bundle, loading, error, isPortfolio, scopeLabel, scopeHost, scopeId } = useScopedLive();
 
   const [severityFilter, setSeverityFilter] = useState<"all" | Severity>("all");
   const [selected, setSelected] = useState<TechnicalIssue | null>(null);
@@ -143,12 +144,7 @@ export default function SiteAuditPage() {
         loading={loading}
       />
 
-      {scope === "portfolio" && (
-        <p className="-mt-2 text-2xs text-muted">
-          Showing <span className="font-medium text-ink">{domain.name}</span> — audit data follows the
-          domain rail selection.
-        </p>
-      )}
+      <ScopeNote isPortfolio={isPortfolio} noun="audit data" />
 
       {/* KPI row */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -324,7 +320,7 @@ export default function SiteAuditPage() {
             columns={issueColumns}
             searchKeys={(r) => `${r.title} ${r.category}`}
             searchPlaceholder="Search issues…"
-            exportName={`site-audit-issues-${domain.id}`}
+            exportName={`site-audit-issues-${scopeId}`}
             onRowClick={setSelected}
             pageSize={12}
           />

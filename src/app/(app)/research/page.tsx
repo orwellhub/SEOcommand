@@ -13,6 +13,7 @@ import {
   Button,
 } from "@/components/ui/primitives";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { ScopeNote } from "@/components/ui/scope-note";
 import { Drawer, DrawerField } from "@/components/ui/drawer";
 import { Sparkline } from "@/components/charts/sparkline";
 import {
@@ -24,7 +25,7 @@ import {
 } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { useDomain, useResolvedDomain } from "@/components/shell/domain-context";
-import { useLiveDomain } from "@/lib/use-live";
+import { useScopedLive } from "@/lib/use-live";
 import type {
   Keyword,
   Competitor,
@@ -100,7 +101,7 @@ function SerpChips({ features }: { features: SerpFeature[] }) {
 export default function ResearchPage() {
   const domain = useResolvedDomain();
   const { scope } = useDomain();
-  const { data: bundle, loading, error } = useLiveDomain(domain.id);
+  const { data: bundle, loading, error, isPortfolio, scopeLabel, scopeHost, scopeId } = useScopedLive();
 
   const [tab, setTab] = useState<SubTab>("ranked");
   const [selected, setSelected] = useState<Keyword | null>(null);
@@ -355,17 +356,12 @@ export default function ResearchPage() {
     <div className="animate-in space-y-5">
       <PageHeader
         title="Research Centre"
-        description={`Live keyword universe for ${domain.host} — ranked terms, first-party search queries, organic rivals and page-one opportunities.`}
+        description={`Live keyword universe for ${scopeHost} — ranked terms, first-party search queries, organic rivals and page-one opportunities.`}
         lastSync={bundle?.lastSync ?? null}
         loading={loading}
       />
 
-      {scope === "portfolio" && (
-        <p className="text-2xs text-muted">
-          Showing <span className="font-medium text-ink">{domain.name}</span> — data follows the
-          domain rail selection.
-        </p>
-      )}
+      <ScopeNote isPortfolio={isPortfolio} noun="research data" />
 
       {loading && !bundle ? (
         <>
@@ -386,7 +382,7 @@ export default function ResearchPage() {
             <KpiCard
               label="Tracked keywords"
               value={kpis ? fullNumber(kpis.total) : "—"}
-              hint={domain.host}
+              hint={scopeHost}
             />
             <KpiCard
               label="Total search volume"
@@ -507,7 +503,7 @@ export default function ResearchPage() {
                   searchKeys={(r) => r.keyword}
                   searchPlaceholder="Search keywords…"
                   onRowClick={setSelected}
-                  exportName={`${domain.id}-keywords`}
+                  exportName={`${scopeId}-keywords`}
                   pageSize={12}
                   emptyLabel="No keywords match the current filters."
                 />
@@ -542,7 +538,7 @@ export default function ResearchPage() {
                   columns={queryCols}
                   searchKeys={(r) => r.key}
                   searchPlaceholder="Search queries…"
-                  exportName={`${domain.id}-gsc-queries`}
+                  exportName={`${scopeId}-gsc-queries`}
                   pageSize={12}
                 />
               </Card>
@@ -562,7 +558,7 @@ export default function ResearchPage() {
                   <div>
                     <h3 className="text-sm font-semibold text-ink">Organic competitors</h3>
                     <p className="mt-0.5 text-2xs text-muted">
-                      Domains competing for {domain.name}&apos;s keyword footprint.
+                      Domains competing for {scopeLabel}&apos;s keyword footprint.
                     </p>
                   </div>
                   <SourceBadge
@@ -576,7 +572,7 @@ export default function ResearchPage() {
                   columns={competitorCols}
                   searchKeys={(r) => r.host}
                   searchPlaceholder="Search competitors…"
-                  exportName={`${domain.id}-competitors`}
+                  exportName={`${scopeId}-competitors`}
                   pageSize={12}
                 />
               </Card>
@@ -611,7 +607,7 @@ export default function ResearchPage() {
                   columns={strikingCols}
                   searchKeys={(r) => r.query}
                   searchPlaceholder="Search queries…"
-                  exportName={`${domain.id}-striking-distance`}
+                  exportName={`${scopeId}-striking-distance`}
                   pageSize={12}
                 />
               </Card>

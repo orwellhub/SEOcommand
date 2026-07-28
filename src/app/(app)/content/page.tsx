@@ -12,11 +12,12 @@ import {
   Skeleton,
 } from "@/components/ui/primitives";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { ScopeNote } from "@/components/ui/scope-note";
 import { Drawer, DrawerField } from "@/components/ui/drawer";
 import { compactNumber, fullNumber, percent } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { useDomain, useResolvedDomain } from "@/components/shell/domain-context";
-import { useLiveDomain } from "@/lib/use-live";
+import { useScopedLive } from "@/lib/use-live";
 import { getDomain } from "@/data/domains";
 import type { Ga4LandingPage, GscMover, GscRow } from "@/lib/types";
 
@@ -72,7 +73,7 @@ function MoverList({
 export default function ContentIntelligencePage() {
   const domain = useResolvedDomain();
   const { scope } = useDomain();
-  const { data: bundle, loading, error } = useLiveDomain(domain.id);
+  const { data: bundle, loading, error, isPortfolio, scopeLabel, scopeHost, scopeId } = useScopedLive();
 
   const [selected, setSelected] = useState<GscRow | null>(null);
 
@@ -202,17 +203,12 @@ export default function ContentIntelligencePage() {
     <div className="animate-in space-y-5">
       <PageHeader
         title="Content Intelligence"
-        description={`Page-level search performance for ${domain.host} — real Search Console page data: traffic, decay and rising pages, plus GA4 landing-page outcomes.`}
+        description={`Page-level search performance for ${scopeHost} — real Search Console page data: traffic, decay and rising pages, plus GA4 landing-page outcomes.`}
         lastSync={bundle?.lastSync ?? null}
         loading={loading}
       />
 
-      {scope === "portfolio" && (
-        <p className="text-2xs text-muted">
-          Showing <span className="font-medium text-ink">{domain.name}</span> — data follows the
-          domain rail selection.
-        </p>
-      )}
+      <ScopeNote isPortfolio={isPortfolio} noun="content data" />
 
       {loading && !bundle ? (
         <>
@@ -285,7 +281,7 @@ export default function ContentIntelligencePage() {
                 searchKeys={(r) => r.key}
                 searchPlaceholder="Search pages…"
                 onRowClick={setSelected}
-                exportName={`${domain.id}-gsc-pages`}
+                exportName={`${scopeId}-gsc-pages`}
                 pageSize={12}
               />
             </Card>
@@ -383,7 +379,7 @@ export default function ContentIntelligencePage() {
                 columns={ga4Cols}
                 searchKeys={(r) => r.landingPage}
                 searchPlaceholder="Search landing pages…"
-                exportName={`${domain.id}-ga4-landing-pages`}
+                exportName={`${scopeId}-ga4-landing-pages`}
                 pageSize={12}
               />
             </Card>

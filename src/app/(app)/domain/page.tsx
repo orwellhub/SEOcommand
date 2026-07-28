@@ -10,6 +10,8 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
+import { ModuleLink } from "@/components/ui/module-link";
+import { RefreshButtons } from "@/components/shell/refresh-buttons";
 import { KpiCard } from "@/components/ui/kpi-card";
 import {
   Card,
@@ -223,6 +225,7 @@ export default function DomainOverviewPage() {
       <PageHeader
         title={`${domain.name} — Domain overview`}
         description={`Live SEO snapshot for ${domain.host} — measured Search Console, GA4 and crawl data.`}
+        actions={<RefreshButtons />}
         lastSync={bundle.lastSync ?? null}
         loading={loading}
       />
@@ -299,6 +302,7 @@ export default function DomainOverviewPage() {
           <CardHeader
             title="Clicks & impressions trend"
             subtitle="Daily measured Search Console data, last 90 days"
+            action={<ModuleLink href="/rankings" label="Rankings" />}
           />
           <div className="px-3 pb-3 pt-4">
             {trendData.length >= 2 ? (
@@ -315,7 +319,7 @@ export default function DomainOverviewPage() {
         <Card className="p-4">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-ink">Technical snapshot</h3>
-            <ShieldAlert className="h-4 w-4 text-warning" />
+            <ModuleLink href="/site-audit" label="Site Audit" />
           </div>
           {onpage ? (
             <>
@@ -359,7 +363,7 @@ export default function DomainOverviewPage() {
         <Card className="p-4">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-ink">Top pages</h3>
-            <span className="text-2xs text-muted">GSC clicks, 28 days</span>
+            <ModuleLink href="/content" label="Content" />
           </div>
           {topPages.length === 0 ? (
             <EmptyState
@@ -393,7 +397,7 @@ export default function DomainOverviewPage() {
         <Card className="p-4">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-ink">Query movers</h3>
-            <span className="text-2xs text-muted">Measured clicks vs previous 28 days</span>
+            <ModuleLink href="/research" label="Research" />
           </div>
           {movers ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -416,7 +420,7 @@ export default function DomainOverviewPage() {
             <Card className={cn("p-4", som ? "xl:col-span-2" : "xl:col-span-3")}>
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-ink">Top landing pages (GA4)</h3>
-                <span className="text-2xs text-muted">Organic sessions, 28 days</span>
+                <ModuleLink href="/content" label="Content" />
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -449,7 +453,7 @@ export default function DomainOverviewPage() {
             <Card className="p-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-ink">Share of market</h3>
-                <PieChart className="h-4 w-4 text-[color:var(--accent)]" />
+                <ModuleLink href="/rankings" label="Rankings" />
               </div>
               <div className="mt-3 text-3xl font-semibold text-ink tnum">
                 {percent(som.shareOfAvailableClicksPct)}
@@ -486,7 +490,7 @@ export default function DomainOverviewPage() {
       <Card className="p-4">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-ink">Competitors</h3>
-          <span className="text-2xs text-muted">Overlapping organic rivals</span>
+          <ModuleLink href="/research" label="Research" />
         </div>
         {competitors.length === 0 ? (
           <EmptyState
@@ -530,7 +534,7 @@ export default function DomainOverviewPage() {
       <Card className="p-4">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-ink">Priority recommendations</h3>
-          <span className="text-2xs text-muted">Derived from live signals</span>
+          <ModuleLink href="/recommendations" label="Recommendations" />
         </div>
         {recommendations.length === 0 ? (
           <EmptyState

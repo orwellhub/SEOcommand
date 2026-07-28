@@ -13,10 +13,11 @@ import { PageHeader } from "@/components/ui/page-header";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Card, CardHeader, EmptyState, Skeleton } from "@/components/ui/primitives";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { ScopeNote } from "@/components/ui/scope-note";
 import { Drawer, DrawerField } from "@/components/ui/drawer";
 import { AreaTrend, BarSeries } from "@/components/charts/charts";
 import { useDomain, useResolvedDomain } from "@/components/shell/domain-context";
-import { useLiveDomain } from "@/lib/use-live";
+import { useScopedLive } from "@/lib/use-live";
 import { compactNumber, fullNumber } from "@/lib/format";
 import { formatDate } from "@/lib/dates";
 import { cn } from "@/lib/cn";
@@ -114,7 +115,7 @@ const RANK_COLUMNS: Column<RankRow>[] = [
 export default function RankingsPage() {
   const domain = useResolvedDomain();
   const { scope } = useDomain();
-  const { data: bundle, loading, error } = useLiveDomain(domain.id);
+  const { data: bundle, loading, error, isPortfolio, scopeLabel, scopeHost, scopeId } = useScopedLive();
   const [selected, setSelected] = useState<RankRow | null>(null);
 
   const ds = bundle?.datasets;
@@ -220,7 +221,7 @@ export default function RankingsPage() {
       <div className="animate-in space-y-5">
         <PageHeader
           title="Rankings"
-          description={`Keyword positions and measured search trend for ${domain.host}.`}
+          description={`Keyword positions and measured search trend for ${scopeHost}.`}
           lastSync={null}
         />
         <EmptyState title="Could not load live data" description={error} />
@@ -233,7 +234,7 @@ export default function RankingsPage() {
       <div className="animate-in space-y-5">
         <PageHeader
           title="Rankings"
-          description={`Keyword positions and measured search trend for ${domain.host}.`}
+          description={`Keyword positions and measured search trend for ${scopeHost}.`}
           lastSync={null}
           loading
         />
@@ -256,7 +257,7 @@ export default function RankingsPage() {
       <div className="animate-in space-y-5">
         <PageHeader
           title="Rankings"
-          description={`Keyword positions and measured search trend for ${domain.host}.`}
+          description={`Keyword positions and measured search trend for ${scopeHost}.`}
           lastSync={null}
           loading={loading}
         />
@@ -272,17 +273,12 @@ export default function RankingsPage() {
     <div className="animate-in space-y-5">
       <PageHeader
         title="Rankings"
-        description={`Keyword positions, measured search trend and page-one opportunities for ${domain.host}.`}
+        description={`Keyword positions, measured search trend and page-one opportunities for ${scopeHost}.`}
         lastSync={bundle.lastSync ?? null}
         loading={loading}
       />
 
-      {scope === "portfolio" && (
-        <p className="-mt-2 text-xs text-muted">
-          Showing <span className="font-medium text-ink">{domain.name}</span> — data follows the
-          domain rail selection.
-        </p>
-      )}
+      <ScopeNote isPortfolio={isPortfolio} noun="ranking data" />
 
       {/* KPI row */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -406,7 +402,7 @@ export default function RankingsPage() {
             searchKeys={(r) => `${r.keyword} ${r.url}`}
             searchPlaceholder="Search keywords…"
             onRowClick={setSelected}
-            exportName={`${domain.id}-rankings`}
+            exportName={`${scopeId}-rankings`}
             pageSize={12}
           />
         ) : (
@@ -432,7 +428,7 @@ export default function RankingsPage() {
             columns={strikingColumns}
             searchKeys={(r) => r.query}
             searchPlaceholder="Search queries…"
-            exportName={`${domain.id}-striking-distance`}
+            exportName={`${scopeId}-striking-distance`}
             pageSize={10}
           />
         ) : (
@@ -498,7 +494,7 @@ export default function RankingsPage() {
         open={selected !== null}
         onClose={() => setSelected(null)}
         title={selected?.keyword ?? ""}
-        subtitle={selected ? `${domain.name} · ${selected.location}` : undefined}
+        subtitle={selected ? `${scopeLabel} · ${selected.location}` : undefined}
       >
         {selected && (
           <div>

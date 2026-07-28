@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { CloudOff, Database } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
+import { RefreshButtons } from "@/components/shell/refresh-buttons";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Card, EmptyState, Skeleton } from "@/components/ui/primitives";
 import { DataTable, type Column } from "@/components/ui/data-table";
@@ -26,6 +28,16 @@ function num(v: number | null): string {
 
 export default function PortfolioPage() {
   const { setScope } = useDomain();
+  const router = useRouter();
+
+  /** Open a property's landing page, scoping the app to it on the way. */
+  const openDomain = useCallback(
+    (id: string) => {
+      setScope(id);
+      router.push(`/domain/${id}`);
+    },
+    [router, setScope],
+  );
   const { data: pm, loading, error } = useLivePortfolio();
 
   // Latest sync across all domains — null when nothing has synced yet.
@@ -71,7 +83,7 @@ export default function PortfolioPage() {
         return (
           <div className="flex items-center gap-2">
             <button
-              onClick={() => id && setScope(id)}
+              onClick={() => id && openDomain(id)}
               className="flex items-center gap-2 text-left hover:underline"
             >
               <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: r.accent }} />
@@ -223,6 +235,7 @@ export default function PortfolioPage() {
       <PageHeader
         title="Portfolio Command Centre"
         description="Cross-domain organic performance, health and coverage — live provider data only."
+        actions={<RefreshButtons />}
         lastSync={lastSync}
         loading={loading}
       />
@@ -297,8 +310,8 @@ export default function PortfolioPage() {
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-sm font-semibold text-ink">Domain leaderboard</h3>
           <span className="text-2xs text-muted">
-            {pm.totals.domainsSynced} of {rows.length} domains synced · Click a domain to switch
-            scope
+            {pm.totals.domainsSynced} of {rows.length} domains synced · Click a domain to open its
+            page
           </span>
         </div>
         <DataTable

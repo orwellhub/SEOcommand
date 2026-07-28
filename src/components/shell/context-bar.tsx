@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Check, ChevronDown, Search, Layers, Circle } from "lucide-react";
 import { DOMAINS } from "@/data/domains";
 import { useDomain, type RangeKey } from "./domain-context";
@@ -16,6 +17,14 @@ export function ContextBar() {
   const { scope, setScope, comparison, toggleComparison, range, setRange } = useDomain();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
+  const router = useRouter();
+
+  /** Switching scope from the picker also navigates to that scope's home. */
+  function choose(next: string) {
+    setScope(next as typeof scope);
+    router.push(next === "portfolio" ? "/portfolio" : `/domain/${next}`);
+    setOpen(false);
+  }
 
   const current =
     scope === "portfolio"
@@ -62,10 +71,7 @@ export function ContextBar() {
                 />
               </div>
               <button
-                onClick={() => {
-                  setScope("portfolio");
-                  setOpen(false);
-                }}
+                onClick={() => choose("portfolio")}
                 className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm hover:bg-workspace"
               >
                 <Layers className="h-4 w-4 text-purple" />
@@ -76,10 +82,7 @@ export function ContextBar() {
               {filtered.map((d) => (
                 <button
                   key={d.id}
-                  onClick={() => {
-                    setScope(d.id);
-                    setOpen(false);
-                  }}
+                  onClick={() => choose(d.id)}
                   className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm hover:bg-workspace"
                 >
                   <Circle className="h-3 w-3" style={{ fill: d.accent, color: d.accent }} />

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Layers, Settings, ChevronRight, Circle } from "lucide-react";
 import { DOMAINS } from "@/data/domains";
 import { useDomain } from "./domain-context";
@@ -11,8 +12,20 @@ import { compactNumber } from "@/lib/format";
 export function PortfolioRail() {
   const { scope, setScope } = useDomain();
   const { data: pm } = useLivePortfolio();
+  const router = useRouter();
 
   const headline = (id: string) => pm?.domains.find((d) => d.domainId === id);
+
+  /** Selecting a property both scopes the app and lands on that site's page. */
+  function selectDomain(id: string) {
+    setScope(id);
+    router.push(`/domain/${id}`);
+  }
+
+  function selectPortfolio() {
+    setScope("portfolio");
+    router.push("/portfolio");
+  }
 
   return (
     <aside className="hidden w-[248px] shrink-0 flex-col bg-rail text-white lg:flex">
@@ -28,7 +41,7 @@ export function PortfolioRail() {
 
       <div className="px-3">
         <button
-          onClick={() => setScope("portfolio")}
+          onClick={selectPortfolio}
           className={cn(
             "flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left transition-colors",
             scope === "portfolio" ? "bg-rail-selected" : "hover:bg-nav",
@@ -55,7 +68,7 @@ export function PortfolioRail() {
             return (
               <button
                 key={d.id}
-                onClick={() => setScope(d.id)}
+                onClick={() => selectDomain(d.id)}
                 className={cn(
                   "group flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left transition-colors",
                   active ? "bg-rail-selected" : "hover:bg-nav",

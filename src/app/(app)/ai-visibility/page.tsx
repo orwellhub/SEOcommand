@@ -6,9 +6,10 @@ import { PageHeader } from "@/components/ui/page-header";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Card, EmptyState, Skeleton, StatusBadge } from "@/components/ui/primitives";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { ScopeNote } from "@/components/ui/scope-note";
 import { Drawer, DrawerField } from "@/components/ui/drawer";
 import { useDomain, useResolvedDomain } from "@/components/shell/domain-context";
-import { useLiveDomain } from "@/lib/use-live";
+import { useScopedLive } from "@/lib/use-live";
 import { TRACKED_AI_PROMPTS } from "@/data/ai-prompts";
 import { getDomain } from "@/data/domains";
 import { percent } from "@/lib/format";
@@ -63,7 +64,7 @@ const COLUMNS: Column<AiPrompt>[] = [
 export default function AiVisibilityPage() {
   const domain = useResolvedDomain();
   const { scope } = useDomain();
-  const { data: bundle, loading, error } = useLiveDomain(domain.id);
+  const { data: bundle, loading, error, isPortfolio, scopeLabel, scopeHost, scopeId } = useScopedLive();
   const [selected, setSelected] = useState<AiPrompt | null>(null);
 
   const trackedConfig = TRACKED_AI_PROMPTS[domain.id];
@@ -89,20 +90,14 @@ export default function AiVisibilityPage() {
 
   const header = (
     <PageHeader
-      title={`${domain.name} — AI Visibility`}
-      description={`How ${domain.host} surfaces in AI assistant answers — real LLM checks against the tracked prompt set, run at each sync.`}
+      title={`${scopeLabel} — AI Visibility`}
+      description={`How ${scopeHost} surfaces in AI assistant answers — real LLM checks against the tracked prompt set, run at each sync.`}
       lastSync={bundle?.lastSync ?? null}
       loading={loading}
     />
   );
 
-  const scopeNote =
-    scope === "portfolio" ? (
-      <p className="-mt-2 text-2xs text-muted">
-        Showing <span className="font-medium text-ink">{domain.name}</span> — AI checks follow the
-        domain selected in the rail.
-      </p>
-    ) : null;
+  const scopeNote = <ScopeNote isPortfolio={isPortfolio} noun="AI visibility" />;
 
   if (loading && !bundle) {
     return (
@@ -178,7 +173,7 @@ export default function AiVisibilityPage() {
         {scopeNote}
         <EmptyState
           title="No AI checks recorded yet — tracked prompts run on the monthly AI sync"
-          description={`${trackedConfig.length} prompts are configured for ${domain.host}. Measured mention and citation results will appear here after the next sync completes.`}
+          description={`${trackedConfig.length} prompts are configured for ${scopeHost}. Measured mention and citation results will appear here after the next sync completes.`}
           icon={<Sparkles className="h-5 w-5" />}
         />
       </div>
@@ -233,7 +228,7 @@ export default function AiVisibilityPage() {
           searchKeys={(r) => `${r.prompt} ${r.topic}`}
           searchPlaceholder="Search prompts…"
           onRowClick={setSelected}
-          exportName={`${domain.id}-ai-prompts`}
+          exportName={`${scopeId}-ai-prompts`}
           pageSize={12}
           emptyLabel="No prompt checks recorded."
         />

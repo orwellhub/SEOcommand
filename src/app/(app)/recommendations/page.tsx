@@ -13,8 +13,9 @@ import { PageHeader } from "@/components/ui/page-header";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Button, Card, EmptyState, Skeleton, StatusBadge } from "@/components/ui/primitives";
 import { Drawer, DrawerField } from "@/components/ui/drawer";
+import { ScopeNote } from "@/components/ui/scope-note";
 import { useDomain, useResolvedDomain } from "@/components/shell/domain-context";
-import { useLiveDomain } from "@/lib/use-live";
+import { useScopedLive } from "@/lib/use-live";
 import type { DerivedRecommendation } from "@/lib/live";
 import type { RecConfidence, RecEffort } from "@/lib/types";
 import { cn } from "@/lib/cn";
@@ -60,7 +61,7 @@ const NEXT_STATUS: Partial<Record<WorkflowStatus, WorkflowStatus>> = {
 export default function RecommendationsPage() {
   const domain = useResolvedDomain();
   const { scope } = useDomain();
-  const { data: bundle, loading, error } = useLiveDomain(domain.id);
+  const { data: bundle, loading, error, isPortfolio, scopeLabel, scopeHost, scopeId } = useScopedLive();
 
   const [selected, setSelected] = useState<DerivedRecommendation | null>(null);
   const [workflowItems, setWorkflowItems] = useState<WorkflowItem[]>([]);
@@ -163,20 +164,14 @@ export default function RecommendationsPage() {
 
   const header = (
     <PageHeader
-      title={`${domain.name} — Recommendations & Tasks`}
+      title={`${scopeLabel} — Recommendations & Tasks`}
       description="Priority-scored actions derived from measured signals, with a human approval workflow."
       lastSync={bundle?.lastSync ?? null}
       loading={loading}
     />
   );
 
-  const scopeNote =
-    scope === "portfolio" ? (
-      <p className="-mt-2 text-2xs text-muted">
-        Showing <span className="font-medium text-ink">{domain.name}</span> — recommendations follow
-        the domain selected in the rail.
-      </p>
-    ) : null;
+  const scopeNote = <ScopeNote isPortfolio={isPortfolio} noun="recommendations" />;
 
   if (loading && !bundle) {
     return (
