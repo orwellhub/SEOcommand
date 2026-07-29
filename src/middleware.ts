@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
+import { SESSION_COOKIE, verifyReadToken, verifySessionToken } from "@/lib/auth";
 
 const PUBLIC_PATHS = new Set([
   "/login",
@@ -11,6 +11,17 @@ const PUBLIC_PATHS = new Set([
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Machine reads: a bearer token substitutes for a session on read-only API
+  // paths, so scripts and agents can pull data without a browser cookie.
+  if (verifyReadToken(request.headers.get("authorization"), process.env.API_READ_TOKEN, request.method, pathname)) {
+    const serviceHeaders = new Headers(request.headers);
+    serviceHeaders.set("x-orwell-user-email", "service-reader@orwell.internal");
+    serviceHeaders.set("x-orwell-user-name", "Service Reader");
+    serviceHeaders.set("x-orwell-user-role", "viewer");
+    return NextResponse.next({ request: { headers: serviceHeaders } });
+  }
+
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   const session = await verifySessionToken(token, process.env.AUTH_SECRET);
 

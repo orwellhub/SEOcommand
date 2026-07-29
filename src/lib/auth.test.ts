@@ -4,6 +4,8 @@ import {
   canWrite,
   configuredUsers,
   createSessionToken,
+  isReadTokenPath,
+  verifyReadToken,
   verifySessionToken,
 } from "./auth";
 
@@ -40,5 +42,45 @@ describe("internal authentication", () => {
     expect(canWrite("admin")).toBe(true);
     expect(canWrite("seo_analyst")).toBe(true);
     expect(canWrite("viewer")).toBe(false);
+  });
+});
+
+describe("machine read token", () => {
+  const token = "x".repeat(40);
+  const bearer = `Bearer ${token}`;
+
+  it("admits a matching bearer token on read-only GETs", () => {
+    expect(verifyReadToken(bearer, token, "GET", "/api/live/mortgagecompare")).toBe(true);
+    expect(verifyReadToken(bearer, token, "GET", "/api/live/portfolio")).toBe(true);
+    expect(verifyReadToken(bearer, token, "HEAD", "/api/usage")).toBe(true);
+  });
+
+  it("refuses entirely while the token is unset or too weak", () => {
+    expect(verifyReadToken(bearer, undefined, "GET", "/api/live/mortgagecompare")).toBe(false);
+    expect(verifyReadToken("Bearer short", "short", "GET", "/api/live/mortgagecompare")).toBe(false);
+  });
+
+  it("rejects wrong, malformed and near-miss credentials", () => {
+    expect(verifyReadToken(`Bearer ${"y".repeat(40)}`, token, "GET", "/api/live/mortgagecompare")).toBe(false);
+    expect(verifyReadToken(token, token, "GET", "/api/live/mortgagecompare")).toBe(false);
+    expect(verifyReadToken(`Bearer ${token}x`, token, "GET", "/api/live/mortgagecompare")).toBe(false);
+    expect(verifyReadToken(null, token, "GET", "/api/live/mortgagecompare")).toBe(false);
+  });
+
+  it("cannot spend budget or mutate: no writes, no sync, no research", () => {
+    expect(verifyReadToken(bearer, token, "POST", "/api/sync")).toBe(false);
+    expect(verifyReadToken(bearer, token, "GET", "/api/sync")).toBe(false);
+    expect(verifyReadToken(bearer, token, "POST", "/api/keyword-research")).toBe(false);
+    expect(verifyReadToken(bearer, token, "GET", "/api/keyword-research")).toBe(false);
+    expect(verifyReadToken(bearer, token, "POST", "/api/live/mortgagecompare")).toBe(false);
+    expect(verifyReadToken(bearer, token, "GET", "/api/workflow/tasks")).toBe(false);
+    expect(verifyReadToken(bearer, token, "GET", "/portfolio")).toBe(false);
+  });
+
+  it("scopes paths by segment, not by prefix match", () => {
+    expect(isReadTokenPath("/api/live")).toBe(true);
+    expect(isReadTokenPath("/api/live/mortgagecompare")).toBe(true);
+    expect(isReadTokenPath("/api/livestream")).toBe(false);
+    expect(isReadTokenPath("/api/usage-report")).toBe(false);
   });
 });

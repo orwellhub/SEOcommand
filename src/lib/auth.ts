@@ -167,3 +167,38 @@ export function authenticateUser(
 export function canWrite(role: AppRole | string | null): boolean {
   return role === "admin" || role === "manager" || role === "seo_analyst";
 }
+
+/**
+ * API paths a read token may reach. All are pure snapshot reads — they assemble
+ * already-stored data and never call a provider, so they cannot spend budget.
+ */
+const READ_TOKEN_PATHS = ["/api/live", "/api/usage", "/api/health"];
+
+export function isReadTokenPath(pathname: string): boolean {
+  return READ_TOKEN_PATHS.some((base) => pathname === base || pathname.startsWith(`${base}/`));
+}
+
+/**
+ * Machine read access for scripts and agents, mirroring the SYNC_TOKEN pattern
+ * on POST /api/sync: a bearer token stands in for a browser session so pulling
+ * canonical data does not require a human to be logged in.
+ *
+ * Deliberately narrower than a user session — GET/HEAD only, read-only paths
+ * only — so a leaked token cannot trigger a sync, spend DataForSEO budget or
+ * mutate workflow state. Refuses entirely while API_READ_TOKEN is unset, and
+ * requires a 32+ character token so a weak value cannot be brute-forced.
+ */
+export function verifyReadToken(
+  authorization: string | null | undefined,
+  token: string | undefined,
+  method: string,
+  pathname: string,
+): boolean {
+  if (!token || token.length < 32) return false;
+  if (method !== "GET" && method !== "HEAD") return false;
+  if (!isReadTokenPath(pathname)) return false;
+
+  const header = authorization ?? "";
+  if (!header.startsWith("Bearer ")) return false;
+  return safeStringEqual(header.slice("Bearer ".length), token);
+}
