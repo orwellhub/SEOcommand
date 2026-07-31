@@ -13,6 +13,7 @@
  */
 import { syncAll, scheduledTiers } from "../src/sync/engine";
 import { deliverDueReports } from "../src/reports/delivery";
+import { closeDb } from "../src/db";
 
 async function main() {
   if (!process.env.DATABASE_URL) {
@@ -51,7 +52,16 @@ async function main() {
   );
 }
 
-main().catch((err) => {
-  console.error("[orwell-jobs] Fatal error:", err);
-  process.exit(1);
-});
+main()
+  .then(async () => {
+    // Release the Postgres pool, otherwise its open sockets keep the event loop
+    // alive and the container idles until the platform reaps it (observed: work
+    // done in ~45s, run not marked finished for ~58 minutes).
+    await closeDb();
+    process.exit(0);
+  })
+  .catch(async (err) => {
+    console.error("[orwell-jobs] Fatal error:", err);
+    await closeDb().catch(() => undefined);
+    process.exit(1);
+  });
