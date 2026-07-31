@@ -6,6 +6,10 @@ import type { Domain, DomainId } from "@/lib/types";
  * is a one-line append. GSC properties and GA4 property ids come from the
  * connected Google assets (service account `orwell-seo-reader`). GA4 ids left
  * null are not yet mapped and can be set per-env.
+ *
+ * NOTE: this file records which assets are MAPPED. Whether the service account
+ * can actually read them is a separate question answered live by
+ * /api/health/google and /api/health/dataforseo — never assume from here.
  */
 export const DOMAINS: Domain[] = [
   {
@@ -19,9 +23,6 @@ export const DOMAINS: Domain[] = [
     ga4PropertyId: "529950642",
     dataForSeoLocationCode: 2784,
     dataForSeoLanguageCode: "en",
-    gscConnected: false,
-    ga4Connected: false,
-    dataForSeoConnected: false,
   },
   {
     id: "busrentalglobal",
@@ -31,14 +32,14 @@ export const DOMAINS: Domain[] = [
     industry: "Coach, minibus & group transport hire",
     primaryMarket: "Europe (multi-city)",
     gscSite: "sc-domain:busrentalglobal.com",
-    ga4PropertyId: null,
+    // Property created 2026-07 in the Pet Transport Global GA account; its time
+    // zone/currency were mirrored from that sibling (US/Los Angeles, USD) and do
+    // not match a European operation. Non-destructive to correct in GA4.
+    ga4PropertyId: "547998254",
     // Multi-city tracking needs an explicit commercial market per deployment.
     // Set DATAFORSEO_LOCATION_BUSRENTALGLOBAL in the environment.
     dataForSeoLocationCode: null,
     dataForSeoLanguageCode: "en",
-    gscConnected: false,
-    ga4Connected: false,
-    dataForSeoConnected: false,
   },
   {
     id: "pettransportglobal",
@@ -53,9 +54,6 @@ export const DOMAINS: Domain[] = [
     // Set DATAFORSEO_LOCATION_PETTRANSPORTGLOBAL to the priority market.
     dataForSeoLocationCode: null,
     dataForSeoLanguageCode: "en",
-    gscConnected: false,
-    ga4Connected: false,
-    dataForSeoConnected: false,
   },
   {
     id: "moneycompare",
@@ -68,9 +66,6 @@ export const DOMAINS: Domain[] = [
     ga4PropertyId: "541738826",
     dataForSeoLocationCode: 2784,
     dataForSeoLanguageCode: "en",
-    gscConnected: false,
-    ga4Connected: false,
-    dataForSeoConnected: false,
   },
   {
     id: "insurecompare",
@@ -80,14 +75,14 @@ export const DOMAINS: Domain[] = [
     industry: "UAE insurance comparison (motor, health, home)",
     primaryMarket: "United Arab Emirates",
     gscSite: "sc-domain:insurecompare.ae",
-    // GA4 property for the InsureCompare account (541656359 belongs to a
-    // PetTransportGlobal secondary property — corrected per account inventory).
+    // Verified 2026-07 against the live GA4 inventory. The earlier note here was
+    // wrong: 541656359 is NOT a PetTransportGlobal property — it is a stray
+    // duplicate "Insure Compare" property (stream insurecompare.ae) that merely
+    // sits inside the Pet Transport Global GA *account*, which is what caused the
+    // confusion. It collects no data. 541720356 is the live one.
     ga4PropertyId: "541720356",
     dataForSeoLocationCode: 2784,
     dataForSeoLanguageCode: "en",
-    gscConnected: false,
-    ga4Connected: false,
-    dataForSeoConnected: false,
   },
   {
     id: "pestremovalusa",
@@ -100,9 +95,6 @@ export const DOMAINS: Domain[] = [
     ga4PropertyId: "542325553",
     dataForSeoLocationCode: 2840,
     dataForSeoLanguageCode: "en",
-    gscConnected: false,
-    ga4Connected: false,
-    dataForSeoConnected: false,
   },
   {
     id: "closeprotectionhire",
@@ -115,9 +107,6 @@ export const DOMAINS: Domain[] = [
     ga4PropertyId: "536427457",
     dataForSeoLocationCode: 2826,
     dataForSeoLanguageCode: "en",
-    gscConnected: false,
-    ga4Connected: false,
-    dataForSeoConnected: false,
   },
   {
     id: "checkmyenergyclaim",
@@ -127,12 +116,9 @@ export const DOMAINS: Domain[] = [
     industry: "UK business energy claims & compensation",
     primaryMarket: "United Kingdom",
     gscSite: "sc-domain:checkmyenergyclaim.co.uk",
-    ga4PropertyId: null,
+    ga4PropertyId: "548020696", // created 2026-07 (Warm Homes GA account)
     dataForSeoLocationCode: 2826,
     dataForSeoLanguageCode: "en",
-    gscConnected: false,
-    ga4Connected: false,
-    dataForSeoConnected: false,
   },
   {
     id: "energyclaimhelplineuk",
@@ -142,12 +128,9 @@ export const DOMAINS: Domain[] = [
     industry: "UK business energy claims helpline",
     primaryMarket: "United Kingdom",
     gscSite: "sc-domain:energyclaimhelpline.co.uk",
-    ga4PropertyId: null,
+    ga4PropertyId: "547947832", // created 2026-07 (Warm Homes GA account)
     dataForSeoLocationCode: 2826,
     dataForSeoLanguageCode: "en",
-    gscConnected: false,
-    ga4Connected: false,
-    dataForSeoConnected: false,
   },
   {
     id: "energyclaimhelplinecom",
@@ -157,12 +140,9 @@ export const DOMAINS: Domain[] = [
     industry: "Business energy claims helpline",
     primaryMarket: "United Kingdom",
     gscSite: "sc-domain:energyclaimhelpline.com",
-    ga4PropertyId: null,
+    ga4PropertyId: "547981364", // created 2026-07 (Warm Homes GA account)
     dataForSeoLocationCode: 2826,
     dataForSeoLanguageCode: "en",
-    gscConnected: false,
-    ga4Connected: false,
-    dataForSeoConnected: false,
   },
   {
     id: "myenergyclaim",
@@ -172,12 +152,9 @@ export const DOMAINS: Domain[] = [
     industry: "Business energy claims & mis-sold contracts",
     primaryMarket: "United Kingdom",
     gscSite: "sc-domain:myenergyclaim.com",
-    ga4PropertyId: null,
+    ga4PropertyId: "547980245", // created 2026-07 (Warm Homes GA account)
     dataForSeoLocationCode: 2826,
     dataForSeoLanguageCode: "en",
-    gscConnected: false,
-    ga4Connected: false,
-    dataForSeoConnected: false,
   },
   {
     id: "warmhomeschemeloan",
@@ -187,12 +164,13 @@ export const DOMAINS: Domain[] = [
     industry: "UK home energy-efficiency scheme & grants",
     primaryMarket: "United Kingdom",
     gscSite: "sc-domain:warmhomeschemeloan.co.uk",
+    // MISMATCH pending resolution: GA4 property 546413199 is named
+    // "warmhomeschemeloan" but its web stream points at warmhomeloanscheme.co.uk
+    // (words transposed vs the GSC property above), and it has recorded no data.
+    // GSC and GA4 may therefore be measuring two different domains.
     ga4PropertyId: "546413199",
     dataForSeoLocationCode: 2826,
     dataForSeoLanguageCode: "en",
-    gscConnected: false,
-    ga4Connected: false,
-    dataForSeoConnected: false,
   },
 ];
 

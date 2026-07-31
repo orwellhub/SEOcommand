@@ -27,9 +27,6 @@ export interface Domain {
   /** Explicit DataForSEO location. Null means an env override is required. */
   dataForSeoLocationCode: number | null;
   dataForSeoLanguageCode: string;
-  gscConnected: boolean;
-  ga4Connected: boolean;
-  dataForSeoConnected: boolean;
 }
 
 /** Where a displayed dataset came from and how fresh it is. */

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { GSC_SITE_MAP, GA4_PROPERTY_MAP, readGoogleAuthConfig } from "./config";
 import { googleConfigured } from "./auth";
 import benchmarks from "@/data/benchmarks.json";
+import { DOMAINS } from "@/data/domains";
 
 describe("Google provider config", () => {
   it("maps every pilot domain to a GSC domain property", () => {
@@ -18,9 +19,20 @@ describe("Google provider config", () => {
     expect(GA4_PROPERTY_MAP.warmhomeschemeloan).toBe("546413199");
   });
 
-  it("leaves domains without a GA4 property unmapped (null)", () => {
-    for (const id of ["busrentalglobal", "checkmyenergyclaim", "myenergyclaim"]) {
-      expect(GA4_PROPERTY_MAP[id]).toBeNull();
+  it("maps every domain in the registry to a GA4 property", () => {
+    // The five previously-unmapped domains got properties in the 2026-07 GA4
+    // inventory, so the portfolio now has full coverage. A null here means a
+    // domain was added without provisioning analytics for it.
+    const unmapped = DOMAINS.filter((d) => GA4_PROPERTY_MAP[d.id] == null).map((d) => d.id);
+    expect(unmapped).toEqual([]);
+  });
+
+  it("uses numeric GA4 property ids, never a G- measurement id", () => {
+    // These are different identifiers: the measurement id tags the site, the
+    // numeric property id is what the Data API reads. Swapping them fails at
+    // request time with an unhelpful error, so guard it here.
+    for (const d of DOMAINS) {
+      expect(GA4_PROPERTY_MAP[d.id]).toMatch(/^\d+$/);
     }
   });
 
