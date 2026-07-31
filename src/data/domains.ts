@@ -36,9 +36,11 @@ export const DOMAINS: Domain[] = [
     // zone/currency were mirrored from that sibling (US/Los Angeles, USD) and do
     // not match a European operation. Non-destructive to correct in GA4.
     ga4PropertyId: "547998254",
-    // Multi-city tracking needs an explicit commercial market per deployment.
-    // Set DATAFORSEO_LOCATION_BUSRENTALGLOBAL in the environment.
-    dataForSeoLocationCode: null,
+    // No single "Europe" SERP exists, so rankings are measured against the UK
+    // (2826) — the largest English-language market this business actually
+    // serves. Override per-deployment with DATAFORSEO_LOCATION_BUSRENTALGLOBAL,
+    // which locationFor() reads in preference to this value.
+    dataForSeoLocationCode: 2826,
     dataForSeoLanguageCode: "en",
   },
   {
@@ -50,9 +52,11 @@ export const DOMAINS: Domain[] = [
     primaryMarket: "Global (cross-border)",
     gscSite: "sc-domain:pettransportglobal.com",
     ga4PropertyId: "536371348",
-    // A global service has no meaningful single "global" SERP location.
-    // Set DATAFORSEO_LOCATION_PETTRANSPORTGLOBAL to the priority market.
-    dataForSeoLocationCode: null,
+    // A global service has no meaningful single "global" SERP location, so
+    // rankings are measured against the US (2840) — the largest English-language
+    // market for international pet relocation. Override per-deployment with
+    // DATAFORSEO_LOCATION_PETTRANSPORTGLOBAL.
+    dataForSeoLocationCode: 2840,
     dataForSeoLanguageCode: "en",
   },
   {
@@ -164,10 +168,11 @@ export const DOMAINS: Domain[] = [
     industry: "UK home energy-efficiency scheme & grants",
     primaryMarket: "United Kingdom",
     gscSite: "sc-domain:warmhomeschemeloan.co.uk",
-    // MISMATCH pending resolution: GA4 property 546413199 is named
-    // "warmhomeschemeloan" but its web stream points at warmhomeloanscheme.co.uk
-    // (words transposed vs the GSC property above), and it has recorded no data.
-    // GSC and GA4 may therefore be measuring two different domains.
+    // PRE-LAUNCH as of 2026-07: neither warmhomeschemeloan.co.uk nor the
+    // transposed warmhomeloanscheme.co.uk (which this GA4 property's data stream
+    // points at) resolves — both fail DNS. The site is built but no domain has
+    // been pointed at it, so GSC and GA4 will stay empty and that is expected,
+    // not a broken connection. Re-check the stream URL when a domain goes live.
     ga4PropertyId: "546413199",
     dataForSeoLocationCode: 2826,
     dataForSeoLanguageCode: "en",
