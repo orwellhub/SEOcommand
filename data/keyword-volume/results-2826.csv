@@ -1,0 +1,90 @@
+product,tier,keyword,search_volume,cpc,competition,competition_index,low_top_of_page_bid,high_top_of_page_bid,trend_12m
+P1,S,document automation software,70,68.83,LOW,33,21.15,93.39,10 20 20 90 320 70 40 50 10 70 90 70
+P1,S,proposal automation software,30,,LOW,15,4.25,57.77,20 10 10 20 10 30 30 10 30 40 210 20
+P1,S,tender response software,10,,,,,,0 10 10 10 10 10 10 10 10 10 10 10
+P1,S,rfp response automation,10,,LOW,0,,,10 10 10 10 10 10 10 0 0 10 10 10
+P1,V,bid writing services uk,30,,LOW,14,,,10 10 20 10 10 20 40 10 20 40 110 10
+P1,S,ai document generation,320,9.05,HIGH,77,2.37,10.84,210 210 260 320 480 320 320 260 320 390 320 320
+P1,P,automate report writing,10,,HIGH,69,5.93,26.82,10 10 10 10 10 10 10 10 10 10 10 10
+P1,P,construction document automation,,,,,,,
+P1,S,ai proposal writer for business,,,,,,,
+P1,V,custom document automation development,,,,,,,
+P1,P,reduce proposal turnaround time,,,,,,,
+P2,S,whatsapp business api,1000,27.6,MEDIUM,61,5.56,22.63,1000 880 880 1000 1300 1300 1300 880 1000 1300 1600 1300
+P2,S,whatsapp crm,140,22.15,MEDIUM,63,6.59,33.3,90 110 110 110 320 140 110 70 90 110 320 110
+P2,V,whatsapp chatbot development company,,,,,,,
+P2,S,ai chatbot for business,70,75.88,LOW,29,14.87,52.68,40 50 40 70 40 50 70 40 70 40 170 70
+P2,S,lead response automation,,,,,,,
+P2,S,conversational ai platform,70,4.18,LOW,19,7.11,41.99,90 110 70 50 70 40 50 30 20 50 320 70
+P2,S,ai receptionist for business,10,,LOW,0,,,10 10 10 0 0 0 10 10 0 10 10 0
+P2,P,automate lead follow up,,,,,,,
+P2,V,custom ai chatbot development,10,,LOW,17,,,10 10 10 10 30 30 10 0 10 10 0 10
+P2,P,missed enquiries after hours,,,,,,,
+P3,P,programmatic seo,170,2.22,LOW,23,1.38,10.78,170 110 210 210 320 210 170 110 90 110 140 140
+P3,V,programmatic seo agency,10,,LOW,0,,,10 10 10 10 10 0 10 0 10 0 0 10
+P3,S,ai content generation platform,10,,LOW,9,,,10 10 0 10 10 10 10 10 10 10 10 0
+P3,S,seo automation software,70,,LOW,3,,,50 70 140 90 70 50 70 10 10 10 260 90
+P3,S,content automation platform,10,,,,,,0 10 10 20 10 10 10 10 0 10 70 10
+P3,S,landing page generator ai,10,,HIGH,86,,,10 0 10 10 10 20 10 10 10 10 10 10
+P3,P,scale seo content production,,,,,,,
+P3,V,ai marketing agency london,,,,,,,
+P3,S,multi location seo software,,,,,,,
+P3,S,google ads copy automation,,,,,,,
+P3,V,comparison website development,10,,,,,,0 0 0 0 10 0 0 0 0 0 0 0
+P4,S,invoice processing automation,140,85.6,LOW,32,35,85.85,50 50 70 70 320 140 90 30 70 90 480 110
+P4,S,accounts payable automation,390,88.66,MEDIUM,45,35,85.71,210 320 720 320 720 320 260 170 210 320 1000 320
+P4,S,ocr invoice software,30,42.51,MEDIUM,44,6.3,69.67,20 10 10 10 30 10 10 10 10 20 140 30
+P4,S,document processing ai,10,,LOW,8,,,10 10 10 10 40 20 10 20 20 20 10 20
+P4,V,back office automation services,,,,,,,
+P4,V,business process automation consultancy,,,,,,,
+P4,S,purchase order automation,30,,LOW,24,,,10 10 20 40 50 20 10 30 20 20 170 20
+P4,P,automate supplier reconciliation,,,,,,,
+P4,P,logistics back office automation,,,,,,,
+P4,S,construction invoice management software,,,,,,,
+P4,P,reduce admin headcount cost,,,,,,,
+P5,S,enterprise ai search,10,33.38,MEDIUM,57,,,10 10 10 10 20 10 10 10 10 10 10 10
+P5,S,internal knowledge base ai,10,,LOW,0,,,10 0 0 0 0 0 10 0 10 10 10 10
+P5,S,ai knowledge management software,10,,,,,,0 10 10 0 0 10 0 0 0 0 10 10
+P5,V,rag chatbot development,,,,,,,
+P5,S,company internal chatbot,,,,,,,
+P5,S,document search ai enterprise,,,,,,,
+P5,P,employee onboarding automation,30,,LOW,21,,,10 10 10 10 30 20 20 10 10 20 90 70
+P5,S,sop management software,30,11.27,MEDIUM,43,3.94,17.38,10 30 10 20 140 10 10 20 20 30 70 20
+P5,P,chatgpt for internal documents,,,,,,,
+P5,P,secure ai for company data,,,,,,,
+P5,V,knowledge base implementation partner,,,,,,,
+P5,P,staff cannot find company documents,,,,,,,
+P6,S,contract review software,30,120.12,MEDIUM,40,22.4,90,40 90 10 10 30 30 10 10 10 20 40 30
+P6,S,ai contract analysis,30,18.05,MEDIUM,34,12.42,62.11,10 70 20 10 90 30 10 10 20 30 90 30
+P6,S,contract lifecycle management software,170,64.99,MEDIUM,48,26.11,90,90 90 110 140 390 320 140 90 90 140 480 140
+P6,S,clause extraction software,,,,,,,
+P6,S,legal document automation,30,103.57,MEDIUM,60,14.83,63.69,10 20 20 50 90 30 30 10 10 30 40 90
+P6,S,compliance automation software,50,,LOW,16,30.13,77.39,20 20 20 30 40 30 10 50 40 40 170 50
+P6,V,lease abstraction services,10,,,,,,0 10 10 10 20 10 10 0 10 0 10 10
+P6,P,contract obligation tracking,10,,HIGH,79,,,10 10 10 10 10 0 10 10 0 10 10 10
+P6,P,automate contract review process,,,,,,,
+P6,P,reduce legal review costs,,,,,,,
+P6,V,legal tech implementation consultancy,,,,,,,
+P7,S,ai coding assistant enterprise,10,,,,,,0 10 0 0 0 0 0 0 10 0 0 0
+P7,S,ai code review tool,50,37.16,HIGH,70,7.68,37.73,40 40 30 50 70 70 70 50 40 70 70 40
+P7,V,developer productivity consulting,,,,,,,
+P7,V,agentic coding implementation,,,,,,,
+P7,V,claude code enterprise setup,10,,,,,,0 0 0 10 0 0 0 0 0 0 0 0
+P7,P,github copilot enterprise rollout,,,,,,,
+P7,P,ai adoption for development teams,,,,,,,
+P7,S,software development automation,20,,LOW,0,,,10 10 10 10 20 20 40 30 10 50 10 10
+P7,P,ci cd ai integration,,,,,,,
+P7,V,engineering team ai training,,,,,,,
+P7,V,technical debt reduction services,,,,,,,
+P7,P,ship features faster small team,,,,,,,
+P8,S,ai adoption dashboard,10,,HIGH,69,7.5,24.62,10 10 10 10 10 10 0 0 0 0 0 0
+P8,S,ai usage analytics enterprise,,,,,,,
+P8,S,llm observability platform,10,,MEDIUM,50,,,10 10 10 10 10 10 10 10 10 10 10 10
+P8,P,ai roi measurement,,,,,,,
+P8,P,measure ai productivity gains,,,,,,,
+P8,V,ai governance consultancy,10,15.21,MEDIUM,55,8.39,20.1,20 20 20 0 0 0 0 0 0 0 0 0
+P8,V,ai implementation partner uk,,,,,,,
+P8,P,ai pilot not delivering results,,,,,,,
+P8,S,enterprise ai reporting,,,,,,,
+P8,V,ai managed service provider,10,,,,,,0 10 10 10 10 10 10 0 10 10 10 10
+P8,V,chatgpt enterprise rollout support,,,,,,,
