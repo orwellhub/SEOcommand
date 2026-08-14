@@ -1,0 +1,7 @@
+{
+  "note": "Jobs processed by scripts/keyword-volume/run.mjs. One Google Ads live task per entry. The runner reads this manifest and ignores the legacy SEEDS_FILE and LOCATION_CODE workflow environment variables.",
+  "jobs": [
+    { "market": "United Kingdom", "location_code": 2826, "language_code": "en", "seeds": "data/keyword-seeds/seeds-uk.json" },
+    { "market": "United Arab Emirates", "location_code": 2784, "language_code": "en", "seeds": "data/keyword-seeds/seeds-ae.json" }
+  ]
+}
