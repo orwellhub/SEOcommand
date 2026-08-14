@@ -6,6 +6,12 @@
  * nothing from src/. That keeps it runnable on a bare Actions runner without
  * installing the application.
  *
+ * Auth matches src/providers/dataforseo/config.ts exactly:
+ *   Authorization: Basic base64(DATAFORSEO_LOGIN + ":" + DATAFORSEO_PASSWORD)
+ * The login is the account email address. The password is the generated API
+ * password, not the dashboard sign-in password. DATAFORSEO_BASE_URL is the API
+ * host, not a credential.
+ *
  * NOTE: because it bypasses src/providers/dataforseo, this run is NOT recorded
  * in the api_cost table and does NOT count against MONTHLY_BUDGET_USD. The cost
  * is printed to the job log instead. One task of ~90 keywords is a few cents.
@@ -23,22 +29,44 @@ const OUT_DIR = "data/keyword-volume";
 const login = process.env.DATAFORSEO_LOGIN;
 const password = process.env.DATAFORSEO_PASSWORD;
 
-if (!login || !password) {
-  console.error(
-    [
-      "",
-      "  DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD are not set.",
-      "",
-      "  These currently live only in Render. To run this workflow, add the same",
-      "  two values as GitHub Actions repository secrets:",
-      "",
-      "    Settings > Secrets and variables > Actions > New repository secret",
-      "",
-      "  Nothing else needs changing. Re-run this workflow afterwards.",
-      "",
-    ].join("\n")
-  );
+function die(lines) {
+  console.error(["", ...lines.map((l) => `  ${l}`), ""].join("\n"));
   process.exit(1);
+}
+
+if (!login || !password) {
+  die([
+    "DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD are not both set.",
+    "",
+    "These currently live in Render on orwell-web and orwell-jobs. Copy the",
+    "same two values into GitHub Actions repository secrets:",
+    "",
+    "  Settings > Secrets and variables > Actions > New repository secret",
+    "",
+    "Do not add DATAFORSEO_BASE_URL. It is the API host, not a credential,",
+    "and the workflow already sets it.",
+  ]);
+}
+
+// Guard against the common mix-up: pasting the base URL into the login slot.
+if (/^https?:\/\//i.test(login)) {
+  die([
+    "DATAFORSEO_LOGIN looks like a URL, so it is almost certainly the base URL.",
+    "",
+    "The base URL is not a credential. DataForSEO authenticates with:",
+    "",
+    "  DATAFORSEO_LOGIN    the email address on the DataForSEO account",
+    "  DATAFORSEO_PASSWORD the generated API password (not the dashboard one)",
+    "",
+    "Both are visible in the DataForSEO dashboard under API Access.",
+  ]);
+}
+
+if (!login.includes("@")) {
+  console.warn(
+    `  Warning: DATAFORSEO_LOGIN does not contain "@". The API login is normally\n` +
+      `  the account email address. Continuing, but a 401 here means this is why.\n`
+  );
 }
 
 const seedDoc = JSON.parse(await readFile(SEEDS, "utf8"));
@@ -83,27 +111,32 @@ try {
     ]),
   });
 } catch (err) {
-  console.error(`Network failure reaching DataForSEO: ${err.message}`);
-  process.exit(1);
+  die([`Network failure reaching DataForSEO: ${err.message}`]);
+}
+
+if (res.status === 401) {
+  die([
+    "401 Unauthorised from DataForSEO.",
+    "",
+    "The login must be the account email address and the password must be the",
+    "generated API password from the dashboard, not the sign-in password.",
+  ]);
 }
 
 if (!res.ok) {
-  console.error(`HTTP ${res.status} ${res.statusText} from DataForSEO.`);
-  process.exit(1);
+  die([`HTTP ${res.status} ${res.statusText} from DataForSEO.`]);
 }
 
 const payload = await res.json();
 
 // 20000 = ok. 40203 = daily limit reached (see src/providers/dataforseo/errors.ts).
 if (payload.status_code !== 20000) {
-  console.error(`API status ${payload.status_code}: ${payload.status_message}`);
-  process.exit(1);
+  die([`API status ${payload.status_code}: ${payload.status_message}`]);
 }
 
 const task = payload.tasks && payload.tasks[0];
 if (!task || task.status_code !== 20000) {
-  console.error(`Task status ${task && task.status_code}: ${task && task.status_message}`);
-  process.exit(1);
+  die([`Task status ${task && task.status_code}: ${task && task.status_message}`]);
 }
 
 const results = task.result || [];
