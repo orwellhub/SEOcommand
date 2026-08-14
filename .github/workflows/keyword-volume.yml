@@ -1,0 +1,59 @@
+name: Keyword volume
+
+on:
+  push:
+    branches:
+      - keyword-volume-uk
+    paths:
+      - "scripts/keyword-volume/**"
+      - ".github/workflows/keyword-volume.yml"
+  workflow_dispatch:
+    inputs:
+      location_code:
+        description: "DataForSEO location code (2826 = United Kingdom, 2784 = UAE)"
+        required: false
+        default: "2826"
+      seeds_file:
+        description: "Path to the seed file"
+        required: false
+        default: "scripts/keyword-volume/seeds-uk.json"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keyword-volume-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  pull:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Pull search volume
+        env:
+          DATAFORSEO_LOGIN: ${{ secrets.DATAFORSEO_LOGIN }}
+          DATAFORSEO_PASSWORD: ${{ secrets.DATAFORSEO_PASSWORD }}
+          DATAFORSEO_BASE_URL: https://api.dataforseo.com
+          LOCATION_CODE: ${{ github.event.inputs.location_code || '2826' }}
+          SEEDS_FILE: ${{ github.event.inputs.seeds_file || 'scripts/keyword-volume/seeds-uk.json' }}
+        run: node scripts/keyword-volume/run.mjs
+
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/keyword-volume/
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore(seo): keyword volume results"
+            git push
+          fi
