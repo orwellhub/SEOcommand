@@ -1,0 +1,88 @@
+product,tier,keyword,search_volume,cpc,competition,competition_index,low_top_of_page_bid,high_top_of_page_bid,trend_12m
+P1,V,tender writing services uae,,,,,,,
+P1,V,proposal writing services dubai,,,,,,,
+P1,V,bid writing dubai,,,,,,,
+P1,S,document automation dubai,,,,,,,
+P1,S,ai document generation uae,,,,,,,
+P2,S,whatsapp business api,880,9.68,MEDIUM,65,2.12,10.61,590 590 880 720 880 880 880 880 880 1000 880
+P2,S,whatsapp business api uae,20,,HIGH,71,5.33,16.05,10 10 50 10 20 10 10 20 10 40 10
+P2,S,whatsapp business api dubai,20,11.25,LOW,26,5.52,15.06,20 10 10 20 10 20 10 20 20 70 10
+P2,V,whatsapp chatbot dubai,,,,,,,
+P2,V,whatsapp chatbot uae,,,,,,,
+P2,V,whatsapp automation dubai,,,,,,,
+P2,V,whatsapp automation uae,,,,,,,
+P2,S,whatsapp crm dubai,,,,,,,
+P2,S,whatsapp marketing dubai,50,10.55,LOW,18,5,14.4,40 50 50 40 50 50 50 50 50 40 30
+P2,V,chatbot development company dubai,,,,,,,
+P2,S,chatbot dubai,10,,,,,,0 10 10 10 10 10 10 10 10 10 10
+P2,S,ai chatbot dubai,10,,LOW,29,,,20 10 10 50 10 10 10 10 30 10 10
+P2,S,ai chatbot uae,,,,,,,
+P2,S,whatsapp business solution provider dubai,,,,,,,
+P2,P,arabic chatbot,2400,,LOW,0,,,8100 5400 6600 1900 1000 880 880 1000 880 720 320
+P2,P,arabic whatsapp chatbot,,,,,,,
+P2,P,customer service automation uae,,,,,,,
+P2,S,whatsapp api integration dubai,,,,,,,
+P3,V,seo agency dubai,8100,23.34,LOW,21,8.17,37.07,4400 5400 5400 8100 6600 6600 3600 3600 6600 40500 5400
+P3,V,seo services dubai,8100,23.34,LOW,21,8.17,37.07,4400 5400 5400 8100 6600 6600 3600 3600 6600 40500 5400
+P3,V,ai seo dubai,,,,,,,
+P3,V,programmatic seo dubai,,,,,,,
+P3,P,generative engine optimization dubai,,,,,,,
+P3,V,lead generation companies in dubai,210,20.82,MEDIUM,56,4.77,21.28,90 90 90 170 140 90 110 140 170 1000 140
+P3,V,lead generation dubai,480,5.84,LOW,30,0.82,5.38,320 320 260 320 480 390 320 320 390 1600 390
+P3,P,real estate lead generation dubai,50,8.11,LOW,5,,,10 30 10 20 10 30 30 40 90 210 30
+P3,P,property lead generation uae,,,,,,,
+P4,S,accounts payable automation uae,,,,,,,
+P4,S,invoice automation dubai,,,,,,,
+P4,V,back office automation dubai,,,,,,,
+P4,V,business process automation dubai,,,,,,,
+P4,P,vat filing automation uae,,,,,,,
+P4,S,e invoicing uae,2900,4.74,MEDIUM,63,1.47,3.95,3600 4400 2900 1600 2400 2900 4400 2400 2400 1300 1000
+P4,P,corporate tax automation uae,,,,,,,
+P4,V,rpa companies in dubai,10,,MEDIUM,40,,,0 10 10 10 10 10 10 0 10 10 10
+P4,V,automation companies in dubai,170,3.5,MEDIUM,62,1.18,4.94,110 90 170 210 140 140 140 260 210 210 210
+P5,S,ai knowledge base dubai,,,,,,,
+P5,S,internal chatbot uae,,,,,,,
+P5,S,enterprise ai dubai,,,,,,,
+P6,S,contract management software uae,,,,,,,
+P6,V,legal ai dubai,,,,,,,
+P6,S,contract review uae,,,,,,,
+P6,S,legal document automation uae,,,,,,,
+C,P,difc compliance,10,,MEDIUM,38,3.4,8.3,10 20 10 10 10 10 10 10 20 30 10
+C,S,rera compliance software,10,,,,,,0 0 0 0 0 0 0 0 0 0 10
+C,P,pdpl compliance,50,25.51,LOW,19,1.93,13.59,90 50 50 40 70 40 30 30 40 30 30
+C,P,ejari automation,,,,,,,
+C,P,tenancy contract automation dubai,,,,,,,
+P7,V,ai developers dubai,,,,,,,
+P7,V,software development company dubai,590,26.16,LOW,21,2.67,16.93,590 590 880 720 720 720 480 390 480 1300 390
+P8,V,ai consulting dubai,40,11.71,MEDIUM,63,4.04,9.53,30 40 50 70 30 30 50 90 30 30 30
+P8,V,ai consultancy uae,,,,,,,
+P8,V,ai implementation partner uae,,,,,,,
+A1,S,ai receptionist dubai,,,,,,,
+A1,S,voice ai dubai,,,,,,,
+A1,S,ai call center dubai,,,,,,,
+A1,P,arabic voice ai,10,7.62,LOW,30,0.73,6.56,20 10 10 10 10 10 10 10 10 10 10
+A1,S,ai answering service uae,,,,,,,
+A2,V,ai automation agency dubai,90,12.79,MEDIUM,38,3.1,9.49,70 50 70 170 90 50 50 170 140 50 20
+A2,V,ai agency dubai,70,3.82,MEDIUM,59,2.16,8.48,90 70 70 50 70 40 50 90 90 70 90
+A2,V,ai company dubai,30,11.11,HIGH,68,3.06,8.35,40 40 20 20 30 20 20 30 40 40 30
+A2,V,artificial intelligence companies in dubai,170,5.76,MEDIUM,59,2.11,8.79,110 110 210 170 210 170 210 210 140 140 260
+A2,V,ai companies in uae,210,7.22,MEDIUM,51,1.58,5.26,210 170 260 210 140 170 140 140 260 320 210
+A2,V,ai development company dubai,30,,LOW,16,7.23,9.53,70 70 110 50 0 0 0 0 0 0 0
+A2,V,ai solutions dubai,,,,,,,
+A2,V,ai agents dubai,70,3.82,MEDIUM,59,2.16,8.48,90 70 70 50 70 40 50 90 90 70 90
+A2,V,ai agent development dubai,,,,,,,
+A2,V,hire ai developer dubai,,,,,,,
+A2,V,automation agency dubai,,,,,,,
+A2,V,ai integration dubai,,,,,,,
+A2,V,ai consulting companies in dubai,,,,,,,
+A3,V,custom gpt dubai,,,,,,,
+A3,S,chatgpt for business uae,,,,,,,
+A3,V,ai training dubai,40,2.86,HIGH,76,1.34,4.61,90 40 40 50 70 50 30 20 30 30 30
+A3,V,ai training for employees dubai,,,,,,,
+R,S,real estate crm dubai,140,15.02,LOW,26,4.66,14.18,210 140 70 170 170 210 170 110 110 210 90
+R,V,real estate automation dubai,,,,,,,
+R,P,ai for real estate dubai,,,,,,,
+R,S,property management software dubai,50,,LOW,31,3.46,11.05,90 30 90 70 70 50 40 40 90 40 30
+R,V,real estate chatbot dubai,,,,,,,
+R,P,off plan leads dubai,,,,,,,
+R,S,real estate whatsapp crm,,,,,,,

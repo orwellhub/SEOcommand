@@ -1,0 +1,22 @@
+{
+  "pulled_at": "2026-08-14T19:34:45.055Z",
+  "total_cost_usd": 0.18,
+  "jobs": [
+    {
+      "market": "United Kingdom",
+      "location_code": 2826,
+      "rows": 160,
+      "with_volume": 119,
+      "vendor_with_volume": 40,
+      "vendor_total": 60
+    },
+    {
+      "market": "United Arab Emirates",
+      "location_code": 2784,
+      "rows": 87,
+      "with_volume": 31,
+      "vendor_with_volume": 16,
+      "vendor_total": 42
+    }
+  ]
+}
