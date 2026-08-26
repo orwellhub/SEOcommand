@@ -23,7 +23,12 @@ export function forecastSiteCost(input: ForecastInput): SiteCostForecast {
   const rankingUnits = Math.max(0, input.trackedKeywords) * devices * 30;
   const crawlUnits = Math.ceil(Math.max(0, input.crawlMaxPages) / 100);
   const backlinkUnits = Math.ceil(Math.max(0, input.backlinkLimit) / 1000);
-  const aiUnits = Math.max(0, input.aiPrompts) * Math.max(0, input.aiPlatforms);
+  const aiPromptCount = Math.max(0, input.aiPrompts);
+  const dailyAiPrompts = Math.min(aiPromptCount, 2);
+  const weeklyAiPrompts = Math.min(Math.max(aiPromptCount - dailyAiPrompts, 0), 6);
+  const monthlyAiPrompts = Math.max(aiPromptCount - dailyAiPrompts - weeklyAiPrompts, 0);
+  const aiChecksPerPlatform = dailyAiPrompts * 2 * 30 + weeklyAiPrompts * 4 + monthlyAiPrompts;
+  const aiUnits = aiChecksPerPlatform * Math.max(0, input.aiPlatforms);
 
   const lines = [
     {
@@ -65,11 +70,11 @@ export function forecastSiteCost(input: ForecastInput): SiteCostForecast {
     {
       key: "ai_visibility",
       label: "Multi-model AI visibility",
-      cadence: "monthly",
+      cadence: "tiered daily / weekly / monthly",
       units: aiUnits,
       unitCostUsd: 0.06,
       monthlyUsd: money(aiUnits * 0.06),
-      note: `${input.aiPrompts} prompts × ${input.aiPlatforms} model${input.aiPlatforms === 1 ? "" : "s"}`,
+      note: `${dailyAiPrompts} daily (2 samples), ${weeklyAiPrompts} weekly, ${monthlyAiPrompts} monthly × ${input.aiPlatforms} platform${input.aiPlatforms === 1 ? "" : "s"}`,
     },
   ];
   const monthlyUsd = money(lines.reduce((sum, line) => sum + line.monthlyUsd, 0));

@@ -2,8 +2,18 @@ import type { AiPlatform, AiPrompt, Backlink, Competitor, DomainId, Keyword, Key
 import type { OnPageResult } from "@/lib/live";
 import { DOMAINS } from "@/data/domains";
 import { TRACKED_AI_PROMPTS } from "@/data/ai-prompts";
-import type { BacklinkHistoryPoint, DetailedCrawlPage, KeywordGapRow, ManagedSite, TrackedRankingResult } from "@/platform/types";
-import { getManagedSite, listAiTrackingPrompts, listRankTrackingKeywords } from "@/platform/site-store";
+import type {
+  AiObservationInput,
+  AiVisibilityPlatform,
+  AiVisibilityRun,
+  BacklinkHistoryPoint,
+  DetailedCrawlPage,
+  KeywordGapRow,
+  ManagedSite,
+  TrackedRankingResult,
+} from "@/platform/types";
+import { analyseAiResponse } from "@/platform/ai-analysis";
+import { getManagedSite, listAiTrackingPrompts, listDueAiTrackingPrompts, listRankTrackingKeywords, markAiPromptRun } from "@/platform/site-store";
 import { isoDate } from "@/lib/dates";
 import { ENDPOINTS, locationFor, locationForSite, readConfig } from "./config";
 import { MissingCredentialsError } from "./errors";
@@ -289,17 +299,40 @@ export async function ensureOnPageCrawl(
  * real mention/citation. Only domains present in TRACKED_AI_PROMPTS run (cost
  * control); returns null for others.
  */
-export async function fetchAiPromptResults(domainId: DomainId): Promise<AiPrompt[] | null> {
+export async function fetchAiPromptResults(
+  domainId: DomainId,
+  competitors: { name?: string; host: string }[] = [],
+): Promise<AiVisibilityRun | null> {
   const site = await siteFor(domainId);
-  const stored = await listAiTrackingPrompts(domainId);
+  const storedAll = await listAiTrackingPrompts(domainId);
+  const stored = storedAll.length ? await listDueAiTrackingPrompts(domainId) : [];
   const tracked = stored.length
-    ? stored.map((item) => ({ prompt: item.prompt, topic: item.topic, platforms: item.platforms }))
-    : (TRACKED_AI_PROMPTS[domainId] ?? []).map((item) => ({ ...item, platforms: ["chatgpt"] }));
+    ? stored.map((item) => ({
+        id: item.id,
+        prompt: item.prompt,
+        topic: item.topic,
+        platforms: item.platforms,
+        sampleCount: item.sampleCount,
+        cadence: item.cadence,
+        locationCode: item.locationCode,
+        languageCode: item.languageCode,
+      }))
+    : storedAll.length
+      ? []
+      : (TRACKED_AI_PROMPTS[domainId] ?? []).map((item) => ({
+          ...item,
+          id: null,
+          platforms: ["chatgpt"],
+          sampleCount: 1,
+          cadence: "weekly",
+          locationCode: site.dataForSeoLocationCode,
+          languageCode: site.dataForSeoLanguageCode,
+        }));
   if (!tracked || tracked.length === 0) return null;
   const client = getDataForSeoClient();
-  const brand = site.name.toLowerCase();
-  const host = site.host.toLowerCase();
   const out: AiPrompt[] = [];
+  const observations: AiObservationInput[] = [];
+  const skippedPlatforms: AiVisibilityRun["skippedPlatforms"] = [];
   const platformConfig = {
     chatgpt: { path: "chat_gpt" as const, model: process.env.DATAFORSEO_AI_MODEL_CHATGPT ?? "gpt-4o" },
     claude: { path: "claude" as const, model: process.env.DATAFORSEO_AI_MODEL_CLAUDE ?? "claude-sonnet-4-0" },
@@ -307,40 +340,113 @@ export async function fetchAiPromptResults(domainId: DomainId): Promise<AiPrompt
     perplexity: { path: "perplexity" as const, model: process.env.DATAFORSEO_AI_MODEL_PERPLEXITY ?? "sonar" },
   };
   for (const [i, p] of tracked.entries()) {
-    for (const platform of p.platforms.filter((value) => value in platformConfig)) {
-      const key = platform as keyof typeof platformConfig;
-      const cfg = platformConfig[key];
-      const { result } = await client.post<Record<string, any>>(
-        "aiLlmResponses",
-        ENDPOINTS.aiLlmResponses(cfg.path),
-        [{ user_prompt: p.prompt, model_name: cfg.model, max_output_tokens: 800 }],
-        { domainSlug: domainId },
-      );
-      const items = (result?.[0] as any)?.items ?? result ?? [];
-      const text = JSON.stringify(items).toLowerCase();
-      const mentioned = text.includes(brand.replace(/\s+/g, "")) || text.includes(brand) || text.includes(host);
-      const cited = text.includes(host);
-      const snippet = extractResponseText(items).slice(0, 600);
-      out.push({
-        id: `${domainId}-ai-${i + 1}-${key}`,
-        domainId,
-        prompt: p.prompt,
-        topic: p.topic,
-        platforms: [key as AiPlatform],
-        mentionRate: mentioned ? 100 : 0,
-        citationRate: cited ? 100 : 0,
-        avgPosition: null,
-        sentiment: "neutral",
-        lastChecked: isoDate(new Date()),
-        competitorsMentioned: [],
-        cited,
-        sampleResponse: snippet || (mentioned
-          ? `${site.name} was referenced in the live ${key} response.`
-          : `${site.name} was not referenced in the live ${key} response — coverage gap.`),
-      });
+    const observationCountBeforePrompt = observations.length;
+    for (const platformValue of p.platforms) {
+      const platform = platformValue as AiVisibilityPlatform;
+      for (let sampleIndex = 0; sampleIndex < Math.max(1, p.sampleCount); sampleIndex += 1) {
+        let raw: unknown;
+        let modelName: string = platform;
+        let costUsd = 0;
+        if (platform in platformConfig) {
+          const key = platform as keyof typeof platformConfig;
+          const cfg = platformConfig[key];
+          modelName = cfg.model;
+          const call = await client.post<Record<string, any>>(
+            "aiLlmResponses",
+            ENDPOINTS.aiLlmResponses(cfg.path),
+            [{
+              user_prompt: p.prompt,
+              model_name: cfg.model,
+              max_output_tokens: 1200,
+              web_search: true,
+              force_web_search: true,
+            }],
+            { domainSlug: domainId },
+          );
+          const { result } = call;
+          costUsd = call.costUsd;
+          raw = result?.[0] ?? result ?? {};
+        } else if (platform === "google_ai_overview" || platform === "google_ai_mode") {
+          const endpointKey = platform === "google_ai_mode" ? "googleAiModeLive" : "serpOrganicLive";
+          const endpoint = platform === "google_ai_mode" ? ENDPOINTS.googleAiModeLive : ENDPOINTS.serpOrganicLive;
+          const call = await client.post<Record<string, any>>(
+            endpointKey,
+            endpoint,
+            [{
+              keyword: p.prompt,
+              location_code: p.locationCode ?? site.dataForSeoLocationCode,
+              language_code: p.languageCode || site.dataForSeoLanguageCode,
+              device: "desktop",
+              depth: 20,
+            }],
+            { domainSlug: domainId },
+          );
+          const { result } = call;
+          costUsd = call.costUsd;
+          raw = result?.[0] ?? result ?? {};
+          modelName = platform === "google_ai_mode" ? "Google AI Mode" : "Google AI Overview";
+        } else if (platform === "copilot") {
+          const webhook = process.env.AI_COPILOT_WEBHOOK_URL;
+          if (!webhook) {
+            if (!skippedPlatforms.some((item) => item.platform === platform)) {
+              skippedPlatforms.push({ platform, reason: "AI_COPILOT_WEBHOOK_URL is not configured." });
+            }
+            break;
+          }
+          const headers: Record<string, string> = { "content-type": "application/json" };
+          if (process.env.AI_COPILOT_WEBHOOK_SECRET) {
+            headers.authorization = `Bearer ${process.env.AI_COPILOT_WEBHOOK_SECRET}`;
+          }
+          const response = await fetch(webhook, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ prompt: p.prompt, site: site.host, sampleIndex }),
+          });
+          if (!response.ok) throw new Error(`Copilot adapter returned ${response.status}.`);
+          raw = await response.json();
+          const rawCost = (raw as { costUsd?: unknown })?.costUsd;
+          costUsd = typeof rawCost === "number" && Number.isFinite(rawCost) ? rawCost : 0;
+          modelName = "Microsoft Copilot";
+        } else {
+          continue;
+        }
+
+        const observation = analyseAiResponse({
+          promptId: p.id,
+          siteSlug: domainId,
+          siteName: site.name,
+          siteHost: site.host,
+          prompt: p.prompt,
+          topic: p.topic,
+          platform,
+          modelName,
+          sampleIndex,
+          capturedOn: isoDate(new Date()),
+          raw,
+          competitors,
+          costUsd,
+        });
+        observations.push(observation);
+        out.push({
+          id: `${domainId}-ai-${i + 1}-${platform}-${sampleIndex}`,
+          domainId,
+          prompt: p.prompt,
+          topic: p.topic,
+          platforms: [platform as AiPlatform],
+          mentionRate: observation.mentioned ? 100 : 0,
+          citationRate: observation.cited ? 100 : 0,
+          avgPosition: observation.recommendationPosition,
+          sentiment: observation.sentiment,
+          lastChecked: observation.capturedOn,
+          competitorsMentioned: observation.entities.filter((item) => !item.owned).map((item) => item.name),
+          cited: observation.cited,
+          sampleResponse: observation.responseText.slice(0, 1200) || `${site.name} was not returned in the measured response.`,
+        });
+      }
     }
+    if (p.id && observations.length > observationCountBeforePrompt) await markAiPromptRun(p.id, p.cadence);
   }
-  return out;
+  return { prompts: out, observations, skippedPlatforms };
 }
 
 /** Daily exact SERP checks for approved, explicitly tracked keywords. */
@@ -379,27 +485,6 @@ export async function fetchDailyTrackedRankings(domainId: DomainId): Promise<Tra
     results.push(...pulled);
   }
   return results;
-}
-
-function extractResponseText(items: unknown): string {
-  try {
-    const arr = Array.isArray(items) ? items : [items];
-    for (const it of arr) {
-      const sections = (it as any)?.sections;
-      if (Array.isArray(sections)) {
-        const text = sections
-          .map((s: any) => s?.text ?? "")
-          .filter(Boolean)
-          .join(" ");
-        if (text) return text;
-      }
-      const direct = (it as any)?.text ?? (it as any)?.content;
-      if (typeof direct === "string" && direct) return direct;
-    }
-  } catch {
-    /* best effort */
-  }
-  return "";
 }
 
 /** Lightweight credential + budget probe for the go-live health check. */

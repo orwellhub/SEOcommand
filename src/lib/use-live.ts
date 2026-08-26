@@ -85,8 +85,8 @@ export function useLiveDomain(domainId: string): LiveState<DomainLiveBundle> {
 }
 
 /** Portfolio headline aggregates. */
-export function useLivePortfolio(): LiveState<PortfolioLive> {
-  return useJson<PortfolioLive>(`/api/live/portfolio`);
+export function useLivePortfolio(groupId?: string): LiveState<PortfolioLive> {
+  return useJson<PortfolioLive>(groupId ? `/api/live/portfolio?groupId=${encodeURIComponent(groupId)}` : `/api/live/portfolio`);
 }
 
 /**
@@ -115,18 +115,28 @@ export interface ScopedLiveState extends LiveState<DomainLiveBundle> {
  * rendered the first domain while the picker said "Portfolio".
  */
 export function useScopedLive(): ScopedLiveState {
-  const { scope, sites } = useDomain();
+  const { scope, sites, activeGroup } = useDomain();
   const isPortfolio = scope === "portfolio";
+  const isGroup = scope.startsWith("group:");
   const active = sites.find((site) => site.id === scope);
   const state = useJson<DomainLiveBundle>(
-    isPortfolio ? "/api/live/aggregate" : `/api/live/${scope}`,
+    isPortfolio
+      ? "/api/live/aggregate"
+      : isGroup
+        ? `/api/live/aggregate?groupId=${encodeURIComponent(scope.slice(6))}`
+        : `/api/live/${scope}`,
   );
+  const groupedSites = activeGroup
+    ? new Set(activeGroup.siteSlugs).size
+    : 0;
   return {
     ...state,
     isPortfolio,
-    scopeLabel: isPortfolio ? "Portfolio" : (active?.name ?? String(scope)),
+    scopeLabel: isPortfolio ? "Portfolio" : isGroup ? (activeGroup?.name ?? "Group") : (active?.name ?? String(scope)),
     scopeHost: isPortfolio
       ? `all ${sites.length} properties`
+      : isGroup
+        ? `${groupedSites} directly assigned ${groupedSites === 1 ? "property" : "properties"}, plus subgroups`
       : (active?.host ?? String(scope)),
     scopeId: String(scope),
   };

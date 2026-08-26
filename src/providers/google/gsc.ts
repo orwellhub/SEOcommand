@@ -2,6 +2,7 @@ import type {
   DomainId,
   GscMover,
   GscRow,
+  GscQueryPageRow,
   GscTotals,
   ShareOfMarket,
   StrikingDistanceRow,
@@ -109,6 +110,32 @@ export async function gscBreakdown(
     dataState: "final",
   });
   return toRows(payload);
+}
+
+/** Query→page evidence used for cannibalisation and page-intent mapping. */
+export async function gscQueryPages(
+  domainId: DomainId,
+  days = 28,
+  rowLimit = 25_000,
+): Promise<GscQueryPageRow[]> {
+  const { start, end } = defaultRange(days);
+  const payload = await gscQuery(await siteFor(domainId), {
+    startDate: start,
+    endDate: end,
+    dimensions: ["query", "page"],
+    rowLimit: Math.min(rowLimit, 25_000),
+    type: "web",
+    dataState: "final",
+  });
+  return (payload?.rows ?? []).map((row: any) => ({
+    key: `${row.keys?.[0] ?? ""} | ${row.keys?.[1] ?? ""}`,
+    query: row.keys?.[0] ?? "",
+    page: row.keys?.[1] ?? "",
+    clicks: row.clicks ?? 0,
+    impressions: row.impressions ?? 0,
+    ctr: Math.round((row.ctr ?? 0) * 1000) / 10,
+    position: Math.round((row.position ?? 0) * 10) / 10,
+  }));
 }
 
 /** Daily clicks/impressions/CTR/position over a trailing window — real trend data. */

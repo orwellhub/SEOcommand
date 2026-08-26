@@ -14,6 +14,7 @@ import { useLivePortfolio } from "@/lib/use-live";
 import { compactNumber, fullNumber, percent } from "@/lib/format";
 import { relativeFromNow } from "@/lib/dates";
 import { useDomain } from "@/components/shell/domain-context";
+import { PortfolioConstellation } from "@/components/portfolio/portfolio-constellation";
 
 /** Leaderboard row: live headline joined with the domain registry entry. */
 interface LeaderboardRow extends DomainHeadline {
@@ -27,7 +28,7 @@ function num(v: number | null): string {
 }
 
 export default function PortfolioPage() {
-  const { setScope, sites } = useDomain();
+  const { scope, setScope, sites, groups, activeGroup } = useDomain();
   const router = useRouter();
 
   /** Open a property's landing page, scoping the app to it on the way. */
@@ -38,7 +39,7 @@ export default function PortfolioPage() {
     },
     [router, setScope],
   );
-  const { data: pm, loading, error } = useLivePortfolio();
+  const { data: pm, loading, error } = useLivePortfolio(scope.startsWith("group:") ? scope.slice(6) : undefined);
 
   // Latest sync across all domains — null when nothing has synced yet.
   const lastSync = useMemo(() => {
@@ -186,7 +187,7 @@ export default function PortfolioPage() {
     return (
       <div className="animate-in space-y-5">
         <PageHeader
-          title="Portfolio Command Centre"
+          title={`${activeGroup?.name ?? "Portfolio"} Command Centre`}
           description="Cross-domain SEO performance from live provider syncs."
           lastSync={null}
           loading
@@ -205,7 +206,7 @@ export default function PortfolioPage() {
     return (
       <div className="animate-in space-y-5">
         <PageHeader
-          title="Portfolio Command Centre"
+          title={`${activeGroup?.name ?? "Portfolio"} Command Centre`}
           description="Cross-domain SEO performance from live provider syncs."
           lastSync={null}
         />
@@ -218,7 +219,7 @@ export default function PortfolioPage() {
     return (
       <div className="animate-in space-y-5">
         <PageHeader
-          title="Portfolio Command Centre"
+          title={`${activeGroup?.name ?? "Portfolio"} Command Centre`}
           description="Cross-domain SEO performance from live provider syncs."
           lastSync={null}
         />
@@ -233,8 +234,8 @@ export default function PortfolioPage() {
   return (
     <div className="animate-in space-y-5">
       <PageHeader
-        title="Portfolio Command Centre"
-        description="Cross-domain organic performance, health and coverage — live provider data only."
+        title={`${activeGroup?.name ?? "Portfolio"} Command Centre`}
+        description={activeGroup ? "Performance and risk across this group and its nested subgroups." : "Cross-domain organic performance, health and coverage — live provider data only."}
         actions={<div className="flex items-center gap-2"><RefreshButtons /><Link href="/sites/new" className="inline-flex h-9 items-center gap-1.5 rounded-md bg-purple px-3.5 text-sm font-medium text-white hover:bg-purple-deep"><Plus className="h-4 w-4" /> Add website</Link></div>}
         lastSync={lastSync}
         loading={loading}
@@ -256,6 +257,8 @@ export default function PortfolioPage() {
           </div>
         </Card>
       )}
+
+      <PortfolioConstellation sites={sites} groups={groups} headlines={pm.domains} />
 
       {/* KPI row 1 — organic performance, last 28 days */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

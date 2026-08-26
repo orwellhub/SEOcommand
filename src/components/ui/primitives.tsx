@@ -22,7 +22,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-md border border-border bg-card shadow-card",
+        "rounded-lg border border-border bg-card shadow-card",
         className,
       )}
       {...rest}
@@ -42,9 +42,9 @@ export function CardHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
+    <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
       <div>
-        <h3 className="text-sm font-semibold text-ink">{title}</h3>
+        <h3 className="text-sm font-bold tracking-tight text-ink">{title}</h3>
         {subtitle && <p className="mt-0.5 text-2xs text-muted">{subtitle}</p>}
       </div>
       {action}
@@ -102,7 +102,7 @@ export function StatusBadge({
     success: "bg-success/10 text-success border-success/20",
     warning: "bg-warning/10 text-[#B9791A] border-warning/25",
     critical: "bg-critical/10 text-critical border-critical/20",
-    info: "bg-purple/10 text-purple border-purple/20",
+    info: "bg-[#335CFF]/10 text-[#335CFF] border-[#335CFF]/20",
     neutral: "bg-workspace text-muted border-border",
   };
   return (
@@ -122,6 +122,7 @@ const SOURCE_LABEL: Record<ProviderSource, string> = {
   dataforseo: "DataForSEO",
   "google-search-console": "Search Console",
   "google-analytics": "GA4",
+  "orwell-crawler": "Orwell crawler",
 };
 
 export function SourceBadge({
@@ -183,7 +184,7 @@ export function EmptyState({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border bg-workspace/50 px-6 py-12 text-center">
+    <div className="signal-grid flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-workspace/50 px-6 py-14 text-center">
       {icon && <div className="text-muted">{icon}</div>}
       <p className="text-sm font-medium text-ink">{title}</p>
       {description && <p className="max-w-sm text-xs text-muted">{description}</p>}
@@ -211,7 +212,7 @@ export function Button({
   const base =
     "inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors duration-150 focus-visible:outline-2 disabled:opacity-50 disabled:pointer-events-none";
   const variants: Record<string, string> = {
-    primary: "bg-purple text-white hover:bg-purple-deep",
+    primary: "bg-purple text-white shadow-sm hover:bg-purple-deep",
     secondary: "border border-border bg-card text-ink hover:bg-workspace",
     ghost: "text-muted hover:bg-workspace hover:text-ink",
   };

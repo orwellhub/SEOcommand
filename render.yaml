@@ -37,7 +37,7 @@ services:
     preDeployCommand: npm run db:migrate
     startCommand: npm run start
     healthCheckPath: /api/healthz
-    autoDeploy: true
+    autoDeployTrigger: commit
     envVars:
       - key: NODE_VERSION
         value: "22.22.2"
@@ -72,6 +72,14 @@ services:
         sync: false
       - key: DATAFORSEO_BASE_URL
         value: https://api.dataforseo.com
+      - key: AI_COPILOT_WEBHOOK_URL
+        sync: false
+      - key: AI_COPILOT_WEBHOOK_SECRET
+        sync: false
+      - key: OUTREACH_EMAIL_WEBHOOK_URL
+        sync: false
+      - key: OUTREACH_WEBHOOK_SECRET
+        sync: false
       - key: DATAFORSEO_LOCATION_BUSRENTALGLOBAL
         sync: false
       - key: DATAFORSEO_LOCATION_PETTRANSPORTGLOBAL
@@ -133,14 +141,16 @@ services:
       - key: CRON_ENABLED
         value: "true"
       # Split-cadence cost policy (see scripts/jobs.ts): Google free daily,
-      # DataForSEO light weekly (Mondays), crawls + AI monthly (1st). These force
-      # a tier ON for a single run when set to "1"; SYNC_GOOGLE=0 disables free
-      # Google. Leave unset for the default schedule.
+      # DataForSEO light weekly (Mondays), due AI prompts daily, crawls monthly
+      # (1st). DFS overrides force a tier ON when set to "1"; SYNC_GOOGLE=0,
+      # SYNC_RANKINGS=0 and SYNC_AI=0 disable their daily tier.
       - key: SYNC_DFS_LIGHT
         sync: false
       - key: SYNC_DFS_HEAVY
         sync: false
       - key: SYNC_RANKINGS
+        sync: false
+      - key: SYNC_AI
         sync: false
       - key: SYNC_CONCURRENCY
         value: "2"
@@ -158,6 +168,10 @@ services:
         sync: false
       - key: DATAFORSEO_BASE_URL
         value: https://api.dataforseo.com
+      - key: AI_COPILOT_WEBHOOK_URL
+        sync: false
+      - key: AI_COPILOT_WEBHOOK_SECRET
+        sync: false
       - key: DATAFORSEO_LOCATION_BUSRENTALGLOBAL
         sync: false
       - key: DATAFORSEO_LOCATION_PETTRANSPORTGLOBAL
@@ -210,3 +224,44 @@ services:
         sync: false
       - key: ALERT_WEBHOOK_SECRET
         sync: false
+
+  # ---------------------------------------------------------- operations ---
+  # Playwright-backed hybrid crawl queue, public uptime/TLS checks and bounded
+  # Local SEO grid monitoring. A separate cron keeps browser dependencies out
+  # of the web service and costs only for scheduled runtime.
+  - type: cron
+    name: orwell-operations
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    branch: claude/seo-dashboard-dataforseo-112fbm
+    schedule: "0 * * * *" # hourly, UTC
+    dockerfilePath: ./Dockerfile.operations
+    dockerContext: .
+    dockerCommand: npm run jobs:operations
+    autoDeployTrigger: commit
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: orwell-db-fra
+          property: connectionString
+      - key: PLAYWRIGHT_BROWSERS_PATH
+        value: /ms-playwright
+      - key: BROWSER_CRAWL_MAX_PAGES
+        value: "200"
+      - key: BROWSER_CRAWL_JOBS_PER_RUN
+        value: "1"
+      - key: AUTO_BROWSER_CRAWLS
+        value: "1"
+      - key: RELIABILITY_CONCURRENCY
+        value: "8"
+      - key: LOCAL_SEO_LOCATIONS_PER_RUN
+        value: "2"
+      - key: MONTHLY_BUDGET_USD
+        value: "200"
+      - key: DATAFORSEO_LOGIN
+        sync: false
+      - key: DATAFORSEO_PASSWORD
+        sync: false
+      - key: DATAFORSEO_BASE_URL
+        value: https://api.dataforseo.com

@@ -8,6 +8,7 @@ import type {
   Ga4Overview,
   GscMover,
   GscRow,
+  GscQueryPageRow,
   GscTotals,
   HealthBreakdown,
   Keyword,
@@ -45,6 +46,7 @@ export const DATASETS = [
   "gsc_timeseries",
   "gsc_queries",
   "gsc_pages",
+  "gsc_query_pages",
   "gsc_movers",
   "gsc_page_movers",
   "striking_distance",
@@ -112,6 +114,7 @@ export interface DomainLiveBundle {
     gsc_timeseries?: DS<GscTimeseriesPoint[]>;
     gsc_queries?: DS<GscRow[]>;
     gsc_pages?: DS<GscRow[]>;
+    gsc_query_pages?: DS<GscQueryPageRow[]>;
     gsc_movers?: DS<{ gains: GscMover[]; losses: GscMover[] }>;
     gsc_page_movers?: DS<{ gains: GscMover[]; losses: GscMover[] }>;
     striking_distance?: DS<StrikingDistanceRow[]>;

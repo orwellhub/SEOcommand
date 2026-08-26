@@ -71,6 +71,9 @@ export async function unreadNotificationCount(): Promise<number> {
   const [row] = await db()
     .select({ count: sql<number>`count(*)::int` })
     .from(schema.portfolioNotifications)
-    .where(isNull(schema.portfolioNotifications.readAt));
+    .where(and(
+      isNull(schema.portfolioNotifications.readAt),
+      eq(schema.portfolioNotifications.status, "open"),
+    ));
   return row?.count ?? 0;
 }

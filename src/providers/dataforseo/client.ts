@@ -114,10 +114,10 @@ export class DataForSeoClient {
     path: string,
     body: unknown,
     opts: { domainSlug?: string | null; critical?: boolean } = {},
-  ): Promise<{ result: T[]; guard: GuardResult }> {
+  ): Promise<{ result: T[]; guard: GuardResult; costUsd: number }> {
     const estimate = COST_ESTIMATE_USD[endpointKey] ?? 0.05;
     await assertSiteSpendAllowed(opts.domainSlug, endpointKey, estimate);
-    const { result, guard } = await this.guard.run<T[]>(
+    const { result, guard, costUsd } = await this.guard.run<T[]>(
       { endpoint: endpointKey, estimateUsd: estimate, domainSlug: opts.domainSlug, critical: opts.critical },
       async () => {
         const res = await this.rawFetch(path, body);
@@ -126,7 +126,7 @@ export class DataForSeoClient {
         return { result: parsed.result, costUsd: parsed.cost };
       },
     );
-    return { result, guard };
+    return { result, guard, costUsd };
   }
 
   /**

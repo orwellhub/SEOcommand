@@ -1,16 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ChevronLeft, ChevronRight, CircleDollarSign, Github, Globe2, Loader2, PlugZap, Radar, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button, Card, StatusBadge } from "@/components/ui/primitives";
 import { MARKETS } from "@/lib/markets";
-import type { GooglePropertyDiscovery, SiteCostForecast } from "@/platform/types";
+import type { GooglePropertyDiscovery, PortfolioGroup, SiteCostForecast } from "@/platform/types";
 import { cn } from "@/lib/cn";
 
 const STEPS = ["Website", "Tracking", "Google", "Connections", "Forecast"] as const;
-const AI_PLATFORMS = ["chatgpt", "claude", "gemini", "perplexity"] as const;
+const AI_PLATFORMS = ["chatgpt", "claude", "gemini", "perplexity", "google_ai_overview", "google_ai_mode", "copilot"] as const;
 const ALERT_CHANNELS = ["in_app", "whatsapp", "email"] as const;
 
 interface Draft {
@@ -31,6 +31,7 @@ interface Draft {
   alertChannels: (typeof ALERT_CHANNELS)[number][];
   emailRecipients: string;
   whatsappRecipients: string;
+  groupIds: string[];
 }
 
 const initial: Draft = {
@@ -51,6 +52,7 @@ const initial: Draft = {
   alertChannels: [...ALERT_CHANNELS],
   emailRecipients: "",
   whatsappRecipients: "",
+  groupIds: [],
 };
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
@@ -74,6 +76,14 @@ export default function NewSitePage() {
   const [siteSlug, setSiteSlug] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [groups, setGroups] = useState<PortfolioGroup[]>([]);
+
+  useEffect(() => {
+    fetch("/api/portfolio-groups")
+      .then((response) => response.ok ? response.json() : { groups: [] })
+      .then((body: { groups?: PortfolioGroup[] }) => setGroups(body.groups ?? []))
+      .catch(() => undefined);
+  }, []);
 
   const market = useMemo(() => MARKETS.find((item) => item.code === draft.marketCode) ?? MARKETS[0]!, [draft.marketCode]);
 
@@ -168,6 +178,7 @@ export default function NewSitePage() {
           alertChannels: draft.alertChannels,
           emailRecipients: draft.emailRecipients.split(",").map((item) => item.trim()).filter(Boolean),
           whatsappRecipients: draft.whatsappRecipients.split(",").map((item) => item.trim()).filter(Boolean),
+          groupIds: draft.groupIds,
         }),
       });
       const body = await response.json();
@@ -227,6 +238,7 @@ export default function NewSitePage() {
                   <Field label="Website host" hint="Use the root domain without a path."><input className={inputClass} value={draft.host} onChange={(e) => setDraft({ ...draft, host: e.target.value })} placeholder="example.com" /></Field>
                 </div>
                 <Field label="Industry and service" hint="Used to seed competitor and AI visibility discovery."><input className={inputClass} value={draft.industry} onChange={(e) => setDraft({ ...draft, industry: e.target.value })} placeholder="UAE mortgage comparison" /></Field>
+                {groups.length > 0 && <div><div className="mb-1.5 text-xs font-semibold text-ink">Portfolio placement <span className="font-normal text-muted">· optional</span></div><div className="flex flex-wrap gap-2">{groups.map((group) => <button key={group.id} type="button" onClick={() => setDraft({ ...draft, groupIds: toggle(draft.groupIds, group.id) })} className={cn("inline-flex h-9 items-center gap-2 rounded-md border px-3 text-xs font-medium", draft.groupIds.includes(group.id) ? "border-purple bg-purple/5 text-purple" : "border-border text-muted hover:text-ink")}><span className="h-2.5 w-2.5 rounded-full" style={{ background: group.color }} />{group.name}{draft.groupIds.includes(group.id) && <Check className="h-3.5 w-3.5" />}</button>)}</div><p className="mt-1.5 text-2xs text-muted">Choose one or more groups now; you can reorganise the site later without changing its tracking.</p></div>}
               </div>
             )}
 
@@ -284,7 +296,7 @@ export default function NewSitePage() {
 
             {step === 4 && (
               <div className="max-w-3xl space-y-5">
-                <StepTitle icon={<CircleDollarSign />} title="Forecast and approve this website" copy="This is a planning ceiling, not a charge. Actual provider costs continue to be recorded in the spend ledger." />
+                <StepTitle icon={<CircleDollarSign />} title="Review cost and activate paid monitoring" copy="The website becomes active immediately with any connected free data. This forecast controls only paid provider work." />
                 {busy && !forecast ? <Loading label="Calculating monthly provider usage…" /> : forecast && (
                   <>
                     <div className="rounded-md border border-purple/20 bg-purple/5 p-5">
@@ -301,11 +313,11 @@ export default function NewSitePage() {
                       ))}
                     </div>
                     {!siteSlug ? (
-                      <Button variant="primary" onClick={createDraft} disabled={busy}>{busy && <Loader2 className="h-4 w-4 animate-spin" />} Create approval draft</Button>
+                      <Button variant="primary" onClick={createDraft} disabled={busy}>{busy && <Loader2 className="h-4 w-4 animate-spin" />} Add website</Button>
                     ) : (
                       <div className="rounded-md border border-success/25 bg-success/5 p-4">
-                        <div className="flex items-start gap-3"><ShieldCheck className="mt-0.5 h-5 w-5 text-success" /><div><div className="text-sm font-semibold text-ink">Draft ready for approval</div><p className="mt-1 text-xs text-muted">Approving a ${forecast.highUsd.toFixed(2)} monthly ceiling queues the initial crawl, keyword scan, competitor discovery, backlink history and AI visibility run.</p></div></div>
-                        <Button variant="primary" className="mt-4" onClick={approve} disabled={busy}>{busy && <Loader2 className="h-4 w-4 animate-spin" />} Approve and queue first scan</Button>
+                        <div className="flex items-start gap-3"><ShieldCheck className="mt-0.5 h-5 w-5 text-success" /><div><div className="text-sm font-semibold text-ink">Website active · free monitoring started</div><p className="mt-1 text-xs text-muted">Connected GSC, GA4 and free reliability checks can run now. Approving a ${forecast.highUsd.toFixed(2)} monthly ceiling also queues paid crawl, keyword, competitor, backlink and AI work.</p></div></div>
+                        <div className="mt-4 flex flex-wrap gap-2"><Button variant="primary" onClick={approve} disabled={busy}>{busy && <Loader2 className="h-4 w-4 animate-spin" />} Approve and queue paid scan</Button><Button onClick={() => router.push(`/sites/${siteSlug}`)}>Open website without paid scan</Button></div>
                       </div>
                     )}
                   </>
@@ -328,6 +340,7 @@ export default function NewSitePage() {
             <div className="text-2xs font-semibold uppercase tracking-wider text-muted">Launch policy</div>
             <div className="mt-3 space-y-3 text-xs text-muted">
               <Policy text="No paid request before approval" />
+              <Policy text="Free connectors start immediately" />
               <Policy text="Initial scan runs in the job queue" />
               <Policy text="Website changes stay review-only" />
               <Policy text="Actual cost is ledgered per site" />
@@ -335,7 +348,7 @@ export default function NewSitePage() {
           </Card>
           <Card className="p-4">
             <div className="text-sm font-semibold text-ink">What starts automatically</div>
-            <p className="mt-2 text-xs leading-relaxed text-muted">Full crawl, seed keyword universe, daily rank tracking, three main competitors, keyword gaps, backlink history and four-model AI visibility.</p>
+            <p className="mt-2 text-xs leading-relaxed text-muted">GSC, GA4 and reliability monitoring start when available. Paid crawling, rank tracking, competitor gaps, backlinks, Local SEO and AI visibility wait for budget approval.</p>
           </Card>
         </aside>
       </div>

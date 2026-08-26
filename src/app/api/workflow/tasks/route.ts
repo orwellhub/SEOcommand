@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
-import { isDomainId } from "@/data/domains";
 import { canWrite } from "@/lib/auth";
 import { hasDatabase } from "@/sync/store";
+import { isManagedSite } from "@/platform/site-store";
+import { canAccessSite } from "@/platform/access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,7 +40,8 @@ function canMutate(request: Request): boolean {
 export async function GET(request: Request) {
   if (!hasDatabase()) return unavailable();
   const domainId = new URL(request.url).searchParams.get("domain") ?? "";
-  if (!isDomainId(domainId)) return NextResponse.json({ error: "Unknown domain." }, { status: 404 });
+  if (!await isManagedSite(domainId)) return NextResponse.json({ error: "Unknown domain." }, { status: 404 });
+  if (!await canAccessSite(request, domainId)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
   const items = await db()
     .select()
     .from(schema.workflowItems)
@@ -54,7 +56,8 @@ export async function POST(request: Request) {
   const parsed = DecisionSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid workflow decision." }, { status: 400 });
   const { domainId, action, recommendation } = parsed.data;
-  if (!isDomainId(domainId)) return NextResponse.json({ error: "Unknown domain." }, { status: 404 });
+  if (!await isManagedSite(domainId)) return NextResponse.json({ error: "Unknown domain." }, { status: 404 });
+  if (!await canAccessSite(request, domainId)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
 
   const now = new Date();
   const values = {
@@ -85,6 +88,11 @@ export async function PATCH(request: Request) {
   if (!canMutate(request)) return NextResponse.json({ error: "Write access required." }, { status: 403 });
   const parsed = StatusSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid task status." }, { status: 400 });
+  const [current] = await db().select({ domainSlug: schema.workflowItems.domainSlug })
+    .from(schema.workflowItems).where(eq(schema.workflowItems.id, parsed.data.id)).limit(1);
+  if (!current || !await canAccessSite(request, current.domainSlug)) {
+    return NextResponse.json({ error: "Task access required." }, { status: 403 });
+  }
 
   const [item] = await db()
     .update(schema.workflowItems)

@@ -8,10 +8,11 @@ const clock = () => FIXED;
 describe("SpendGuard — app-owned monthly $200 guardrail", () => {
   it("records actual cost and reports month-to-date status", async () => {
     const guard = new SpendGuard(new InMemorySpendStore(), 200, "dataforseo", clock);
-    await guard.run({ endpoint: "serpOrganicLive", estimateUsd: 0.003 }, async () => ({
+    const run = await guard.run({ endpoint: "serpOrganicLive", estimateUsd: 0.003 }, async () => ({
       result: "ok",
       costUsd: 0.05,
     }));
+    expect(run.costUsd).toBe(0.05);
     const status = await guard.status();
     expect(status.spentUsd).toBeCloseTo(0.05, 5);
     expect(status.remainingUsd).toBeCloseTo(199.95, 2);

@@ -93,7 +93,7 @@ export class SpendGuard {
       requests?: number;
     },
     fn: () => Promise<{ result: T; costUsd: number }>,
-  ): Promise<{ result: T; guard: GuardResult }> {
+  ): Promise<{ result: T; guard: GuardResult; costUsd: number }> {
     const month = currentMonth(this.clock());
     const spent = await this.store.monthToDateUsd(this.provider, month);
     if (!canSpend({ limitUsd: this.limitUsd, spentUsd: spent }, opts.estimateUsd, { critical: opts.critical })) {
@@ -111,6 +111,7 @@ export class SpendGuard {
       requests: opts.requests ?? 1,
     });
 
-    return { result, guard: this.toResult(spent + (Number.isFinite(costUsd) ? costUsd : 0)) };
+    const actualCostUsd = Number.isFinite(costUsd) ? costUsd : 0;
+    return { result, costUsd: actualCostUsd, guard: this.toResult(spent + actualCostUsd) };
   }
 }

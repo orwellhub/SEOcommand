@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { canWrite } from "@/lib/auth";
+import { canApproveBudget } from "@/lib/auth";
 import { db, schema } from "@/db";
 import { hasDatabase } from "@/sync/store";
+import { canAccessSite } from "@/platform/access";
 
 const Schema = z.object({ action: z.enum(["approve", "reject"]), approvedMonthlyUsd: z.number().positive().optional() });
 
@@ -12,8 +13,8 @@ export async function POST(
   { params }: { params: { siteId: string } },
 ) {
   if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
-  if (!canWrite(request.headers.get("x-orwell-user-role"))) {
-    return NextResponse.json({ error: "Write access required." }, { status: 403 });
+  if (!await canAccessSite(request, params.siteId) || !canApproveBudget(request.headers.get("x-orwell-user-role"))) {
+    return NextResponse.json({ error: "Admin or Owner approval required." }, { status: 403 });
   }
   const parsed = Schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid approval decision." }, { status: 400 });
@@ -46,7 +47,7 @@ export async function POST(
           ? wasApproved
             ? current.lifecycleStatus
             : "provisioning"
-          : "forecast_pending",
+          : "active",
         updatedAt: new Date(),
       })
       .where(eq(schema.siteProfiles.slug, params.siteId))

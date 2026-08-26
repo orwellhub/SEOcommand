@@ -8,12 +8,14 @@ export interface AuthUser {
   password: string;
   name: string;
   role: AppRole;
+  groupIds?: string[];
 }
 
 export interface SessionClaims {
   email: string;
   name: string;
   role: AppRole;
+  groupIds: string[];
   issuedAt: number;
   expiresAt: number;
 }
@@ -58,11 +60,12 @@ function isSessionClaims(value: unknown): value is SessionClaims {
     isRole(claims.role) &&
     typeof claims.issuedAt === "number" &&
     typeof claims.expiresAt === "number"
+    && Array.isArray(claims.groupIds)
   );
 }
 
 export async function createSessionToken(
-  user: Pick<AuthUser, "email" | "name" | "role">,
+  user: Pick<AuthUser, "email" | "name" | "role" | "groupIds">,
   secret: string,
   now = new Date(),
 ): Promise<string> {
@@ -71,6 +74,7 @@ export async function createSessionToken(
     email: user.email.toLowerCase(),
     name: user.name,
     role: user.role,
+    groupIds: "groupIds" in user && Array.isArray(user.groupIds) ? user.groupIds : [],
     issuedAt,
     expiresAt: issuedAt + SESSION_MAX_AGE_SECONDS,
   };
@@ -119,7 +123,10 @@ function normaliseUser(value: unknown): AuthUser | null {
   }
   const email = candidate.email.trim().toLowerCase();
   if (!email || !candidate.password) return null;
-  return { email, password: candidate.password, name: candidate.name.trim() || email, role: candidate.role };
+  const groupIds = Array.isArray(candidate.groupIds)
+    ? candidate.groupIds.filter((id): id is string => typeof id === "string")
+    : [];
+  return { email, password: candidate.password, name: candidate.name.trim() || email, role: candidate.role, groupIds };
 }
 
 export function configuredUsers(env: Record<string, string | undefined> = process.env): AuthUser[] {
@@ -140,6 +147,7 @@ export function configuredUsers(env: Record<string, string | undefined> = proces
       password: env.AUTH_PASSWORD,
       name: env.AUTH_NAME?.trim() || "Orwell Admin",
       role: isRole(env.AUTH_ROLE) ? env.AUTH_ROLE : "admin",
+      groupIds: [],
     },
   ];
 }
@@ -165,5 +173,17 @@ export function authenticateUser(
 }
 
 export function canWrite(role: AppRole | string | null): boolean {
-  return role === "admin" || role === "manager" || role === "seo_analyst";
+  return role === "admin" || role === "seo_analyst";
+}
+
+/** Owners are intentionally read-only except for spend approval. */
+export function canApproveBudget(role: AppRole | string | null): boolean {
+  return role === "admin" || role === "manager";
+}
+
+export function roleLabel(role: AppRole | string | null): string {
+  if (role === "manager") return "Owner";
+  if (role === "seo_analyst") return "SEO operator";
+  if (role === "admin") return "Admin";
+  return "Viewer";
 }

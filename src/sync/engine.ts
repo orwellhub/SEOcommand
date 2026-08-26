@@ -1,7 +1,21 @@
 import type { DomainId, Provenance } from "@/lib/types";
 import type { DerivedRecommendation } from "@/lib/live";
 import { getManagedSite, listManagedSites, paidJobsApproved } from "@/platform/site-store";
-import { detectTrafficDrop, persistBacklinkLedger, persistDailyRankings, persistDetailedCrawl, persistKeywordGaps, seedTrackedKeywords } from "@/platform/observations";
+import {
+  detectTrafficDrop,
+  persistAiCrawlerAudit,
+  persistAiObservations,
+  persistAiPromptOpportunities,
+  persistBacklinkLedger,
+  persistDailyRankings,
+  persistDetailedCrawl,
+  persistKeywordGaps,
+  seedTrackedKeywords,
+} from "@/platform/observations";
+import { auditAiCrawlerAccess } from "@/platform/ai-crawler-audit";
+import { discoverAiPromptOpportunities } from "@/platform/ai-opportunities";
+import { refreshKeywordStrategy } from "@/platform/keyword-strategy";
+import type { Competitor, GscRow, Keyword } from "@/lib/types";
 import { googleConfigured } from "@/providers/google/auth";
 import {
   gscBreakdown,
@@ -9,6 +23,7 @@ import {
   gscStrikingDistance,
   gscTimeseries,
   gscTotals,
+  gscQueryPages,
   shareOfMarket,
 } from "@/providers/google/gsc";
 import { ga4Channels, ga4LandingPages, ga4OrganicOverview } from "@/providers/google/ga4";
@@ -99,7 +114,8 @@ async function collect(
  * Which cost tiers to run this sync:
  *  - google   : GSC + GA4 (FREE) — safe to run daily
  *  - dfsLight : DataForSEO keywords, rankings, competitors, backlinks (PAID) — weekly
- *  - dfsHeavy : DataForSEO OnPage crawls + AI-visibility checks (PAID, priciest) — monthly
+ *  - dfsHeavy : DataForSEO OnPage crawls (PAID, priciest) — monthly
+ *  - ai       : due AI prompts + crawler access checks — daily scheduler, prompt-level cadence
  * Pending OnPage crawls are always polled (free) regardless of dfsHeavy, so a
  * crawl started in a monthly run finishes on later free runs.
  */
@@ -108,9 +124,10 @@ export interface SyncTiers {
   rankings: boolean;
   dfsLight: boolean;
   dfsHeavy: boolean;
+  ai: boolean;
 }
 
-export const ALL_TIERS: SyncTiers = { google: true, rankings: true, dfsLight: true, dfsHeavy: true };
+export const ALL_TIERS: SyncTiers = { google: true, rankings: true, dfsLight: true, dfsHeavy: true, ai: true };
 
 export async function syncDomain(
   domainId: DomainId,
@@ -128,6 +145,7 @@ export async function syncDomain(
   const dailyRankOk = dataForSeoConfigured() && tiers.rankings && approved;
   const dfsLightOk = dataForSeoConfigured() && tiers.dfsLight && approved;
   const dfsHeavyOk = dataForSeoConfigured() && tiers.dfsHeavy && approved;
+  const aiOk = dataForSeoConfigured() && tiers.ai && approved;
   const dfsConfigured = dataForSeoConfigured();
   const googleOk = googleConfigured() && tiers.google;
 
@@ -145,6 +163,8 @@ export async function syncDomain(
     // collectors call locationFor themselves and surface the configuration error.
   }
   const dfsProv = () => prov("dataforseo", dfsLocation);
+  let aiCompetitors = ((existingByDataset.get("competitors")?.payload ?? []) as Competitor[])
+    .map((item) => ({ host: item.host }));
 
   const collectors: Collector[] = [
     () =>
@@ -194,6 +214,7 @@ export async function syncDomain(
       collect("competitors", async () => {
         if (!dfsLightOk) return "skip";
         const data = await fetchCompetitors(domainId);
+        aiCompetitors = data.map((item) => ({ host: item.host }));
         const p = dfsProv();
         await write("competitors", data, p);
         const gaps = (await Promise.all(data.slice(0, 3).map((competitor) => fetchKeywordGap(domainId, competitor.host, 500)))).flat();
@@ -247,11 +268,28 @@ export async function syncDomain(
       }),
     () =>
       collect("ai_prompts", async () => {
-        if (!dfsHeavyOk) return "skip";
-        const data = await fetchAiPromptResults(domainId);
-        if (!data) return "skip";
+        if (!aiOk) return "skip";
+        const run = await fetchAiPromptResults(domainId, aiCompetitors);
+        if (!run) return "skip";
+        await persistAiObservations(domain, run.observations);
+        const opportunities = discoverAiPromptOpportunities({
+          gscQueries: (existingByDataset.get("gsc_queries")?.payload ?? []) as GscRow[],
+          keywords: (existingByDataset.get("keywords")?.payload ?? []) as Keyword[],
+          fanOutQueries: run.observations.flatMap((item) => item.fanOutQueries),
+        });
+        await persistAiPromptOpportunities(domainId, opportunities);
         const p = dfsProv();
-        await write("ai_prompts", data, p);
+        await write("ai_prompts", run.prompts, p);
+        await write("ai_visibility_meta", { skippedPlatforms: run.skippedPlatforms }, p);
+        return { payload: run.prompts, provenance: p };
+      }),
+    () =>
+      collect("ai_crawler_audit", async () => {
+        if (!tiers.ai) return "skip";
+        const data = await auditAiCrawlerAccess(domain);
+        await persistAiCrawlerAudit(domainId, data);
+        const p = prov("orwell-crawler", `robots.txt at ${domain.host}`);
+        await write("ai_crawler_audit", data, p);
         return { payload: data, provenance: p };
       }),
 
@@ -285,6 +323,13 @@ export async function syncDomain(
         if (!googleOk || !domain.gscSite) return "skip";
         const p = prov("google-search-console", domain.gscSite);
         await write("gsc_pages", await gscBreakdown(domainId, "page", 28, 250), p);
+        return { payload: null, provenance: p };
+      }),
+    () =>
+      collect("gsc_query_pages", async () => {
+        if (!googleOk || !domain.gscSite) return "skip";
+        const p = prov("google-search-console", domain.gscSite);
+        await write("gsc_query_pages", await gscQueryPages(domainId, 28), p);
         return { payload: null, provenance: p };
       }),
     () =>
@@ -343,6 +388,12 @@ export async function syncDomain(
   for (const c of collectors) {
     results.push(await c());
   }
+
+  results.push(await collect("keyword_strategy", async () => {
+    if (!tiers.google && !tiers.dfsLight) return "skip";
+    const data = await refreshKeywordStrategy(domainId);
+    return { payload: data, provenance: prov("orwell-crawler", "GSC + DataForSEO strategy model") };
+  }));
 
   // Derived recommendations from what was just stored — real signals only.
   results.push(
@@ -482,8 +533,8 @@ export async function syncAll(tiers: SyncTiers = ALL_TIERS): Promise<FullSyncRep
 
 /**
  * Resolve the tiers for a scheduled run from the current UTC date, implementing
- * the split-cadence policy: Google free every day; DataForSEO light weekly
- * (Mondays); crawls + AI monthly (1st). Env vars force a tier on for a run.
+ * the split-cadence policy: Google, rankings and due AI prompts every day;
+ * DataForSEO light weekly (Mondays); crawls monthly (1st).
  */
 export function scheduledTiers(now: Date): SyncTiers {
   const isMonday = now.getUTCDay() === 1;
@@ -494,5 +545,6 @@ export function scheduledTiers(now: Date): SyncTiers {
     rankings: process.env.SYNC_RANKINGS !== "0",
     dfsLight: process.env.SYNC_DFS_LIGHT === "1" || isMonday || dfsHeavy,
     dfsHeavy,
+    ai: process.env.SYNC_AI !== "0",
   };
 }

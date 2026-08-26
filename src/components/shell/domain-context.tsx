@@ -1,16 +1,20 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 import type { Domain, DomainId } from "@/lib/types";
 import { DOMAINS } from "@/data/domains";
+import type { PortfolioGroup } from "@/platform/types";
 
-export type Scope = DomainId | "portfolio";
+export type Scope = DomainId | "portfolio" | `group:${string}`;
 
 interface DomainState {
   scope: Scope;
   setScope: (s: Scope) => void;
   activeDomain: Domain | null; // null when scope === "portfolio"
+  activeGroup: PortfolioGroup | null;
   sites: Domain[];
+  groups: PortfolioGroup[];
   sitesLoading: boolean;
   range: RangeKey;
   setRange: (r: RangeKey) => void;
@@ -21,9 +25,11 @@ export type RangeKey = "7d" | "28d" | "90d";
 const DomainCtx = createContext<DomainState | null>(null);
 
 export function DomainProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [scope, setScope] = useState<Scope>("portfolio");
   const [range, setRange] = useState<RangeKey>("28d");
   const [sites, setSites] = useState<Domain[]>(DOMAINS);
+  const [groups, setGroups] = useState<PortfolioGroup[]>([]);
   const [sitesLoading, setSitesLoading] = useState(true);
 
   useEffect(() => {
@@ -31,10 +37,11 @@ export function DomainProvider({ children }: { children: React.ReactNode }) {
     fetch("/api/sites")
       .then(async (response) => {
         if (!response.ok) throw new Error(`Site registry request failed (${response.status})`);
-        return response.json() as Promise<{ sites?: Domain[] }>;
+        return response.json() as Promise<{ sites?: Domain[]; groups?: PortfolioGroup[] }>;
       })
       .then((body) => {
         if (active && body.sites?.length) setSites(body.sites);
+        if (active && body.groups) setGroups(body.groups);
       })
       .catch(() => undefined)
       .finally(() => {
@@ -44,6 +51,11 @@ export function DomainProvider({ children }: { children: React.ReactNode }) {
       active = false;
     };
   }, []);
+  useEffect(() => {
+    const siteMatch = pathname.match(/^\/sites\/([^/]+)/);
+    const requested = siteMatch?.[1] ?? new URLSearchParams(window.location.search).get("site");
+    if (requested && requested !== "new") setScope(requested as Scope);
+  }, [pathname]);
 
   // Persist selection across navigation within the session.
   useEffect(() => {
@@ -57,24 +69,31 @@ export function DomainProvider({ children }: { children: React.ReactNode }) {
   }, [scope]);
 
   // Reflect the active domain accent as a CSS variable for theming.
-  const activeDomain = scope === "portfolio" ? null : (sites.find((site) => site.id === scope) ?? null);
+  const activeDomain = scope === "portfolio" || scope.startsWith("group:")
+    ? null
+    : (sites.find((site) => site.id === scope) ?? null);
+  const activeGroup = scope.startsWith("group:")
+    ? groups.find((group) => group.id === scope.slice(6)) ?? null
+    : null;
   useEffect(() => {
-    const accent = activeDomain?.accent ?? "#7137F5";
+    const accent = activeDomain?.accent ?? activeGroup?.color ?? "#335CFF";
     document.documentElement.style.setProperty("--accent", accent);
     document.documentElement.style.setProperty("--accent-soft", accent + "1a");
-  }, [activeDomain]);
+  }, [activeDomain, activeGroup]);
 
   const value = useMemo<DomainState>(
     () => ({
       scope,
       setScope,
       activeDomain,
+      activeGroup,
       sites,
+      groups,
       sitesLoading,
       range,
       setRange,
     }),
-    [scope, activeDomain, sites, sitesLoading, range],
+    [scope, activeDomain, activeGroup, sites, groups, sitesLoading, range],
   );
 
   return <DomainCtx.Provider value={value}>{children}</DomainCtx.Provider>;

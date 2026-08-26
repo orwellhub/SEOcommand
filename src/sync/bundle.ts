@@ -64,11 +64,13 @@ export async function buildDomainBundle(domainId: string): Promise<DomainLiveBun
  * shaped like a single-domain bundle. Snapshots are read in ONE batched query
  * rather than a per-domain round-trip.
  */
-export async function buildAggregateBundle(): Promise<DomainLiveBundle> {
+export async function buildAggregateBundle(siteSlugs?: string[]): Promise<DomainLiveBundle> {
   if (!hasDatabase()) {
     return { domainId: PORTFOLIO_SCOPE_ID, lastSync: null, datasets: {} };
   }
-  const sites = await listManagedSites();
+  const allSites = await listManagedSites();
+  const allowed = siteSlugs ? new Set(siteSlugs) : null;
+  const sites = allowed ? allSites.filter((site) => allowed.has(site.id)) : allSites;
   const map = await readLatestForDomains(sites.map((d) => d.id));
   const bundles: DomainLiveBundle[] = [];
   for (const d of sites) {
@@ -128,8 +130,10 @@ function headlineFrom(domainId: string, snaps: StoredSnapshot[], ga4Mapped = fal
   };
 }
 
-export async function buildPortfolio(): Promise<PortfolioLive> {
-  const sites = await listManagedSites();
+export async function buildPortfolio(siteSlugs?: string[]): Promise<PortfolioLive> {
+  const allSites = await listManagedSites();
+  const allowed = siteSlugs ? new Set(siteSlugs) : null;
+  const sites = allowed ? allSites.filter((site) => allowed.has(site.id)) : allSites;
   const empty: PortfolioLive = {
     generatedAt: new Date().toISOString(),
     domains: sites.map((d) => headlineFrom(d.id, [], Boolean(d.ga4PropertyId))),

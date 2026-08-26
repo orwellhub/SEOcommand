@@ -18,7 +18,7 @@ export async function processPlatformJobs(
   const due = await db()
     .select()
     .from(schema.platformJobs)
-    .where(and(eq(schema.platformJobs.status, "queued"), lte(schema.platformJobs.runAfter, now)))
+    .where(and(eq(schema.platformJobs.kind, "initial_site_scan"), eq(schema.platformJobs.status, "queued"), lte(schema.platformJobs.runAfter, now)))
     .orderBy(asc(schema.platformJobs.createdAt))
     .limit(limit);
   let completed = 0;

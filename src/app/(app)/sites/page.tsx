@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Circle, ExternalLink, Plus, ServerCog } from "lucide-react";
+import { Circle, ExternalLink, Plus, ServerCog, Settings2 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, EmptyState, Skeleton, StatusBadge } from "@/components/ui/primitives";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import type { ManagedSite } from "@/platform/types";
+import type { PortfolioGroup } from "@/platform/types";
+import { GroupManager } from "@/components/portfolio/group-manager";
 
 interface Connection {
   id: string;
@@ -27,23 +29,34 @@ function tone(status: string): "success" | "warning" | "critical" | "neutral" | 
 export default function SitesPage() {
   const [sites, setSites] = useState<ManagedSite[] | null>(null);
   const [connections, setConnections] = useState<Connection[]>([]);
+  const [groups, setGroups] = useState<PortfolioGroup[]>([]);
+  const [reload, setReload] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/sites")
       .then(async (response) => {
         if (!response.ok) throw new Error(`Request failed (${response.status})`);
-        return response.json() as Promise<{ sites: ManagedSite[]; connections: Connection[] }>;
+        return response.json() as Promise<{ sites: ManagedSite[]; connections: Connection[]; groups: PortfolioGroup[] }>;
       })
       .then((body) => {
         setSites(body.sites);
         setConnections(body.connections);
+        setGroups(body.groups ?? []);
       })
       .catch((reason) => setError(reason instanceof Error ? reason.message : String(reason)));
-  }, []);
+  }, [reload]);
 
   const columns = useMemo<Column<ManagedSite>[]>(
     () => [
+      {
+        key: "groups",
+        header: "Groups",
+        render: (site) => {
+          const assigned = groups.filter((group) => group.siteSlugs.includes(site.id));
+          return assigned.length ? <div className="flex max-w-56 flex-wrap gap-1">{assigned.map((group) => <span key={group.id} className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-2xs" style={{ color: group.color }}>{group.name}</span>)}</div> : <span className="text-muted">Ungrouped</span>;
+        },
+      },
       {
         key: "site",
         header: "Website",
@@ -52,13 +65,19 @@ export default function SitesPage() {
           <div className="flex items-center gap-2.5">
             <Circle className="h-2.5 w-2.5" style={{ fill: site.accent, color: site.accent }} />
             <div>
-              <Link href={`/domain/${site.id}`} className="font-medium text-ink hover:underline">
+              <Link href={`/sites/${site.id}`} className="font-medium text-ink hover:underline">
                 {site.name}
               </Link>
               <div className="text-2xs text-muted">{site.host}</div>
             </div>
           </div>
         ),
+      },
+      {
+        key: "settings",
+        header: "",
+        align: "right",
+        render: (site) => <Link href={`/sites/${site.id}/settings`} className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs font-semibold text-muted hover:bg-workspace hover:text-ink"><Settings2 className="h-3.5 w-3.5" /> Settings</Link>,
       },
       {
         key: "status",
@@ -107,7 +126,7 @@ export default function SitesPage() {
         },
       },
     ],
-    [connections],
+    [connections, groups],
   );
 
   return (
@@ -115,11 +134,7 @@ export default function SitesPage() {
       <PageHeader
         title="Website operations"
         description="Onboard, approve and connect the websites in the portfolio. Designed to remain usable beyond 300 sites."
-        actions={
-          <Link href="/sites/new" className="inline-flex h-9 items-center gap-1.5 rounded-md bg-purple px-3.5 text-sm font-medium text-white hover:bg-purple-deep">
-            <Plus className="h-4 w-4" /> Add website
-          </Link>
-        }
+        actions={<div className="flex flex-wrap gap-2"><GroupManager sites={sites ?? []} groups={groups} onChanged={() => setReload((value) => value + 1)} /><Link href="/sites/new" className="inline-flex h-9 items-center gap-1.5 rounded-md bg-purple px-3.5 text-sm font-medium text-white hover:bg-purple-deep"><Plus className="h-4 w-4" /> Add website</Link></div>}
       />
 
       {error ? (

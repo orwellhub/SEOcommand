@@ -24,6 +24,7 @@ export function DataTable<T>({
   emptyLabel = "No rows match the current filters.",
   exportName,
   toolbar,
+  rowKey,
 }: {
   rows: T[];
   columns: Column<T>[];
@@ -34,6 +35,7 @@ export function DataTable<T>({
   emptyLabel?: string;
   exportName?: string;
   toolbar?: React.ReactNode;
+  rowKey?: (row: T) => string;
 }) {
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<string | null>(null);
@@ -110,14 +112,14 @@ export function DataTable<T>({
                   setPage(0);
                 }}
                 placeholder={searchPlaceholder}
-                className="h-8 w-56 rounded-md border border-border bg-card pl-8 pr-3 text-xs text-ink placeholder:text-muted focus:outline-none focus-visible:outline-2"
+                className="h-8 w-full min-w-56 rounded-md border border-border bg-card pl-8 pr-3 text-xs text-ink placeholder:text-muted focus:outline-none focus-visible:outline-2 sm:w-64"
               />
             </div>
           )}
           {toolbar}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-2xs text-muted tnum">{filtered.length} rows</span>
+          <span className="text-2xs text-muted tnum">{filtered.length ? `${clampedPage * pageSize + 1}–${Math.min((clampedPage + 1) * pageSize, filtered.length)} of ` : ""}{filtered.length} rows</span>
           {exportName && (
             <Button size="sm" variant="secondary" onClick={exportCsv}>
               <Download className="h-3.5 w-3.5" /> Export
@@ -128,7 +130,7 @@ export function DataTable<T>({
 
       <div className="overflow-x-auto rounded-md border border-border">
         <table className="w-full min-w-[640px] border-collapse text-sm">
-          <thead>
+          <thead className="sticky top-0 z-10">
             <tr className="border-b border-border bg-workspace/70">
               {columns.map((c) => (
                 <th
@@ -168,7 +170,7 @@ export function DataTable<T>({
           <tbody>
             {pageRows.map((row, i) => (
               <tr
-                key={i}
+                key={rowKey?.(row) ?? i}
                 onClick={() => onRowClick?.(row)}
                 className={cn(
                   "border-b border-border/70 last:border-0",

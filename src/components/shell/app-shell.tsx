@@ -19,18 +19,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex h-[100dvh] overflow-hidden bg-workspace">
       <PortfolioRail />
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Pinned chrome — never scrolls away, on any device. */}
         <header className="z-30 shrink-0">
-          <div className="flex items-center bg-nav pl-2 lg:pl-0">
-            <MobileNav />
-            <div className="min-w-0 flex-1">
-              <TopNav />
-            </div>
+          <div className="relative">
+            <div className="absolute left-2 top-3 z-10 lg:hidden"><MobileNav /></div>
+            <div className="min-w-0 lg:pl-0 pl-12"><TopNav /></div>
           </div>
           <ContextBar />
         </header>
         <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <div className="mx-auto max-w-[1400px] px-4 py-5 sm:px-6 lg:px-8">{children}</div>
+          <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">{children}</div>
         </main>
       </div>
     </div>

@@ -22,8 +22,9 @@ designed for 300+ websites without another registry rebuild.
 - **Recharts** + dependency-free SVG sparklines
 - **Drizzle ORM** + **PostgreSQL** (snapshot store + production data model)
 - **Zod** for input / provider-response validation
+- **Playwright** for rendered-page verification, JavaScript dependency checks and crawl diffs
 - **Vitest** for unit tests
-- Deployed on **Render** (web service + managed Postgres + cron worker) — see `render.yaml`
+- Deployed on **Render** (web service + managed Postgres + bounded cron workers) — see `render.yaml`
 
 ## Quick start
 
@@ -53,9 +54,15 @@ npm run test         # vitest
 | Add website | `/sites/new` | Google discovery, market/devices, GitHub/Hostinger/webhook, alerts and cost approval |
 | Domain overview | `/domain` | GSC totals & 90-day trend, GA4 overview, top pages, movers, competitors, crawl snapshot |
 | Research | `/research` | Ranked keywords, GSC queries, competitors, keyword gaps and striking-distance |
+| Competitor Explorer | `/competitors` | On-demand organic footprint, ranked keywords, top pages and backlink authority |
+| Keyword Strategy | `/keyword-strategy` | Intent clusters, GSC page mapping, opportunity scoring and cannibalisation evidence |
 | Rankings | `/rankings` | Approved daily exact SERP checks, history, position distribution and alerts |
 | Site Audit | `/site-audit` | Up to 100k-page OnPage crawl with URL-level metadata/check exploration |
+| Rendered Crawler | `/technical-crawler` | Playwright render evidence, schema/hreflang checks, internal graph and crawl-to-crawl diffs |
+| Monitoring | `/monitoring` | Hourly availability, response time, TLS/domain expiry and robots/sitemap change evidence |
 | Backlinks | `/backlinks` | Current link ledger, history from 2019, new/lost data, anchors and risk |
+| Link Building | `/link-building` | Competitor link intersections, contact research, editable drafts and human-gated delivery |
+| Local SEO | `/local-seo` | Public Google Business Profile signals, reviews/rating movement and 3×3/5×5 Maps rank grids |
 | AI Visibility | `/ai-visibility` | Independent ChatGPT, Claude, Gemini and Perplexity checks |
 | Notifications | `/notifications` | In-app ranking, technical, traffic and backlink alerts |
 | Content | `/content` | Page-level GSC performance: inventory, measured decay/rise, GA4 landing pages |
@@ -71,18 +78,19 @@ src/
   app/api/               auth, protected read-models, workflow, reports, sync, health and usage
   components/            shell (rail/nav/context), ui (tables, drawers, badges), charts
   data/                  Compatibility registry, report templates and benchmark inputs
-  platform/              Site registry, forecasts, jobs, observations, alerts and delivery
+  platform/              Site registry, forecasts, crawling, local/competitive intelligence, alerts and delivery
   providers/
     dataforseo/          Live client: Basic auth, $200/mo SpendGuard, retry/backoff, OnPage resume
     google/              GSC + GA4 REST adapters (headless service-account auth)
   sync/                  engine (collectors), store (snapshot persistence), bundle (read-models)
   db/                    Snapshots, spend ledger, workflow items and report schedules
   lib/                   Canonical types, live-bundle contract, scoring, client data hooks
-scripts/                 jobs.ts (cron sync runner), seed.ts (org/domain bootstrap)
+scripts/                 jobs.ts (provider sync), crawler-jobs.ts (operations), seed.ts
 ```
 
-Data flow: **cron (daily 06:00 UTC) → sync engine → provider APIs → canonical snapshots
-in Postgres → `/api/live/*` → dashboard**. Full detail in [`docs/architecture.md`](docs/architecture.md).
+Data flow: **scheduled provider/operations jobs → provider APIs + public site evidence →
+canonical snapshots in Postgres → protected read-model APIs → dashboard**. Full detail
+in [`docs/architecture.md`](docs/architecture.md).
 
 ## Roles & auth
 
@@ -101,7 +109,11 @@ dashboard and live-data APIs are protected, while `/api/sync` keeps its independ
    competitor/backlink datasets weekly, and full crawl/AI datasets monthly. It also
    resumes the onboarding queue and sends notification/report webhooks. Use its "Trigger Run" button for an on-demand
    populate, or `POST /api/sync` with `Authorization: Bearer $SYNC_TOKEN`.
-4. Health probes: `GET /api/health/dataforseo`, `GET /api/health/google`; spend:
+4. The hourly **orwell-operations** Docker cron records reliability evidence, processes
+   one bounded Playwright crawl job at a time, and runs approved Local SEO grids. This
+   isolates browser dependencies from the web service and prevents 300 websites from
+   creating a provider or database stampede.
+5. Health probes: `GET /api/health/dataforseo`, `GET /api/health/google`; spend:
    `GET /api/usage`.
 
 ## Site-level cost approval
@@ -115,6 +127,12 @@ spend. Legacy registry sites retain the existing portfolio guard until migrated.
 Website connections store metadata and secret references only. GitHub, Hostinger Git and
 generic webhooks operate in `review_only` mode: SEOcommand may create a draft change
 proposal or pull-request handoff, but never auto-publishes a website change.
+
+Local SEO locations receive a separate weekly-cost forecast and remain inactive until
+approved. Link outreach also remains a draft until a user approves it; delivery requires
+an HTTPS `OUTREACH_EMAIL_WEBHOOK_URL`. Google Business monitoring currently uses public
+profile, rating and review-count evidence—it does not edit a Business Profile or post
+review replies.
 
 See [`docs/dataforseo-integration.md`](docs/dataforseo-integration.md),
 [`docs/google-integration.md`](docs/google-integration.md) (Search Console + GA4),
