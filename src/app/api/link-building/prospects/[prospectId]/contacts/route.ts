@@ -6,6 +6,7 @@ import { enrichProspectContacts } from "@/platform/link-outreach";
 export const runtime = "nodejs";
 
 export async function POST(request: Request, { params }: { params: { prospectId: string } }) {
+  if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ contacts: [{ type: "email", value: "editor@publisher.example", source: "synthetic_qa" }], prospectId: params.prospectId, synthetic: true });
   if (!canWrite(request.headers.get("x-orwell-user-role"))) return NextResponse.json({ error: "Write access required." }, { status: 403 });
   if (!z.string().uuid().safeParse(params.prospectId).success) return NextResponse.json({ error: "Invalid prospect." }, { status: 400 });
   try {

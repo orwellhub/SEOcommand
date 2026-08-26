@@ -4,6 +4,7 @@ import { BudgetExceededError, DailyLimitError } from "@/providers/dataforseo/err
 import { DEFAULT_MARKET, marketByCode, marketLabel } from "@/lib/markets";
 import { isoDate } from "@/lib/dates";
 import type { KeywordResearchResult } from "@/lib/types";
+import { qaKeywordResearch } from "@/data/qa-fixtures";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,6 +26,10 @@ export async function GET(req: NextRequest) {
   const market = marketByCode(requestedCode) ?? DEFAULT_MARKET;
   const languageCode = (params.get("language") || market.language).trim();
   const limit = Math.min(Math.max(Number(params.get("limit")) || 100, 1), 1000);
+
+  if (process.env.QA_SYNTHETIC === "true") {
+    return NextResponse.json({ ok: true, configured: true, synthetic: true, result: qaKeywordResearch(seed, market.code, languageCode, marketLabel(market.code)) });
+  }
 
   if (!dataForSeoConfigured()) {
     return NextResponse.json({

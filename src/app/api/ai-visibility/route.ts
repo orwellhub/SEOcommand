@@ -2,11 +2,16 @@ import { NextResponse } from "next/server";
 import { buildAiVisibilityDashboard } from "@/platform/ai-read-model";
 import { getManagedSite, listManagedSites, listPortfolioGroups, resolveGroupSiteSlugs } from "@/platform/site-store";
 import { hasDatabase } from "@/sync/store";
+import { qaAiVisibility } from "@/data/qa-fixtures";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
+  if (process.env.QA_SYNTHETIC === "true") {
+    const scopeId = new URL(request.url).searchParams.get("scope") ?? "portfolio";
+    return NextResponse.json(qaAiVisibility(scopeId));
+  }
   if (!hasDatabase()) return NextResponse.json({ error: "AI history requires DATABASE_URL." }, { status: 503 });
   const url = new URL(request.url);
   const scopeId = url.searchParams.get("scope") ?? "portfolio";

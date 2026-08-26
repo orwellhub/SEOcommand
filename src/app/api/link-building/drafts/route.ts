@@ -8,6 +8,7 @@ export const runtime = "nodejs";
 const DraftSchema = z.object({ prospectId: z.string().uuid(), recipientEmail: z.string().email().optional().nullable(), angle: z.string().max(500).optional().nullable() });
 
 export async function POST(request: Request) {
+  if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ draft: { id: "31000000-0000-4000-8000-000000000099", status: "draft", synthetic: true } }, { status: 201 });
   if (!canWrite(request.headers.get("x-orwell-user-role"))) return NextResponse.json({ error: "Write access required." }, { status: 403 });
   const parsed = DraftSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Choose a prospect and enter a valid email." }, { status: 400 });

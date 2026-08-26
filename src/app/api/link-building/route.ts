@@ -6,11 +6,16 @@ import { getManagedSite } from "@/platform/site-store";
 import { discoverLinkGapProspects } from "@/platform/competitive-intelligence";
 import { linkBuildingDashboard } from "@/platform/link-outreach";
 import { BudgetExceededError, DailyLimitError } from "@/providers/dataforseo/errors";
+import { qaLinkBuilding } from "@/data/qa-fixtures";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
+  if (process.env.QA_SYNTHETIC === "true") {
+    const siteSlug = new URL(request.url).searchParams.get("site") ?? "mortgagecompare";
+    return NextResponse.json(qaLinkBuilding(siteSlug));
+  }
   if (!hasDatabase()) return NextResponse.json({ error: "Link workflow requires DATABASE_URL." }, { status: 503 });
   const siteSlug = new URL(request.url).searchParams.get("site") ?? "";
   if (!(await getManagedSite(siteSlug))) return NextResponse.json({ error: "Website not found." }, { status: 404 });
@@ -20,6 +25,10 @@ export async function GET(request: Request) {
 const DiscoverSchema = z.object({ siteSlug: z.string().min(1), competitors: z.array(z.string().min(3)).min(1).max(10) });
 
 export async function POST(request: Request) {
+  if (process.env.QA_SYNTHETIC === "true") {
+    const body = await request.json().catch(() => ({})) as { siteSlug?: string };
+    return NextResponse.json({ prospects: qaLinkBuilding(body.siteSlug ?? "mortgagecompare").prospects, synthetic: true });
+  }
   if (!hasDatabase()) return NextResponse.json({ error: "Link workflow requires DATABASE_URL." }, { status: 503 });
   if (!canWrite(request.headers.get("x-orwell-user-role"))) return NextResponse.json({ error: "Write access required." }, { status: 403 });
   const parsed = DiscoverSchema.safeParse(await request.json().catch(() => null));

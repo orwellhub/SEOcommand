@@ -4,6 +4,7 @@ import { canWrite } from "@/lib/auth";
 import { hasDatabase } from "@/sync/store";
 import { getManagedSite, listManagedSites, listPortfolioGroups, resolveGroupSiteSlugs } from "@/platform/site-store";
 import { checkReliability, reliabilityDashboard } from "@/platform/reliability";
+import { qaReliability } from "@/data/qa-fixtures";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +20,10 @@ async function resolveScope(scope: string) {
 }
 
 export async function GET(request: Request) {
+  if (process.env.QA_SYNTHETIC === "true") {
+    const scope = new URL(request.url).searchParams.get("scope") ?? "portfolio";
+    return NextResponse.json(qaReliability(scope));
+  }
   if (!hasDatabase()) return NextResponse.json({ error: "Reliability history requires DATABASE_URL." }, { status: 503 });
   const scope = new URL(request.url).searchParams.get("scope") ?? "portfolio";
   const siteSlugs = await resolveScope(scope);
@@ -29,6 +34,7 @@ export async function GET(request: Request) {
 const CheckSchema = z.object({ siteSlug: z.string().min(1) });
 
 export async function POST(request: Request) {
+  if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ check: { status: "completed", synthetic: true, checkedAt: new Date().toISOString() } });
   if (!hasDatabase()) return NextResponse.json({ error: "Reliability checks require DATABASE_URL." }, { status: 503 });
   if (!canWrite(request.headers.get("x-orwell-user-role"))) return NextResponse.json({ error: "Write access required." }, { status: 403 });
   const parsed = CheckSchema.safeParse(await request.json().catch(() => null));

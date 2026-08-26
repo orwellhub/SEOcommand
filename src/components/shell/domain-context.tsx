@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import type { Domain, DomainId } from "@/lib/types";
 import { DOMAINS } from "@/data/domains";
 import type { PortfolioGroup } from "@/platform/types";
@@ -26,7 +26,9 @@ const DomainCtx = createContext<DomainState | null>(null);
 
 export function DomainProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [scope, setScope] = useState<Scope>("portfolio");
+  const [scopeReady, setScopeReady] = useState(false);
   const [range, setRange] = useState<RangeKey>("28d");
   const [sites, setSites] = useState<Domain[]>(DOMAINS);
   const [groups, setGroups] = useState<PortfolioGroup[]>([]);
@@ -51,22 +53,22 @@ export function DomainProvider({ children }: { children: React.ReactNode }) {
       active = false;
     };
   }, []);
+  // A route-level website is authoritative. Otherwise restore the user's last
+  // reporting scope. Keeping this in one effect prevents a saved portfolio
+  // scope from racing and overwriting a directly opened website workspace.
   useEffect(() => {
     const siteMatch = pathname.match(/^\/sites\/([^/]+)/);
-    const requested = siteMatch?.[1] ?? new URLSearchParams(window.location.search).get("site");
-    if (requested && requested !== "new") setScope(requested as Scope);
-  }, [pathname]);
-
-  // Persist selection across navigation within the session.
-  useEffect(() => {
+    const requested = siteMatch?.[1] ?? searchParams.get("site");
     const saved = window.localStorage.getItem("orwell.scope");
-    if (saved) {
-      setScope(saved as Scope);
-    }
-  }, []);
+    if (requested && requested !== "new") setScope(requested as Scope);
+    else if (saved) setScope(saved as Scope);
+    setScopeReady(true);
+  }, [pathname, searchParams]);
+
+  // Persist selection across navigation within the session after hydration.
   useEffect(() => {
-    window.localStorage.setItem("orwell.scope", scope);
-  }, [scope]);
+    if (scopeReady) window.localStorage.setItem("orwell.scope", scope);
+  }, [scope, scopeReady]);
 
   // Reflect the active domain accent as a CSS variable for theming.
   const activeDomain = scope === "portfolio" || scope.startsWith("group:")

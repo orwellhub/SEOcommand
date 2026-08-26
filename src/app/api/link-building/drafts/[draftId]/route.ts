@@ -14,6 +14,10 @@ const ActionSchema = z.discriminatedUnion("action", [
 ]);
 
 export async function PATCH(request: Request, { params }: { params: { draftId: string } }) {
+  if (process.env.QA_SYNTHETIC === "true") {
+    const body = await request.json().catch(() => ({})) as { action?: string };
+    return NextResponse.json({ draft: { id: params.draftId, status: body.action === "approve" ? "approved" : body.action === "send" ? "sent" : "draft", synthetic: true }, delivery: body.action === "send" ? "suppressed_in_qa" : undefined });
+  }
   if (!canWrite(request.headers.get("x-orwell-user-role"))) return NextResponse.json({ error: "Write access required." }, { status: 403 });
   if (!z.string().uuid().safeParse(params.draftId).success) return NextResponse.json({ error: "Invalid draft." }, { status: 400 });
   const parsed = ActionSchema.safeParse(await request.json().catch(() => null));

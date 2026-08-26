@@ -5,6 +5,7 @@ import { db, schema } from "@/db";
 import { hasDatabase } from "@/sync/store";
 import { getManagedSite, listManagedSites, resolveGroupSiteSlugs } from "@/platform/site-store";
 import { localSeoDashboard } from "@/platform/local-seo";
+import { qaLocalSeo } from "@/data/qa-fixtures";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,6 +17,10 @@ async function scopeSites(scope: string) {
 }
 
 export async function GET(request: Request) {
+  if (process.env.QA_SYNTHETIC === "true") {
+    const scope = new URL(request.url).searchParams.get("scope") ?? "portfolio";
+    return NextResponse.json(qaLocalSeo(scope));
+  }
   if (!hasDatabase()) return NextResponse.json({ error: "Local SEO requires DATABASE_URL." }, { status: 503 });
   const scope = new URL(request.url).searchParams.get("scope") ?? "portfolio";
   const sites = await scopeSites(scope);
@@ -38,6 +43,7 @@ const LocationSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ location: { id: "40000000-0000-4000-8000-000000000099", approval: "pending", synthetic: true }, forecast: { checksPerRun: 9, cadence: "weekly", estimatedMonthlyUsd: 0.64 } }, { status: 201 });
   if (!hasDatabase()) return NextResponse.json({ error: "Local SEO requires DATABASE_URL." }, { status: 503 });
   if (!canWrite(request.headers.get("x-orwell-user-role"))) return NextResponse.json({ error: "Write access required." }, { status: 403 });
   const parsed = LocationSchema.safeParse(await request.json().catch(() => null));

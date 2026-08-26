@@ -21,7 +21,7 @@ export function PageHeader({
       <div>
         <div className="flex items-center gap-2.5">
           <h1 className="text-balance text-2xl font-extrabold tracking-[-0.035em] text-ink sm:text-[28px]">{title}</h1>
-          <SyncBadge lastSync={lastSync} loading={loading} />
+          {lastSync !== undefined && <SyncBadge lastSync={lastSync} loading={loading} />}
         </div>
         {description && <p className="mt-1.5 max-w-3xl text-sm leading-6 text-muted">{description}</p>}
       </div>

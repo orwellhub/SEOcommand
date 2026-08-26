@@ -32,6 +32,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ prompt: { id: "51000000-0000-4000-8000-000000000099", active: true, synthetic: true } }, { status: 201 });
   if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
   if (!canWrite(request.headers.get("x-orwell-user-role"))) return NextResponse.json({ error: "Write access required." }, { status: 403 });
   const parsed = CreateSchema.safeParse(await request.json().catch(() => null));

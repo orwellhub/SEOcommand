@@ -12,6 +12,7 @@ const Schema = z.object({
 });
 
 export async function POST(request: Request, { params }: { params: { opportunityId: string } }) {
+  if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ prompt: { id: "51000000-0000-4000-8000-000000000098", active: true, synthetic: true }, accepted: true, opportunityId: params.opportunityId });
   if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
   if (!canWrite(request.headers.get("x-orwell-user-role"))) return NextResponse.json({ error: "Write access required." }, { status: 403 });
   const parsed = Schema.safeParse(await request.json().catch(() => null));
