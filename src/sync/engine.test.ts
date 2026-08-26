@@ -16,19 +16,19 @@ describe("scheduledTiers — split-cadence policy", () => {
   it("runs Google and approved daily rankings on an ordinary weekday", () => {
     // 2026-07-21 is a Tuesday, not the 1st.
     const t = scheduledTiers(new Date("2026-07-21T06:00:00Z"));
-    expect(t).toEqual({ google: true, rankings: true, dfsLight: false, dfsHeavy: false });
+    expect(t).toEqual({ google: true, rankings: true, dfsLight: false, dfsHeavy: false, ai: true });
   });
 
   it("adds DataForSEO light on Mondays (weekly)", () => {
     // 2026-07-20 is a Monday.
     const t = scheduledTiers(new Date("2026-07-20T06:00:00Z"));
-    expect(t).toEqual({ google: true, rankings: true, dfsLight: true, dfsHeavy: false });
+    expect(t).toEqual({ google: true, rankings: true, dfsLight: true, dfsHeavy: false, ai: true });
   });
 
   it("adds crawls + AI (and light) on the 1st of the month (monthly)", () => {
     // 2026-08-01 is a Saturday and the 1st.
     const t = scheduledTiers(new Date("2026-08-01T06:00:00Z"));
-    expect(t).toEqual({ google: true, rankings: true, dfsLight: true, dfsHeavy: true });
+    expect(t).toEqual({ google: true, rankings: true, dfsLight: true, dfsHeavy: true, ai: true });
   });
 
   it("honours env overrides for a single run", () => {

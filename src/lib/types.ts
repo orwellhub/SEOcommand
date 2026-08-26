@@ -35,7 +35,8 @@ export type ProviderSource =
   | "demo"
   | "dataforseo"
   | "google-search-console"
-  | "google-analytics";
+  | "google-analytics"
+  | "orwell-crawler";
 
 export type FreshnessStatus = "fresh" | "recent" | "stale";
 export type DataMode = "demo" | "cached" | "live";
@@ -262,7 +263,14 @@ export interface ReferringDomain {
 
 /* ----------------------------- AI Visibility ---------------------------- */
 
-export type AiPlatform = "chatgpt" | "google_ai" | "gemini" | "perplexity" | "claude";
+export type AiPlatform =
+  | "chatgpt"
+  | "claude"
+  | "gemini"
+  | "perplexity"
+  | "google_ai_overview"
+  | "google_ai_mode"
+  | "copilot";
 export type Sentiment = "positive" | "neutral" | "negative";
 
 export interface AiPrompt {
@@ -397,6 +405,11 @@ export interface GscRow {
   impressions: number;
   ctr: number;
   position: number;
+}
+
+export interface GscQueryPageRow extends GscRow {
+  query: string;
+  page: string;
 }
 
 /** A query ranking just off page one — the cheapest available win. */

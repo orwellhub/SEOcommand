@@ -122,6 +122,7 @@ const SOURCE_LABEL: Record<ProviderSource, string> = {
   dataforseo: "DataForSEO",
   "google-search-console": "Search Console",
   "google-analytics": "GA4",
+  "orwell-crawler": "Orwell crawler",
 };
 
 export function SourceBadge({

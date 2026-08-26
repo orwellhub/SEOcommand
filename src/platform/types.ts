@@ -12,7 +12,26 @@ export type SiteLifecycle =
 export type SpendApproval = "draft" | "pending" | "approved" | "rejected";
 export type SiteConnectionKind = "github" | "hostinger_git" | "webhook";
 export type AlertChannel = "in_app" | "whatsapp" | "email";
-export type AiVisibilityPlatform = "chatgpt" | "claude" | "gemini" | "perplexity";
+export type AiVisibilityPlatform =
+  | "chatgpt"
+  | "claude"
+  | "gemini"
+  | "perplexity"
+  | "google_ai_overview"
+  | "google_ai_mode"
+  | "copilot";
+export type AiPromptCadence = "daily" | "weekly" | "monthly";
+
+export interface PortfolioGroup {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  color: string;
+  parentId: string | null;
+  sortOrder: number;
+  siteSlugs: string[];
+}
 
 export interface SiteCostForecastLine {
   key: string;
@@ -142,4 +161,71 @@ export interface TrackedRankingResult {
   previousPosition: number | null;
   url: string | null;
   serpFeatures: string[];
+}
+
+export interface AiCitationEvidence {
+  url: string;
+  domain: string;
+  title: string | null;
+  position: number;
+  owned: boolean;
+}
+
+export interface AiEntityEvidence {
+  name: string;
+  host: string | null;
+  entityType: "brand" | "competitor" | "product";
+  position: number | null;
+  sentiment: "positive" | "neutral" | "negative";
+  owned: boolean;
+}
+
+export interface AiObservationInput {
+  promptId: string | null;
+  siteSlug: string;
+  prompt: string;
+  topic: string;
+  platform: AiVisibilityPlatform;
+  modelName: string;
+  sampleIndex: number;
+  capturedOn: string;
+  mentioned: boolean;
+  cited: boolean;
+  recommendationPosition: number | null;
+  sentiment: "positive" | "neutral" | "negative";
+  confidence: number;
+  responseText: string;
+  responseHash: string;
+  fanOutQueries: string[];
+  raw: Record<string, unknown>;
+  costUsd: number;
+  citations: AiCitationEvidence[];
+  entities: AiEntityEvidence[];
+}
+
+export interface AiVisibilityRun {
+  prompts: import("@/lib/types").AiPrompt[];
+  observations: AiObservationInput[];
+  skippedPlatforms: { platform: AiVisibilityPlatform; reason: string }[];
+}
+
+export interface AiPromptOpportunity {
+  id: string;
+  siteSlug: string;
+  prompt: string;
+  topic: string;
+  source: string;
+  intent: string | null;
+  aiSearchVolume: number | null;
+  priorityScore: number;
+  status: string;
+  evidence: Record<string, unknown>;
+}
+
+export interface AiCrawlerAuditRow {
+  bot: string;
+  category: "training" | "search" | "assistant";
+  access: "allowed" | "blocked" | "unknown";
+  evidence: string;
+  robotsUrl: string;
 }

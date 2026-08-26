@@ -1,0 +1,19 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { canWrite } from "@/lib/auth";
+import { createOutreachDraft } from "@/platform/link-outreach";
+
+export const runtime = "nodejs";
+
+const DraftSchema = z.object({ prospectId: z.string().uuid(), recipientEmail: z.string().email().optional().nullable(), angle: z.string().max(500).optional().nullable() });
+
+export async function POST(request: Request) {
+  if (!canWrite(request.headers.get("x-orwell-user-role"))) return NextResponse.json({ error: "Write access required." }, { status: 403 });
+  const parsed = DraftSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "Choose a prospect and enter a valid email." }, { status: 400 });
+  try {
+    return NextResponse.json({ draft: await createOutreachDraft(parsed.data) }, { status: 201 });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Draft could not be created." }, { status: 400 });
+  }
+}

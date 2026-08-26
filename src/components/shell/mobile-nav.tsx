@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, X, Layers, Circle } from "lucide-react";
+import { Menu, X, Layers, Circle, Folder } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/nav";
 import { useDomain } from "./domain-context";
 import { cn } from "@/lib/cn";
@@ -12,7 +12,7 @@ import { cn } from "@/lib/cn";
 export function MobileNav() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const { scope, setScope, sites } = useDomain();
+  const { scope, setScope, sites, groups } = useDomain();
   const router = useRouter();
 
   /** Picking a site closes the drawer and lands on that property's page. */
@@ -24,6 +24,12 @@ export function MobileNav() {
 
   function selectPortfolio() {
     setScope("portfolio");
+    router.push("/portfolio");
+    setOpen(false);
+  }
+
+  function selectGroup(id: string) {
+    setScope(`group:${id}`);
     router.push("/portfolio");
     setOpen(false);
   }
@@ -65,6 +71,19 @@ export function MobileNav() {
               >
                 <Layers className="h-4 w-4" /> Portfolio
               </button>
+              {groups.map((group) => (
+                <button
+                  key={group.id}
+                  onClick={() => selectGroup(group.id)}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm",
+                    scope === `group:${group.id}` ? "bg-rail-selected" : "hover:bg-nav",
+                  )}
+                >
+                  <Folder className="h-3.5 w-3.5" style={{ color: group.color, fill: `${group.color}40` }} />
+                  {group.name}
+                </button>
+              ))}
               {sites.map((d) => (
                 <button
                   key={d.id}

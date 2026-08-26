@@ -1,11 +1,20 @@
 import { createHash } from "node:crypto";
-import { desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { isoDate } from "@/lib/dates";
 import type { Backlink, GscTotals, Keyword } from "@/lib/types";
-import type { BacklinkHistoryPoint, DetailedCrawlPage, KeywordGapRow, ManagedSite, TrackedRankingResult } from "./types";
+import type {
+  AiCrawlerAuditRow,
+  AiObservationInput,
+  BacklinkHistoryPoint,
+  DetailedCrawlPage,
+  KeywordGapRow,
+  ManagedSite,
+  TrackedRankingResult,
+} from "./types";
 import { createNotification } from "./notifications";
 import type { OnPageResult } from "@/lib/live";
+import type { DiscoveredAiOpportunity } from "./ai-opportunities";
 
 function batches<T>(items: T[], size = 500): T[][] {
   const out: T[][] = [];
@@ -228,4 +237,142 @@ export async function detectTrafficDrop(site: ManagedSite, current: GscTotals, p
     actionUrl: `/domain/${site.id}`,
     fingerprint: `traffic-drop:${site.id}:${today}`,
   });
+}
+
+export async function persistAiObservations(site: ManagedSite, observations: AiObservationInput[]) {
+  if (!observations.length) return;
+  const today = isoDate(new Date());
+  const prior = await db().select({ mentioned: schema.aiResponseObservations.mentioned })
+    .from(schema.aiResponseObservations)
+    .where(and(
+      eq(schema.aiResponseObservations.siteSlug, site.id),
+      lt(schema.aiResponseObservations.capturedOn, today),
+    ))
+    .orderBy(desc(schema.aiResponseObservations.capturedOn))
+    .limit(Math.max(10, observations.length * 2));
+
+  const observationKey = (value: { siteSlug: string; prompt: string; platform: string; capturedOn: string; sampleIndex: number }) =>
+    `${value.siteSlug}\0${value.prompt}\0${value.platform}\0${value.capturedOn}\0${value.sampleIndex}`;
+  for (const chunk of batches(observations, 200)) {
+    await db().transaction(async (tx) => {
+      const saved = await tx.insert(schema.aiResponseObservations).values(chunk.map((observation) => ({
+        promptId: observation.promptId,
+        siteSlug: observation.siteSlug,
+        prompt: observation.prompt,
+        topic: observation.topic,
+        platform: observation.platform,
+        modelName: observation.modelName,
+        sampleIndex: observation.sampleIndex,
+        capturedOn: observation.capturedOn,
+        mentioned: observation.mentioned,
+        cited: observation.cited,
+        recommendationPosition: observation.recommendationPosition,
+        sentiment: observation.sentiment,
+        confidence: observation.confidence,
+        responseText: observation.responseText,
+        responseHash: observation.responseHash,
+        fanOutQueries: observation.fanOutQueries,
+        raw: observation.raw,
+        costUsd: observation.costUsd,
+      }))).onConflictDoUpdate({
+        target: [
+          schema.aiResponseObservations.siteSlug,
+          schema.aiResponseObservations.prompt,
+          schema.aiResponseObservations.platform,
+          schema.aiResponseObservations.capturedOn,
+          schema.aiResponseObservations.sampleIndex,
+        ],
+        set: {
+          promptId: sql`excluded.prompt_id`,
+          topic: sql`excluded.topic`,
+          modelName: sql`excluded.model_name`,
+          mentioned: sql`excluded.mentioned`,
+          cited: sql`excluded.cited`,
+          recommendationPosition: sql`excluded.recommendation_position`,
+          sentiment: sql`excluded.sentiment`,
+          confidence: sql`excluded.confidence`,
+          responseText: sql`excluded.response_text`,
+          responseHash: sql`excluded.response_hash`,
+          fanOutQueries: sql`excluded.fan_out_queries`,
+          raw: sql`excluded.raw`,
+          costUsd: sql`excluded.cost_usd`,
+          capturedAt: new Date(),
+        },
+      }).returning({
+        id: schema.aiResponseObservations.id,
+        siteSlug: schema.aiResponseObservations.siteSlug,
+        prompt: schema.aiResponseObservations.prompt,
+        platform: schema.aiResponseObservations.platform,
+        capturedOn: schema.aiResponseObservations.capturedOn,
+        sampleIndex: schema.aiResponseObservations.sampleIndex,
+      });
+      const ids = saved.map((row) => row.id);
+      if (!ids.length) return;
+      const idByKey = new Map(saved.map((row) => [observationKey(row), row.id]));
+      await Promise.all([
+        tx.delete(schema.aiResponseCitations).where(inArray(schema.aiResponseCitations.observationId, ids)),
+        tx.delete(schema.aiResponseEntities).where(inArray(schema.aiResponseEntities.observationId, ids)),
+      ]);
+      const citationValues = chunk.flatMap((observation) => {
+        const observationId = idByKey.get(observationKey(observation));
+        return observationId ? observation.citations.map((citation) => ({ observationId, ...citation })) : [];
+      });
+      const entityValues = chunk.flatMap((observation) => {
+        const observationId = idByKey.get(observationKey(observation));
+        return observationId ? observation.entities.map((entity) => ({ observationId, ...entity })) : [];
+      });
+      for (const rows of batches(citationValues, 500)) await tx.insert(schema.aiResponseCitations).values(rows);
+      for (const rows of batches(entityValues, 500)) await tx.insert(schema.aiResponseEntities).values(rows);
+    });
+  }
+
+  const misses = observations.filter((item) => !item.mentioned);
+  const priorRate = prior.length ? prior.filter((item) => item.mentioned).length / prior.length : 1;
+  const currentRate = 1 - misses.length / observations.length;
+  if (prior.length && priorRate - currentRate >= 0.2) {
+    await createNotification({
+      siteSlug: site.id,
+      eventType: "ai_visibility_drop",
+      severity: priorRate - currentRate >= 0.4 ? "high" : "medium",
+      title: `AI mention rate fell ${Math.round((priorRate - currentRate) * 100)} points`,
+      detail: `${site.name} was absent from ${misses.length} of ${observations.length} checks in the latest run.`,
+      actionUrl: "/ai-visibility",
+      fingerprint: `ai-drop:${site.id}:${today}`,
+    });
+  }
+}
+
+export async function persistAiCrawlerAudit(siteSlug: string, rows: AiCrawlerAuditRow[]) {
+  if (!rows.length) return;
+  const today = isoDate(new Date());
+  await db().insert(schema.aiCrawlerAudits).values(rows.map((row) => ({
+    siteSlug,
+    capturedOn: today,
+    bot: row.bot,
+    category: row.category,
+    access: row.access,
+    evidence: row.evidence,
+    robotsUrl: row.robotsUrl,
+  }))).onConflictDoUpdate({
+    target: [schema.aiCrawlerAudits.siteSlug, schema.aiCrawlerAudits.capturedOn, schema.aiCrawlerAudits.bot],
+    set: { access: sql`excluded.access`, evidence: sql`excluded.evidence`, category: sql`excluded.category` },
+  });
+}
+
+export async function persistAiPromptOpportunities(siteSlug: string, rows: DiscoveredAiOpportunity[]) {
+  for (const chunk of batches(rows, 250)) {
+    if (!chunk.length) continue;
+    await db().insert(schema.aiPromptOpportunities).values(chunk.map((row) => ({
+      siteSlug,
+      ...row,
+    }))).onConflictDoUpdate({
+      target: [schema.aiPromptOpportunities.siteSlug, schema.aiPromptOpportunities.prompt],
+      set: {
+        priorityScore: sql`excluded.priority_score`,
+        evidence: sql`excluded.evidence`,
+        aiSearchVolume: sql`excluded.ai_search_volume`,
+        updatedAt: new Date(),
+      },
+    });
+  }
 }

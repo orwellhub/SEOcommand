@@ -1,16 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ChevronLeft, ChevronRight, CircleDollarSign, Github, Globe2, Loader2, PlugZap, Radar, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button, Card, StatusBadge } from "@/components/ui/primitives";
 import { MARKETS } from "@/lib/markets";
-import type { GooglePropertyDiscovery, SiteCostForecast } from "@/platform/types";
+import type { GooglePropertyDiscovery, PortfolioGroup, SiteCostForecast } from "@/platform/types";
 import { cn } from "@/lib/cn";
 
 const STEPS = ["Website", "Tracking", "Google", "Connections", "Forecast"] as const;
-const AI_PLATFORMS = ["chatgpt", "claude", "gemini", "perplexity"] as const;
+const AI_PLATFORMS = ["chatgpt", "claude", "gemini", "perplexity", "google_ai_overview", "google_ai_mode", "copilot"] as const;
 const ALERT_CHANNELS = ["in_app", "whatsapp", "email"] as const;
 
 interface Draft {
@@ -31,6 +31,7 @@ interface Draft {
   alertChannels: (typeof ALERT_CHANNELS)[number][];
   emailRecipients: string;
   whatsappRecipients: string;
+  groupIds: string[];
 }
 
 const initial: Draft = {
@@ -51,6 +52,7 @@ const initial: Draft = {
   alertChannels: [...ALERT_CHANNELS],
   emailRecipients: "",
   whatsappRecipients: "",
+  groupIds: [],
 };
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
@@ -74,6 +76,14 @@ export default function NewSitePage() {
   const [siteSlug, setSiteSlug] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [groups, setGroups] = useState<PortfolioGroup[]>([]);
+
+  useEffect(() => {
+    fetch("/api/portfolio-groups")
+      .then((response) => response.ok ? response.json() : { groups: [] })
+      .then((body: { groups?: PortfolioGroup[] }) => setGroups(body.groups ?? []))
+      .catch(() => undefined);
+  }, []);
 
   const market = useMemo(() => MARKETS.find((item) => item.code === draft.marketCode) ?? MARKETS[0]!, [draft.marketCode]);
 
@@ -168,6 +178,7 @@ export default function NewSitePage() {
           alertChannels: draft.alertChannels,
           emailRecipients: draft.emailRecipients.split(",").map((item) => item.trim()).filter(Boolean),
           whatsappRecipients: draft.whatsappRecipients.split(",").map((item) => item.trim()).filter(Boolean),
+          groupIds: draft.groupIds,
         }),
       });
       const body = await response.json();
@@ -227,6 +238,7 @@ export default function NewSitePage() {
                   <Field label="Website host" hint="Use the root domain without a path."><input className={inputClass} value={draft.host} onChange={(e) => setDraft({ ...draft, host: e.target.value })} placeholder="example.com" /></Field>
                 </div>
                 <Field label="Industry and service" hint="Used to seed competitor and AI visibility discovery."><input className={inputClass} value={draft.industry} onChange={(e) => setDraft({ ...draft, industry: e.target.value })} placeholder="UAE mortgage comparison" /></Field>
+                {groups.length > 0 && <div><div className="mb-1.5 text-xs font-semibold text-ink">Portfolio placement <span className="font-normal text-muted">· optional</span></div><div className="flex flex-wrap gap-2">{groups.map((group) => <button key={group.id} type="button" onClick={() => setDraft({ ...draft, groupIds: toggle(draft.groupIds, group.id) })} className={cn("inline-flex h-9 items-center gap-2 rounded-md border px-3 text-xs font-medium", draft.groupIds.includes(group.id) ? "border-purple bg-purple/5 text-purple" : "border-border text-muted hover:text-ink")}><span className="h-2.5 w-2.5 rounded-full" style={{ background: group.color }} />{group.name}{draft.groupIds.includes(group.id) && <Check className="h-3.5 w-3.5" />}</button>)}</div><p className="mt-1.5 text-2xs text-muted">Choose one or more groups now; you can reorganise the site later without changing its tracking.</p></div>}
               </div>
             )}
 
@@ -335,7 +347,7 @@ export default function NewSitePage() {
           </Card>
           <Card className="p-4">
             <div className="text-sm font-semibold text-ink">What starts automatically</div>
-            <p className="mt-2 text-xs leading-relaxed text-muted">Full crawl, seed keyword universe, daily rank tracking, three main competitors, keyword gaps, backlink history and four-model AI visibility.</p>
+            <p className="mt-2 text-xs leading-relaxed text-muted">Full crawl, seed keyword universe, daily rank tracking, three main competitors, keyword gaps, backlink history and multi-model AI visibility with tiered prompt cadence.</p>
           </Card>
         </aside>
       </div>

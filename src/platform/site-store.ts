@@ -1,9 +1,9 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, lte } from "drizzle-orm";
 import { DOMAINS, DOMAIN_MAP } from "@/data/domains";
 import { db, schema } from "@/db";
 import { hasDatabase } from "@/sync/store";
 import type { Domain } from "@/lib/types";
-import type { ManagedSite, SiteCostForecast } from "./types";
+import type { ManagedSite, PortfolioGroup, SiteCostForecast } from "./types";
 
 function legacySite(domain: Domain): ManagedSite {
   return {
@@ -91,6 +91,61 @@ export async function listSiteConnections(siteSlugs: string[]) {
     .where(inArray(schema.siteConnections.siteSlug, siteSlugs));
 }
 
+export async function listPortfolioGroups(): Promise<PortfolioGroup[]> {
+  if (!hasDatabase()) return [];
+  const [groups, memberships] = await Promise.all([
+    db().select().from(schema.portfolioGroups).orderBy(asc(schema.portfolioGroups.sortOrder), asc(schema.portfolioGroups.name)),
+    db().select().from(schema.siteGroupMemberships),
+  ]);
+  const sitesByGroup = new Map<string, string[]>();
+  for (const membership of memberships) {
+    const values = sitesByGroup.get(membership.groupId) ?? [];
+    values.push(membership.siteSlug);
+    sitesByGroup.set(membership.groupId, values);
+  }
+  return groups.map((group) => ({
+    id: group.id,
+    name: group.name,
+    slug: group.slug,
+    description: group.description,
+    color: group.color,
+    parentId: group.parentId,
+    sortOrder: group.sortOrder,
+    siteSlugs: sitesByGroup.get(group.id) ?? [],
+  }));
+}
+
+/** Resolve direct and descendant membership for a group-scoped dashboard. */
+export async function resolveGroupSiteSlugs(groupId: string): Promise<string[]> {
+  const groups = await listPortfolioGroups();
+  const byParent = new Map<string | null, PortfolioGroup[]>();
+  for (const group of groups) {
+    const siblings = byParent.get(group.parentId) ?? [];
+    siblings.push(group);
+    byParent.set(group.parentId, siblings);
+  }
+  const ids = new Set<string>();
+  const visit = (id: string) => {
+    if (ids.has(id)) return;
+    ids.add(id);
+    for (const child of byParent.get(id) ?? []) visit(child.id);
+  };
+  visit(groupId);
+  return [...new Set(groups.filter((group) => ids.has(group.id)).flatMap((group) => group.siteSlugs))];
+}
+
+export async function setSiteGroups(siteSlug: string, groupIds: string[]) {
+  if (!hasDatabase()) return;
+  await db().transaction(async (tx) => {
+    await tx.delete(schema.siteGroupMemberships).where(eq(schema.siteGroupMemberships.siteSlug, siteSlug));
+    if (groupIds.length) {
+      await tx.insert(schema.siteGroupMemberships).values(
+        [...new Set(groupIds)].map((groupId) => ({ groupId, siteSlug })),
+      );
+    }
+  });
+}
+
 export async function listAiTrackingPrompts(siteSlug: string) {
   if (!hasDatabase()) return [];
   return db()
@@ -103,6 +158,34 @@ export async function listAiTrackingPrompts(siteSlug: string) {
       ),
     )
     .orderBy(asc(schema.aiTrackingPrompts.createdAt));
+}
+
+export async function listDueAiTrackingPrompts(siteSlug: string, now = new Date()) {
+  if (!hasDatabase()) return [];
+  return db()
+    .select()
+    .from(schema.aiTrackingPrompts)
+    .where(
+      and(
+        eq(schema.aiTrackingPrompts.siteSlug, siteSlug),
+        eq(schema.aiTrackingPrompts.active, true),
+        lte(schema.aiTrackingPrompts.nextRunAt, now),
+      ),
+    )
+    .orderBy(asc(schema.aiTrackingPrompts.nextRunAt), asc(schema.aiTrackingPrompts.createdAt));
+}
+
+export async function markAiPromptRun(id: string, cadence: string, runAt = new Date()) {
+  if (!hasDatabase()) return;
+  const next = new Date(runAt);
+  if (cadence === "daily") next.setUTCDate(next.getUTCDate() + 1);
+  else if (cadence === "monthly") next.setUTCMonth(next.getUTCMonth() + 1);
+  else next.setUTCDate(next.getUTCDate() + 7);
+  await db().update(schema.aiTrackingPrompts).set({
+    lastRunAt: runAt,
+    nextRunAt: next,
+    updatedAt: runAt,
+  }).where(eq(schema.aiTrackingPrompts.id, id));
 }
 
 export async function listRankTrackingKeywords(siteSlug: string) {

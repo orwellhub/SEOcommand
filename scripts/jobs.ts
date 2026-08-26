@@ -5,7 +5,8 @@
  *  - Google GSC/GA4 (FREE)                     → every day
  *  - DataForSEO exact tracked rankings         → every day
  *  - DataForSEO keyword/gap/backlink research  → weekly (Mondays)
- *  - DataForSEO OnPage crawls + AI checks      → monthly (1st)
+ *  - AI checks                                 → daily scheduler, per-prompt cadence
+ *  - DataForSEO OnPage crawls                  → monthly (1st)
  * Pending OnPage crawls are polled for free on the daily runs, so a monthly
  * crawl still finishes within a day or two. Env overrides: SYNC_GOOGLE=0,
  * SYNC_DFS_LIGHT=1, SYNC_DFS_HEAVY=1 force a tier for a single run.
@@ -26,7 +27,7 @@ async function main() {
   const tiers = scheduledTiers(new Date());
   console.log(
     `[orwell-jobs] Starting scheduled sync — tiers: google=${tiers.google} ` +
-      `rankings=${tiers.rankings} dfsLight=${tiers.dfsLight} dfsHeavy=${tiers.dfsHeavy}`,
+      `rankings=${tiers.rankings} dfsLight=${tiers.dfsLight} dfsHeavy=${tiers.dfsHeavy} ai=${tiers.ai}`,
   );
   const report = await syncAll(tiers);
 

@@ -85,6 +85,12 @@ body {
   background-size: 400% 100%;
   animation: atlas-skeleton 1.4s ease infinite;
 }
+
+/* Keep horizontal data regions usable with touch and preserve a clear focus
+ * boundary when keyboard users enter a dense analytical table. */
+table :is(th, td) {
+  text-wrap: nowrap;
+}
 @keyframes atlas-skeleton {
   0% {
     background-position: 100% 50%;

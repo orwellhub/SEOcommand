@@ -28,4 +28,11 @@ describe("forecastSiteCost", () => {
     const rank = (forecast: typeof one) => forecast.lines.find((line) => line.key === "daily_rankings")!.monthlyUsd;
     expect(rank(two)).toBe(rank(one) * 2);
   });
+
+  it("forecasts the same tiered AI cadence used by onboarding", () => {
+    const forecast = forecastSiteCost({ trackedKeywords: 1, crawlMaxPages: 100, backlinkLimit: 1000, aiPrompts: 10, aiPlatforms: 4, devices: ["desktop"] });
+    const ai = forecast.lines.find((line) => line.key === "ai_visibility")!;
+    expect(ai.units).toBe((2 * 2 * 30 + 6 * 4 + 2) * 4);
+    expect(ai.cadence).toContain("daily");
+  });
 });

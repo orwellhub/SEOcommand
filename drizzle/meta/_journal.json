@@ -50,6 +50,20 @@
       "when": 1787769979734,
       "tag": "0006_swift_caretaker",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787776035584,
+      "tag": "0007_red_layla_miller",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787779783107,
+      "tag": "0008_square_shape",
+      "breakpoints": true
     }
   ]
 }

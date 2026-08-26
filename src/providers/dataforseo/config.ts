@@ -86,14 +86,19 @@ export const ENDPOINTS = {
     `/v3/ai_optimization/${provider}/llm_responses/live`,
   aiLlmModels: (provider: "chat_gpt" | "claude" | "gemini" | "perplexity") =>
     `/v3/ai_optimization/${provider}/llm_responses/models`,
+  googleAiModeLive: "/v3/serp/google/ai_mode/live/advanced",
   // --- direct siblings on the same (verified) APIs ---
   labsRankedKeywords: "/v3/dataforseo_labs/google/ranked_keywords/live",
   labsKeywordIdeas: "/v3/dataforseo_labs/google/keyword_ideas/live",
   labsCompetitorsDomain: "/v3/dataforseo_labs/google/competitors_domain/live",
   labsDomainIntersection: "/v3/dataforseo_labs/google/domain_intersection/live",
+  labsRelevantPages: "/v3/dataforseo_labs/google/relevant_pages/live",
   backlinksList: "/v3/backlinks/backlinks/live",
   backlinksReferringDomains: "/v3/backlinks/referring_domains/live",
   backlinksHistory: "/v3/backlinks/history/live",
+  backlinksDomainIntersection: "/v3/backlinks/domain_intersection/live",
+  businessGoogleMyBusinessInfoLive: "/v3/business_data/google/my_business_info/live",
+  serpGoogleMapsLiveAdvanced: "/v3/serp/google/maps/live/advanced",
 } as const;
 
 /**
@@ -110,11 +115,16 @@ export const COST_ESTIMATE_USD: Record<string, number> = {
   onPageSummary: 0.0,
   onPagePages: 0.0,
   aiLlmResponses: 0.06,
+  googleAiModeLive: 0.008,
   labsRankedKeywords: 0.05,
   labsKeywordIdeas: 0.05,
   labsCompetitorsDomain: 0.03,
   labsDomainIntersection: 0.04,
+  labsRelevantPages: 0.04,
   backlinksList: 0.04,
   backlinksReferringDomains: 0.03,
   backlinksHistory: 0.04,
+  backlinksDomainIntersection: 0.08,
+  businessGoogleMyBusinessInfoLive: 0.02,
+  serpGoogleMapsLiveAdvanced: 0.003,
 };

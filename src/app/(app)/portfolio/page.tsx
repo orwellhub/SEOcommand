@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { CloudOff, Database, Plus } from "lucide-react";
+import { CloudOff, Database, Folder, FolderTree, Layers, Plus } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/page-header";
 import { RefreshButtons } from "@/components/shell/refresh-buttons";
@@ -14,6 +14,7 @@ import { useLivePortfolio } from "@/lib/use-live";
 import { compactNumber, fullNumber, percent } from "@/lib/format";
 import { relativeFromNow } from "@/lib/dates";
 import { useDomain } from "@/components/shell/domain-context";
+import { cn } from "@/lib/cn";
 
 /** Leaderboard row: live headline joined with the domain registry entry. */
 interface LeaderboardRow extends DomainHeadline {
@@ -27,7 +28,7 @@ function num(v: number | null): string {
 }
 
 export default function PortfolioPage() {
-  const { setScope, sites } = useDomain();
+  const { scope, setScope, sites, groups, activeGroup } = useDomain();
   const router = useRouter();
 
   /** Open a property's landing page, scoping the app to it on the way. */
@@ -38,7 +39,7 @@ export default function PortfolioPage() {
     },
     [router, setScope],
   );
-  const { data: pm, loading, error } = useLivePortfolio();
+  const { data: pm, loading, error } = useLivePortfolio(scope.startsWith("group:") ? scope.slice(6) : undefined);
 
   // Latest sync across all domains — null when nothing has synced yet.
   const lastSync = useMemo(() => {
@@ -186,7 +187,7 @@ export default function PortfolioPage() {
     return (
       <div className="animate-in space-y-5">
         <PageHeader
-          title="Portfolio Command Centre"
+          title={`${activeGroup?.name ?? "Portfolio"} Command Centre`}
           description="Cross-domain SEO performance from live provider syncs."
           lastSync={null}
           loading
@@ -205,7 +206,7 @@ export default function PortfolioPage() {
     return (
       <div className="animate-in space-y-5">
         <PageHeader
-          title="Portfolio Command Centre"
+          title={`${activeGroup?.name ?? "Portfolio"} Command Centre`}
           description="Cross-domain SEO performance from live provider syncs."
           lastSync={null}
         />
@@ -218,7 +219,7 @@ export default function PortfolioPage() {
     return (
       <div className="animate-in space-y-5">
         <PageHeader
-          title="Portfolio Command Centre"
+          title={`${activeGroup?.name ?? "Portfolio"} Command Centre`}
           description="Cross-domain SEO performance from live provider syncs."
           lastSync={null}
         />
@@ -233,8 +234,8 @@ export default function PortfolioPage() {
   return (
     <div className="animate-in space-y-5">
       <PageHeader
-        title="Portfolio Command Centre"
-        description="Cross-domain organic performance, health and coverage — live provider data only."
+        title={`${activeGroup?.name ?? "Portfolio"} Command Centre`}
+        description={activeGroup ? "Performance and risk across this group and its nested subgroups." : "Cross-domain organic performance, health and coverage — live provider data only."}
         actions={<div className="flex items-center gap-2"><RefreshButtons /><Link href="/sites/new" className="inline-flex h-9 items-center gap-1.5 rounded-md bg-purple px-3.5 text-sm font-medium text-white hover:bg-purple-deep"><Plus className="h-4 w-4" /> Add website</Link></div>}
         lastSync={lastSync}
         loading={loading}
@@ -253,6 +254,19 @@ export default function PortfolioPage() {
                 below show “—” — nothing here is estimated or simulated.
               </p>
             </div>
+          </div>
+        </Card>
+      )}
+
+      {groups.length > 0 && (
+        <Card className="p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2"><FolderTree className="h-4 w-4 text-purple" /><div><h2 className="text-sm font-semibold text-ink">Portfolio map</h2><p className="text-2xs text-muted">Select a group to focus every module; subgroups stay included.</p></div></div>
+            <Link href="/sites" className="text-xs font-medium text-purple hover:underline">Manage hierarchy</Link>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            <button onClick={() => setScope("portfolio")} className={cn("min-w-44 rounded-md border p-3 text-left", scope === "portfolio" ? "border-purple bg-purple/5" : "border-border hover:bg-workspace")}><Layers className="h-4 w-4 text-purple" /><div className="mt-2 text-sm font-semibold text-ink">All websites</div><div className="text-2xs text-muted">{sites.length} properties</div></button>
+            {groups.map((group) => <button key={group.id} onClick={() => setScope(`group:${group.id}`)} className={cn("min-w-44 rounded-md border p-3 text-left", scope === `group:${group.id}` ? "border-purple bg-purple/5" : "border-border hover:bg-workspace")}><Folder className="h-4 w-4" style={{ color: group.color, fill: `${group.color}30` }} /><div className="mt-2 truncate text-sm font-semibold text-ink">{group.name}</div><div className="text-2xs text-muted">{group.siteSlugs.length} directly assigned</div></button>)}
           </div>
         </Card>
       )}

@@ -1,0 +1,56 @@
+import { eq } from "drizzle-orm";
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { canWrite } from "@/lib/auth";
+import { db, schema } from "@/db";
+import { hasDatabase } from "@/sync/store";
+import { listPortfolioGroups } from "@/platform/site-store";
+
+const UpdateSchema = z.object({
+  name: z.string().trim().min(2).max(80).optional(),
+  description: z.string().trim().max(240).nullable().optional(),
+  color: z.string().regex(/^#[0-9a-f]{6}$/i).optional(),
+  parentId: z.string().uuid().nullable().optional(),
+  sortOrder: z.number().int().min(0).max(10000).optional(),
+});
+
+function writable(request: Request) {
+  return canWrite(request.headers.get("x-orwell-user-role"));
+}
+
+export async function PATCH(request: Request, { params }: { params: { groupId: string } }) {
+  if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
+  if (!writable(request)) return NextResponse.json({ error: "Write access required." }, { status: 403 });
+  const parsed = UpdateSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "Review the group details." }, { status: 400 });
+  const groups = await listPortfolioGroups();
+  const current = groups.find((group) => group.id === params.groupId);
+  if (!current) return NextResponse.json({ error: "Group not found." }, { status: 404 });
+  if (parsed.data.parentId === params.groupId) return NextResponse.json({ error: "A group cannot contain itself." }, { status: 400 });
+  if (parsed.data.parentId) {
+    const descendants = new Set<string>();
+    const visit = (id: string) => {
+      for (const child of groups.filter((group) => group.parentId === id)) {
+        descendants.add(child.id);
+        visit(child.id);
+      }
+    };
+    visit(params.groupId);
+    if (descendants.has(parsed.data.parentId)) {
+      return NextResponse.json({ error: "Move the child group first to avoid a circular hierarchy." }, { status: 400 });
+    }
+  }
+  const [group] = await db().update(schema.portfolioGroups).set({ ...parsed.data, updatedAt: new Date() }).where(eq(schema.portfolioGroups.id, params.groupId)).returning();
+  return NextResponse.json({ group });
+}
+
+export async function DELETE(request: Request, { params }: { params: { groupId: string } }) {
+  if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
+  if (!writable(request)) return NextResponse.json({ error: "Write access required." }, { status: 403 });
+  await db().transaction(async (tx) => {
+    await tx.update(schema.portfolioGroups).set({ parentId: null, updatedAt: new Date() }).where(eq(schema.portfolioGroups.parentId, params.groupId));
+    await tx.delete(schema.siteGroupMemberships).where(eq(schema.siteGroupMemberships.groupId, params.groupId));
+    await tx.delete(schema.portfolioGroups).where(eq(schema.portfolioGroups.id, params.groupId));
+  });
+  return NextResponse.json({ deleted: true });
+}
