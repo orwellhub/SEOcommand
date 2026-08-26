@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isDomainId } from "@/data/domains";
+import { isManagedSite } from "@/platform/site-store";
 import { canWrite } from "@/lib/auth";
 import { syncAll, syncDomain, type SyncTiers } from "@/sync/engine";
 import { hasDatabase } from "@/sync/store";
@@ -28,8 +28,8 @@ export const maxDuration = 300;
 export type RefreshSource = "google" | "dataforseo";
 
 const TIERS: Record<RefreshSource, SyncTiers> = {
-  google: { google: true, dfsLight: false, dfsHeavy: false },
-  dataforseo: { google: false, dfsLight: true, dfsHeavy: false },
+  google: { google: true, rankings: false, dfsLight: false, dfsHeavy: false },
+  dataforseo: { google: false, rankings: true, dfsLight: true, dfsHeavy: false },
 };
 
 interface Body {
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
   const tiers = TIERS[source];
 
   const domainId = body.domainId && body.domainId !== "portfolio" ? body.domainId : null;
-  if (domainId && !isDomainId(domainId)) {
+  if (domainId && !(await isManagedSite(domainId))) {
     return NextResponse.json({ error: `Unknown domain "${domainId}".` }, { status: 404 });
   }
 

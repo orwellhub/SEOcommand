@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { Domain, DomainId } from "@/lib/types";
-import { DOMAINS, DOMAIN_MAP } from "@/data/domains";
+import { DOMAINS } from "@/data/domains";
 
 export type Scope = DomainId | "portfolio";
 
@@ -10,6 +10,8 @@ interface DomainState {
   scope: Scope;
   setScope: (s: Scope) => void;
   activeDomain: Domain | null; // null when scope === "portfolio"
+  sites: Domain[];
+  sitesLoading: boolean;
   range: RangeKey;
   setRange: (r: RangeKey) => void;
 }
@@ -21,11 +23,32 @@ const DomainCtx = createContext<DomainState | null>(null);
 export function DomainProvider({ children }: { children: React.ReactNode }) {
   const [scope, setScope] = useState<Scope>("portfolio");
   const [range, setRange] = useState<RangeKey>("28d");
+  const [sites, setSites] = useState<Domain[]>(DOMAINS);
+  const [sitesLoading, setSitesLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/sites")
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Site registry request failed (${response.status})`);
+        return response.json() as Promise<{ sites?: Domain[] }>;
+      })
+      .then((body) => {
+        if (active && body.sites?.length) setSites(body.sites);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (active) setSitesLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Persist selection across navigation within the session.
   useEffect(() => {
     const saved = window.localStorage.getItem("orwell.scope");
-    if (saved && (saved === "portfolio" || saved in DOMAIN_MAP)) {
+    if (saved) {
       setScope(saved as Scope);
     }
   }, []);
@@ -34,7 +57,7 @@ export function DomainProvider({ children }: { children: React.ReactNode }) {
   }, [scope]);
 
   // Reflect the active domain accent as a CSS variable for theming.
-  const activeDomain = scope === "portfolio" ? null : DOMAIN_MAP[scope];
+  const activeDomain = scope === "portfolio" ? null : (sites.find((site) => site.id === scope) ?? null);
   useEffect(() => {
     const accent = activeDomain?.accent ?? "#7137F5";
     document.documentElement.style.setProperty("--accent", accent);
@@ -46,10 +69,12 @@ export function DomainProvider({ children }: { children: React.ReactNode }) {
       scope,
       setScope,
       activeDomain,
+      sites,
+      sitesLoading,
       range,
       setRange,
     }),
-    [scope, activeDomain, range],
+    [scope, activeDomain, sites, sitesLoading, range],
   );
 
   return <DomainCtx.Provider value={value}>{children}</DomainCtx.Provider>;
@@ -64,6 +89,6 @@ export function useDomain(): DomainState {
 /** Resolve the domain a module page should render for. Modules that require a
  * specific domain fall back to the first pilot when scope is portfolio. */
 export function useResolvedDomain(): Domain {
-  const { activeDomain } = useDomain();
-  return activeDomain ?? DOMAINS[0]!;
+  const { activeDomain, sites } = useDomain();
+  return activeDomain ?? sites[0] ?? DOMAINS[0]!;
 }

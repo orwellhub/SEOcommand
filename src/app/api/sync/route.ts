@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isDomainId } from "@/data/domains";
+import { isManagedSite } from "@/platform/site-store";
 import { syncAll, syncDomain, ALL_TIERS, type SyncTiers } from "@/sync/engine";
 import { hasDatabase } from "@/sync/store";
 
@@ -13,9 +13,9 @@ import { hasDatabase } from "@/sync/store";
 function resolveTiers(tier: string | null): SyncTiers {
   switch (tier) {
     case "google":
-      return { google: true, dfsLight: false, dfsHeavy: false };
+      return { google: true, rankings: false, dfsLight: false, dfsHeavy: false };
     case "light":
-      return { google: true, dfsLight: true, dfsHeavy: false };
+      return { google: true, rankings: true, dfsLight: true, dfsHeavy: false };
     case "full":
     case null:
       return ALL_TIERS;
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
 
   try {
     if (domain) {
-      if (!isDomainId(domain)) {
+      if (!(await isManagedSite(domain))) {
         return NextResponse.json({ error: `Unknown domain "${domain}"` }, { status: 404 });
       }
       const report = await syncDomain(domain, tiers);

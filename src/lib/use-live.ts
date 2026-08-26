@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import type { DomainLiveBundle, PortfolioLive } from "./live";
 import { useDomain } from "@/components/shell/domain-context";
-import { DOMAINS, DOMAIN_MAP } from "@/data/domains";
 
 /**
  * Client data access for the live read-models. Small SWR-style cache: instant
@@ -116,18 +115,19 @@ export interface ScopedLiveState extends LiveState<DomainLiveBundle> {
  * rendered the first domain while the picker said "Portfolio".
  */
 export function useScopedLive(): ScopedLiveState {
-  const { scope } = useDomain();
+  const { scope, sites } = useDomain();
   const isPortfolio = scope === "portfolio";
+  const active = sites.find((site) => site.id === scope);
   const state = useJson<DomainLiveBundle>(
     isPortfolio ? "/api/live/aggregate" : `/api/live/${scope}`,
   );
   return {
     ...state,
     isPortfolio,
-    scopeLabel: isPortfolio ? "Portfolio" : (DOMAIN_MAP[scope]?.name ?? String(scope)),
+    scopeLabel: isPortfolio ? "Portfolio" : (active?.name ?? String(scope)),
     scopeHost: isPortfolio
-      ? `all ${DOMAINS.length} properties`
-      : (DOMAIN_MAP[scope]?.host ?? String(scope)),
+      ? `all ${sites.length} properties`
+      : (active?.host ?? String(scope)),
     scopeId: String(scope),
   };
 }

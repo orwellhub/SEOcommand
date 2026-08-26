@@ -3,7 +3,8 @@
  *
  * Split-cadence cost policy (see scheduledTiers):
  *  - Google GSC/GA4 (FREE)                     → every day
- *  - DataForSEO keywords/rankings/backlinks    → weekly (Mondays)
+ *  - DataForSEO exact tracked rankings         → every day
+ *  - DataForSEO keyword/gap/backlink research  → weekly (Mondays)
  *  - DataForSEO OnPage crawls + AI checks      → monthly (1st)
  * Pending OnPage crawls are polled for free on the daily runs, so a monthly
  * crawl still finishes within a day or two. Env overrides: SYNC_GOOGLE=0,
@@ -11,8 +12,10 @@
  *
  * Manual/ad-hoc pulls use POST /api/sync (full pull by default, or ?tier=...).
  */
-import { syncAll, scheduledTiers } from "../src/sync/engine";
+import { syncAll, syncDomain, scheduledTiers, ALL_TIERS } from "../src/sync/engine";
 import { deliverDueReports } from "../src/reports/delivery";
+import { processPlatformJobs } from "../src/platform/jobs";
+import { deliverQueuedAlerts } from "../src/platform/alert-delivery";
 import { closeDb } from "../src/db";
 
 async function main() {
@@ -23,7 +26,7 @@ async function main() {
   const tiers = scheduledTiers(new Date());
   console.log(
     `[orwell-jobs] Starting scheduled sync — tiers: google=${tiers.google} ` +
-      `dfsLight=${tiers.dfsLight} dfsHeavy=${tiers.dfsHeavy}`,
+      `rankings=${tiers.rankings} dfsLight=${tiers.dfsLight} dfsHeavy=${tiers.dfsHeavy}`,
   );
   const report = await syncAll(tiers);
 
@@ -45,10 +48,20 @@ async function main() {
       `${report.startedAt} → ${report.completedAt}.`,
   );
 
+  const onboarding = await processPlatformJobs((siteSlug) => syncDomain(siteSlug, ALL_TIERS));
+  console.log(
+    `[orwell-jobs] Onboarding: ${onboarding.due} due, ${onboarding.completed} completed, ${onboarding.failed} failed.`,
+  );
+
   const deliveries = await deliverDueReports();
   console.log(
     `[orwell-jobs] Reports: ${deliveries.due} due, ${deliveries.delivered} delivered, ` +
       `${deliveries.failed} failed, ${deliveries.skipped} awaiting webhook configuration.`,
+  );
+  const alerts = await deliverQueuedAlerts();
+  console.log(
+    `[orwell-jobs] Alerts: ${alerts.queued} queued, ${alerts.delivered} delivered, ` +
+      `${alerts.failed} failed, ${alerts.skipped} awaiting webhook configuration.`,
   );
 }
 

@@ -25,6 +25,7 @@ import type {
   GscTimeseriesPoint,
   OnPageResult,
 } from "@/lib/live";
+import type { BacklinkHistoryPoint, KeywordGapRow } from "@/platform/types";
 
 /**
  * Portfolio aggregation.
@@ -306,8 +307,10 @@ export function aggregateBundles(bundles: DomainLiveBundle[]): DomainLiveBundle 
   d.keywords = concatDs<Keyword>(withData, "keywords");
   d.rank_snapshots = concatDs<RankSnapshot>(withData, "rank_snapshots");
   d.competitors = concatDs<Competitor>(withData, "competitors");
+  d.keyword_gaps = concatDs<KeywordGapRow>(withData, "keyword_gaps");
   d.backlinks = concatDs<Backlink>(withData, "backlinks");
   d.referring_domains = concatDs<ReferringDomain>(withData, "referring_domains");
+  d.backlink_history = concatDs<BacklinkHistoryPoint>(withData, "backlink_history");
   d.ai_prompts = concatDs<AiPrompt>(withData, "ai_prompts");
   d.gsc_queries = concatDs<GscRow>(withData, "gsc_queries");
   d.gsc_pages = concatDs<GscRow>(withData, "gsc_pages");

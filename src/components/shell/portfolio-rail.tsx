@@ -2,15 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Layers, Settings, ChevronRight, Circle } from "lucide-react";
-import { DOMAINS } from "@/data/domains";
+import { Layers, Settings, ChevronRight, Circle, Plus } from "lucide-react";
 import { useDomain } from "./domain-context";
 import { useLivePortfolio } from "@/lib/use-live";
 import { cn } from "@/lib/cn";
 import { compactNumber } from "@/lib/format";
 
 export function PortfolioRail() {
-  const { scope, setScope } = useDomain();
+  const { scope, setScope, sites } = useDomain();
   const { data: pm } = useLivePortfolio();
   const router = useRouter();
 
@@ -52,7 +51,7 @@ export function PortfolioRail() {
             <span className="text-sm font-medium">Portfolio</span>
           </div>
           <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-2xs text-white/70 tnum">
-            {DOMAINS.length}
+            {sites.length}
           </span>
         </button>
       </div>
@@ -62,7 +61,7 @@ export function PortfolioRail() {
           Domains
         </div>
         <nav className="space-y-0.5">
-          {DOMAINS.map((d) => {
+          {sites.map((d) => {
             const h = headline(d.id);
             const active = scope === d.id;
             return (
@@ -89,6 +88,12 @@ export function PortfolioRail() {
             );
           })}
         </nav>
+        <Link
+          href="/sites/new"
+          className="mt-2 flex w-full items-center gap-2.5 rounded-md border border-dashed border-white/15 px-3 py-2 text-sm text-white/60 transition-colors hover:border-white/30 hover:bg-nav hover:text-white"
+        >
+          <Plus className="h-3.5 w-3.5" /> Add website
+        </Link>
       </div>
 
       <div className="mx-3 my-4 rounded-md bg-nav/60 p-3">

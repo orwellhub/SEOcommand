@@ -10,6 +10,8 @@ import {
   Settings,
   ListChecks,
   Gauge,
+  Building2,
+  Bell,
   type LucideIcon,
 } from "lucide-react";
 
@@ -33,6 +35,8 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/content", label: "Content", icon: FileText, group: "operate" },
   { href: "/recommendations", label: "Recommendations", icon: ListChecks, group: "operate" },
   { href: "/reports", label: "Reports", icon: FileText, group: "operate" },
+  { href: "/sites", label: "Websites", icon: Building2, group: "system" },
+  { href: "/notifications", label: "Notifications", icon: Bell, group: "system" },
   { href: "/settings", label: "Settings", icon: Settings, group: "system" },
 ];
 

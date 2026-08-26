@@ -7,8 +7,7 @@ import type {
   ReferringDomain,
 } from "@/lib/types";
 import type { DomainHeadline, DomainLiveBundle, OnPageResult, PortfolioLive } from "@/lib/live";
-import { DOMAINS } from "@/data/domains";
-import { GA4_PROPERTY_MAP } from "@/providers/google/config";
+import { listManagedSites } from "@/platform/site-store";
 import { computeAuthorityScore } from "@/lib/scoring";
 import {
   hasDatabase,
@@ -69,9 +68,10 @@ export async function buildAggregateBundle(): Promise<DomainLiveBundle> {
   if (!hasDatabase()) {
     return { domainId: PORTFOLIO_SCOPE_ID, lastSync: null, datasets: {} };
   }
-  const map = await readLatestForDomains(DOMAINS.map((d) => d.id));
+  const sites = await listManagedSites();
+  const map = await readLatestForDomains(sites.map((d) => d.id));
   const bundles: DomainLiveBundle[] = [];
-  for (const d of DOMAINS) {
+  for (const d of sites) {
     const snaps = map.get(d.id);
     if (!snaps || snaps.length === 0) continue;
     const bundle: DomainLiveBundle = { domainId: d.id, lastSync: null, datasets: {} };
@@ -81,7 +81,7 @@ export async function buildAggregateBundle(): Promise<DomainLiveBundle> {
   return aggregateBundles(bundles);
 }
 
-function headlineFrom(domainId: string, snaps: StoredSnapshot[]): DomainHeadline {
+function headlineFrom(domainId: string, snaps: StoredSnapshot[], ga4Mapped = false): DomainHeadline {
   const by = new Map(snaps.map((s) => [s.dataset, s]));
   const gsc = by.get("gsc_totals")?.payload as GscTotals | undefined;
   const ga4 = by.get("ga4_overview")?.payload as Ga4Overview | undefined;
@@ -124,14 +124,15 @@ function headlineFrom(domainId: string, snaps: StoredSnapshot[]): DomainHeadline
       ai && ai.length
         ? Math.round(ai.reduce((s, p) => s + p.mentionRate, 0) / ai.length)
         : null,
-    ga4Mapped: Boolean(GA4_PROPERTY_MAP[domainId]),
+    ga4Mapped,
   };
 }
 
 export async function buildPortfolio(): Promise<PortfolioLive> {
+  const sites = await listManagedSites();
   const empty: PortfolioLive = {
     generatedAt: new Date().toISOString(),
-    domains: DOMAINS.map((d) => headlineFrom(d.id, [])),
+    domains: sites.map((d) => headlineFrom(d.id, [], Boolean(d.ga4PropertyId))),
     totals: {
       clicks28d: 0,
       impressions28d: 0,
@@ -146,8 +147,8 @@ export async function buildPortfolio(): Promise<PortfolioLive> {
   };
   if (!hasDatabase()) return empty;
 
-  const map = await readLatestForDomains(DOMAINS.map((d) => d.id));
-  const domains = DOMAINS.map((d) => headlineFrom(d.id, map.get(d.id) ?? []));
+  const map = await readLatestForDomains(sites.map((d) => d.id));
+  const domains = sites.map((d) => headlineFrom(d.id, map.get(d.id) ?? [], Boolean(d.ga4PropertyId)));
 
   const synced = domains.filter((d) => d.lastSync != null);
   const healths = domains.map((d) => d.health).filter((h): h is number => h != null);

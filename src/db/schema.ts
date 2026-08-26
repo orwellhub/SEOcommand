@@ -54,6 +54,349 @@ export const approvalEnum = pgEnum("approval_status", [
 ]);
 export const dataModeEnum = pgEnum("data_mode", ["demo", "cached", "live"]);
 
+/* --------------------- Scalable portfolio platform --------------------- */
+
+/**
+ * Runtime portfolio registry. This is deliberately independent of the legacy
+ * `domains` seed table: deployments can add hundreds of sites without editing
+ * source code or requiring the original organisation bootstrap.
+ */
+export const siteProfiles = pgTable(
+  "site_profiles",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    slug: text("slug").notNull(),
+    name: text("name").notNull(),
+    host: text("host").notNull(),
+    accent: text("accent").notNull().default("#7137F5"),
+    industry: text("industry").notNull().default(""),
+    primaryMarket: text("primary_market").notNull(),
+    locationCode: integer("location_code").notNull(),
+    languageCode: text("language_code").notNull().default("en"),
+    devices: jsonb("devices").$type<("desktop" | "mobile")[]>().notNull().default(["desktop"]),
+    gscProperty: text("gsc_property"),
+    ga4Property: text("ga4_property"),
+    lifecycleStatus: text("lifecycle_status").notNull().default("draft"),
+    spendApproval: approvalEnum("spend_approval").notNull().default("pending"),
+    forecastMonthlyUsd: real("forecast_monthly_usd").notNull().default(0),
+    approvedMonthlyUsd: real("approved_monthly_usd"),
+    forecastDetails: jsonb("forecast_details").$type<Record<string, unknown>>().notNull().default({}),
+    onboardingProgress: jsonb("onboarding_progress").$type<Record<string, unknown>>().notNull().default({}),
+    crawlMaxPages: integer("crawl_max_pages").notNull().default(10000),
+    backlinkLimit: integer("backlink_limit").notNull().default(10000),
+    createdBy: text("created_by"),
+    approvedBy: text("approved_by"),
+    approvedAt: timestamp("approved_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    uniqSlug: uniqueIndex("uniq_site_profile_slug").on(t.slug),
+    uniqHost: uniqueIndex("uniq_site_profile_host").on(t.host),
+    statusIdx: index("site_profile_status_idx").on(t.lifecycleStatus, t.updatedAt),
+  }),
+);
+
+/** Connection metadata only. Credentials remain in environment/secret stores. */
+export const siteConnections = pgTable(
+  "site_connections",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    siteSlug: text("site_slug").notNull(),
+    kind: text("kind").notNull(), // github | hostinger_git | webhook
+    status: text("status").notNull().default("pending"),
+    displayName: text("display_name").notNull(),
+    remoteUrl: text("remote_url"),
+    config: jsonb("config").$type<Record<string, unknown>>().notNull().default({}),
+    secretRef: text("secret_ref"),
+    lastCheckedAt: timestamp("last_checked_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    uniqSiteKind: uniqueIndex("uniq_site_connection_kind").on(t.siteSlug, t.kind),
+    siteIdx: index("site_connection_site_idx").on(t.siteSlug),
+  }),
+);
+
+/** Durable work queue for onboarding and sync fan-out across 300+ sites. */
+export const platformJobs = pgTable(
+  "platform_jobs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    siteSlug: text("site_slug").notNull(),
+    kind: text("kind").notNull(),
+    status: text("status").notNull().default("queued"),
+    progress: jsonb("progress").$type<Record<string, unknown>>().notNull().default({}),
+    attempts: integer("attempts").notNull().default(0),
+    runAfter: timestamp("run_after").defaultNow().notNull(),
+    startedAt: timestamp("started_at"),
+    completedAt: timestamp("completed_at"),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    queueIdx: index("platform_job_queue_idx").on(t.status, t.runAfter),
+    siteIdx: index("platform_job_site_idx").on(t.siteSlug, t.createdAt),
+  }),
+);
+
+export const rankTrackingKeywords = pgTable(
+  "rank_tracking_keywords",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    siteSlug: text("site_slug").notNull(),
+    keyword: text("keyword").notNull(),
+    locationCode: integer("location_code").notNull(),
+    languageCode: text("language_code").notNull().default("en"),
+    device: deviceEnum("device").notNull().default("desktop"),
+    targetUrl: text("target_url"),
+    tags: jsonb("tags").$type<string[]>().notNull().default([]),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    uniqTrackedKeyword: uniqueIndex("uniq_rank_tracking_keyword").on(
+      t.siteSlug,
+      t.keyword,
+      t.locationCode,
+      t.device,
+    ),
+    activeIdx: index("rank_tracking_active_idx").on(t.siteSlug, t.active),
+  }),
+);
+
+export const dailyRankHistory = pgTable(
+  "daily_rank_history",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    trackedKeywordId: uuid("tracked_keyword_id").references(() => rankTrackingKeywords.id).notNull(),
+    siteSlug: text("site_slug").notNull(),
+    capturedOn: date("captured_on").notNull(),
+    position: integer("position"),
+    previousPosition: integer("previous_position"),
+    url: text("url"),
+    serpFeatures: jsonb("serp_features").$type<string[]>().notNull().default([]),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    uniqDailyRank: uniqueIndex("uniq_daily_rank_history").on(t.trackedKeywordId, t.capturedOn),
+    siteDateIdx: index("daily_rank_site_date_idx").on(t.siteSlug, t.capturedOn),
+  }),
+);
+
+export const detailedCrawlRuns = pgTable(
+  "detailed_crawl_runs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    siteSlug: text("site_slug").notNull(),
+    providerTaskId: text("provider_task_id"),
+    status: text("status").notNull().default("queued"),
+    maxPages: integer("max_pages").notNull(),
+    pagesCrawled: integer("pages_crawled").notNull().default(0),
+    healthScore: integer("health_score"),
+    startedAt: timestamp("started_at").defaultNow().notNull(),
+    completedAt: timestamp("completed_at"),
+  },
+  (t) => ({
+    siteDateIdx: index("detailed_crawl_site_idx").on(t.siteSlug, t.startedAt),
+  }),
+);
+
+export const detailedCrawlPages = pgTable(
+  "detailed_crawl_pages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    runId: uuid("run_id").references(() => detailedCrawlRuns.id).notNull(),
+    siteSlug: text("site_slug").notNull(),
+    url: text("url").notNull(),
+    statusCode: integer("status_code"),
+    title: text("title"),
+    description: text("description"),
+    canonical: text("canonical"),
+    wordCount: integer("word_count"),
+    contentType: text("content_type"),
+    depth: integer("depth"),
+    loadTimeMs: integer("load_time_ms"),
+    checks: jsonb("checks").$type<Record<string, boolean | number | string>>().notNull().default({}),
+    links: jsonb("links").$type<Record<string, number>>().notNull().default({}),
+    capturedAt: timestamp("captured_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    uniqRunUrl: uniqueIndex("uniq_detailed_crawl_page").on(t.runId, t.url),
+    siteStatusIdx: index("crawl_page_site_status_idx").on(t.siteSlug, t.statusCode),
+  }),
+);
+
+export const keywordGapHistory = pgTable(
+  "keyword_gap_history",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    siteSlug: text("site_slug").notNull(),
+    competitorHost: text("competitor_host").notNull(),
+    keyword: text("keyword").notNull(),
+    capturedOn: date("captured_on").notNull(),
+    sitePosition: integer("site_position"),
+    competitorPosition: integer("competitor_position"),
+    volume: integer("volume"),
+    difficulty: integer("difficulty"),
+    intent: text("intent"),
+    trafficPotential: real("traffic_potential"),
+  },
+  (t) => ({
+    uniqGap: uniqueIndex("uniq_keyword_gap_history").on(
+      t.siteSlug,
+      t.competitorHost,
+      t.keyword,
+      t.capturedOn,
+    ),
+    siteDateIdx: index("keyword_gap_site_date_idx").on(t.siteSlug, t.capturedOn),
+  }),
+);
+
+export const backlinkProfileHistory = pgTable(
+  "backlink_profile_history",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    siteSlug: text("site_slug").notNull(),
+    capturedOn: date("captured_on").notNull(),
+    backlinks: integer("backlinks").notNull().default(0),
+    referringDomains: integer("referring_domains").notNull().default(0),
+    newBacklinks: integer("new_backlinks").notNull().default(0),
+    lostBacklinks: integer("lost_backlinks").notNull().default(0),
+    newReferringDomains: integer("new_referring_domains").notNull().default(0),
+    lostReferringDomains: integer("lost_referring_domains").notNull().default(0),
+    rank: integer("rank"),
+    raw: jsonb("raw").$type<Record<string, unknown>>().notNull().default({}),
+  },
+  (t) => ({
+    uniqHistoryDay: uniqueIndex("uniq_backlink_profile_day").on(t.siteSlug, t.capturedOn),
+  }),
+);
+
+export const backlinkLedgerEntries = pgTable(
+  "backlink_ledger_entries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    siteSlug: text("site_slug").notNull(),
+    fingerprint: text("fingerprint").notNull(),
+    sourceDomain: text("source_domain").notNull(),
+    sourceUrl: text("source_url").notNull(),
+    targetUrl: text("target_url").notNull(),
+    anchor: text("anchor"),
+    authority: integer("authority"),
+    follow: boolean("follow").notNull().default(true),
+    toxicity: integer("toxicity").notNull().default(0),
+    status: text("status").notNull().default("active"),
+    firstSeen: date("first_seen"),
+    lastSeen: date("last_seen"),
+    lastObservedAt: timestamp("last_observed_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    uniqLedgerLink: uniqueIndex("uniq_backlink_ledger_entry").on(t.siteSlug, t.fingerprint),
+    siteStatusIdx: index("backlink_ledger_site_status_idx").on(t.siteSlug, t.status),
+  }),
+);
+
+export const aiTrackingPrompts = pgTable(
+  "ai_tracking_prompts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    siteSlug: text("site_slug").notNull(),
+    prompt: text("prompt").notNull(),
+    topic: text("topic").notNull(),
+    platforms: jsonb("platforms").$type<string[]>().notNull().default([
+      "chatgpt",
+      "claude",
+      "gemini",
+      "perplexity",
+    ]),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    uniqAiPrompt: uniqueIndex("uniq_ai_tracking_prompt").on(t.siteSlug, t.prompt),
+  }),
+);
+
+export const notificationRules = pgTable(
+  "notification_rules",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    siteSlug: text("site_slug"), // null = portfolio-wide
+    eventTypes: jsonb("event_types").$type<string[]>().notNull().default([]),
+    channels: jsonb("channels").$type<string[]>().notNull().default(["in_app"]),
+    recipients: jsonb("recipients").$type<string[]>().notNull().default([]),
+    rankDropThreshold: integer("rank_drop_threshold").notNull().default(5),
+    trafficDropPct: integer("traffic_drop_pct").notNull().default(20),
+    enabled: boolean("enabled").notNull().default(true),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    siteIdx: index("notification_rule_site_idx").on(t.siteSlug, t.enabled),
+  }),
+);
+
+export const portfolioNotifications = pgTable(
+  "portfolio_notifications",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    siteSlug: text("site_slug"),
+    eventType: text("event_type").notNull(),
+    severity: severityEnum("severity").notNull(),
+    title: text("title").notNull(),
+    detail: text("detail"),
+    actionUrl: text("action_url"),
+    fingerprint: text("fingerprint").notNull(),
+    readAt: timestamp("read_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    uniqFingerprint: uniqueIndex("uniq_portfolio_notification").on(t.fingerprint),
+    inboxIdx: index("portfolio_notification_inbox_idx").on(t.readAt, t.createdAt),
+  }),
+);
+
+export const notificationDeliveries = pgTable(
+  "notification_deliveries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    notificationId: uuid("notification_id").references(() => portfolioNotifications.id).notNull(),
+    channel: text("channel").notNull(),
+    recipient: text("recipient"),
+    status: text("status").notNull().default("queued"),
+    attempts: integer("attempts").notNull().default(0),
+    deliveredAt: timestamp("delivered_at"),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    queueIdx: index("notification_delivery_queue_idx").on(t.status, t.createdAt),
+  }),
+);
+
+/** Safe change proposals: connectors may draft review work, never auto-publish. */
+export const siteChangeProposals = pgTable(
+  "site_change_proposals",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    siteSlug: text("site_slug").notNull(),
+    connectionId: uuid("connection_id").references(() => siteConnections.id).notNull(),
+    title: text("title").notNull(),
+    summary: text("summary").notNull(),
+    changes: jsonb("changes").$type<Record<string, unknown>>().notNull().default({}),
+    status: text("status").notNull().default("draft"),
+    reviewUrl: text("review_url"),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    siteIdx: index("site_change_proposal_idx").on(t.siteSlug, t.createdAt),
+  }),
+);
+
 /* ---------------------------- Org & identity ---------------------------- */
 
 export const organisations = pgTable("organisations", {

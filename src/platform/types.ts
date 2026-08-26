@@ -1,0 +1,145 @@
+import type { Device, Domain } from "@/lib/types";
+
+export type SiteLifecycle =
+  | "draft"
+  | "forecast_pending"
+  | "approved"
+  | "provisioning"
+  | "active"
+  | "paused"
+  | "error";
+
+export type SpendApproval = "draft" | "pending" | "approved" | "rejected";
+export type SiteConnectionKind = "github" | "hostinger_git" | "webhook";
+export type AlertChannel = "in_app" | "whatsapp" | "email";
+export type AiVisibilityPlatform = "chatgpt" | "claude" | "gemini" | "perplexity";
+
+export interface SiteCostForecastLine {
+  key: string;
+  label: string;
+  cadence: string;
+  units: number;
+  unitCostUsd: number;
+  monthlyUsd: number;
+  note: string;
+}
+
+export interface SiteCostForecast {
+  currency: "USD";
+  monthlyUsd: number;
+  lowUsd: number;
+  highUsd: number;
+  assumptions: {
+    trackedKeywords: number;
+    crawlMaxPages: number;
+    backlinkLimit: number;
+    aiPrompts: number;
+    aiPlatforms: number;
+    devices: Device[];
+  };
+  lines: SiteCostForecastLine[];
+}
+
+export interface ManagedSite extends Domain {
+  devices: Device[];
+  lifecycleStatus: SiteLifecycle;
+  spendApproval: SpendApproval;
+  forecastMonthlyUsd: number;
+  approvedMonthlyUsd: number | null;
+  forecast: SiteCostForecast | null;
+  crawlMaxPages: number;
+  backlinkLimit: number;
+  source: "database" | "registry";
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface SiteConnectionInput {
+  kind: SiteConnectionKind;
+  displayName: string;
+  remoteUrl?: string;
+  config?: Record<string, unknown>;
+}
+
+export interface SiteOnboardingInput {
+  name: string;
+  host: string;
+  industry: string;
+  market: string;
+  locationCode: number;
+  languageCode: string;
+  devices: Device[];
+  gscProperty?: string | null;
+  ga4Property?: string | null;
+  trackedKeywords: number;
+  crawlMaxPages: number;
+  backlinkLimit: number;
+  aiPrompts: number;
+  aiPlatforms: AiVisibilityPlatform[];
+  connections: SiteConnectionInput[];
+  alertChannels: AlertChannel[];
+  emailRecipients?: string[];
+  whatsappRecipients?: string[];
+}
+
+export interface GooglePropertyCandidate {
+  id: string;
+  label: string;
+  url: string | null;
+  matched: boolean;
+}
+
+export interface GooglePropertyDiscovery {
+  configured: boolean;
+  gsc: GooglePropertyCandidate[];
+  ga4: GooglePropertyCandidate[];
+  warnings: string[];
+}
+
+export interface DetailedCrawlPage {
+  url: string;
+  statusCode: number | null;
+  title: string | null;
+  description: string | null;
+  canonical: string | null;
+  wordCount: number | null;
+  contentType: string | null;
+  depth: number | null;
+  loadTimeMs: number | null;
+  checks: Record<string, boolean | number | string>;
+  links: Record<string, number>;
+}
+
+export interface KeywordGapRow {
+  competitorHost: string;
+  keyword: string;
+  sitePosition: number | null;
+  competitorPosition: number | null;
+  volume: number | null;
+  difficulty: number | null;
+  intent: string | null;
+  trafficPotential: number | null;
+}
+
+export interface BacklinkHistoryPoint {
+  date: string;
+  backlinks: number;
+  referringDomains: number;
+  newBacklinks: number;
+  lostBacklinks: number;
+  newReferringDomains: number;
+  lostReferringDomains: number;
+  rank: number | null;
+  raw: Record<string, unknown>;
+}
+
+export interface TrackedRankingResult {
+  trackedKeywordId: string;
+  keyword: string;
+  device: Device;
+  locationCode: number;
+  position: number | null;
+  previousPosition: number | null;
+  url: string | null;
+  serpFeatures: string[];
+}

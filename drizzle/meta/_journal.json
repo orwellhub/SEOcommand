@@ -43,6 +43,13 @@
       "when": 1785228965104,
       "tag": "0005_parched_texas_twister",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787769979734,
+      "tag": "0006_swift_caretaker",
+      "breakpoints": true
     }
   ]
 }

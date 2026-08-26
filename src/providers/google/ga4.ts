@@ -1,6 +1,7 @@
 import type { DomainId, Ga4ChannelRow, Ga4LandingPage, Ga4Overview } from "@/lib/types";
 import { getGoogleAccessToken } from "./auth";
-import { GA4_API, GA4_PROPERTY_MAP, GA4_SCOPE } from "./config";
+import { GA4_API, GA4_SCOPE } from "./config";
+import { getManagedSite } from "@/platform/site-store";
 
 /**
  * GA4 Data API access, ported from the reference pull script (pull_ga4.py).
@@ -51,8 +52,8 @@ async function runReport(propertyId: string, body: Record<string, unknown>): Pro
   return res.json();
 }
 
-function propertyFor(domainId: DomainId): string {
-  const id = GA4_PROPERTY_MAP[domainId];
+async function propertyFor(domainId: DomainId): Promise<string> {
+  const id = (await getManagedSite(domainId))?.ga4PropertyId;
   if (!id) throw new Ga4PropertyNotConfiguredError(domainId);
   return id;
 }
@@ -67,7 +68,7 @@ function num(v: string | undefined): number {
 }
 
 export async function ga4OrganicOverview(domainId: DomainId, days = 28): Promise<Ga4Overview> {
-  const property = propertyFor(domainId);
+  const property = await propertyFor(domainId);
   const metrics = [
     "sessions",
     "totalUsers",
@@ -95,7 +96,7 @@ export async function ga4OrganicOverview(domainId: DomainId, days = 28): Promise
 }
 
 export async function ga4LandingPages(domainId: DomainId, days = 28, limit = 25): Promise<Ga4LandingPage[]> {
-  const property = propertyFor(domainId);
+  const property = await propertyFor(domainId);
   const payload = await runReport(property, {
     dateRanges: [dateRange(days)],
     dimensions: [{ name: "landingPagePlusQueryString" }],
@@ -117,7 +118,7 @@ export async function ga4LandingPages(domainId: DomainId, days = 28, limit = 25)
 }
 
 export async function ga4Channels(domainId: DomainId, days = 28): Promise<Ga4ChannelRow[]> {
-  const property = propertyFor(domainId);
+  const property = await propertyFor(domainId);
   const payload = await runReport(property, {
     dateRanges: [dateRange(days)],
     dimensions: [{ name: "sessionDefaultChannelGroup" }],

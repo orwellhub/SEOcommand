@@ -140,6 +140,12 @@ services:
         sync: false
       - key: SYNC_DFS_HEAVY
         sync: false
+      - key: SYNC_RANKINGS
+        sync: false
+      - key: SYNC_CONCURRENCY
+        value: "2"
+      - key: ONBOARDING_JOBS_PER_RUN
+        value: "5"
       - key: MONTHLY_BUDGET_USD
         value: "200"
       - key: DATABASE_URL
@@ -197,4 +203,10 @@ services:
       - key: REPORT_DELIVERY_WEBHOOK_URL
         sync: false
       - key: REPORT_WEBHOOK_SECRET
+        sync: false
+      - key: ALERT_EMAIL_WEBHOOK_URL
+        sync: false
+      - key: ALERT_WHATSAPP_WEBHOOK_URL
+        sync: false
+      - key: ALERT_WEBHOOK_SECRET
         sync: false
