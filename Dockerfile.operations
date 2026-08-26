@@ -1,13 +1,14 @@
 FROM mcr.microsoft.com/playwright:v1.55.0-noble
 
 WORKDIR /app
-ENV NODE_ENV=production
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 COPY package.json package-lock.json ./
-RUN npm ci --ignore-scripts
+RUN npm ci --include=dev --ignore-scripts
 
 COPY . .
 RUN npm run build
+
+ENV NODE_ENV=production
 
 CMD ["npm", "run", "jobs:operations"]
