@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db, schema } from "@/db";
 import { hasDatabase } from "@/sync/store";
 import { listManagedSites, resolveGroupSiteSlugs } from "@/platform/site-store";
+import { QA_SITES } from "@/data/qa-fixtures";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,6 +17,24 @@ export async function GET(request: Request) {
     ? new Set((await Promise.all(groupIds.map(resolveGroupSiteSlugs))).flat())
     : new Set(allSites.map((site) => site.id));
   const sites = allSites.filter((site) => allowed.has(site.id));
+  if (process.env.QA_SYNTHETIC === "true") {
+    const items = QA_SITES.flatMap((site, index) => [
+      {
+        id: `20000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`, kind: "alert" as const,
+        siteSlug: site.id, siteName: site.name, title: index % 4 === 0 ? "Technical health needs attention" : "Tracked rankings moved",
+        detail: index % 4 === 0 ? "High-impact synthetic crawl evidence is ready for review." : "A monitored keyword moved beyond the configured threshold.",
+        status: "open", severity: index % 4 === 0 ? "critical" : index % 3 === 0 ? "high" : "medium",
+        score: index % 4 === 0 ? 100 : index % 3 === 0 ? 75 : 45, actionUrl: `/sites/${site.id}`, createdAt: new Date(Date.UTC(2026, 7, 26, 8, index)),
+      },
+      {
+        id: `30000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`, kind: "recommendation" as const,
+        siteSlug: site.id, siteName: site.name, title: "Improve the highest-potential landing page",
+        detail: "Content · M effort", status: index % 4 === 0 ? "in_progress" : "approved", severity: "high",
+        score: 78 - index, actionUrl: "/recommendations", createdAt: new Date(Date.UTC(2026, 7, 25, 8, index)),
+      },
+    ]).sort((a, b) => b.score - a.score);
+    return NextResponse.json({ items, counts: { urgent: items.filter((item) => item.score >= 75).length, open: items.length, paused: 1 }, sites });
+  }
   if (!hasDatabase() || sites.length === 0) {
     return NextResponse.json({ items: [], counts: { urgent: 0, open: 0, paused: 0 }, sites });
   }

@@ -17,6 +17,7 @@ import {
   type StoredSnapshot,
 } from "./store";
 import { aggregateBundles, PORTFOLIO_SCOPE_ID } from "./aggregate";
+import { qaDomainBundle, qaPortfolio } from "@/data/qa-fixtures";
 
 /**
  * Assembles API read-models from stored snapshots. Pure reads — no provider
@@ -40,6 +41,7 @@ function attach(bundle: DomainLiveBundle, snaps: StoredSnapshot[]): void {
 }
 
 export async function buildDomainBundle(domainId: string): Promise<DomainLiveBundle> {
+  if (process.env.QA_SYNTHETIC === "true") return qaDomainBundle(domainId);
   const bundle: DomainLiveBundle = { domainId, lastSync: null, datasets: {} };
   if (!hasDatabase()) return bundle;
 
@@ -65,6 +67,10 @@ export async function buildDomainBundle(domainId: string): Promise<DomainLiveBun
  * rather than a per-domain round-trip.
  */
 export async function buildAggregateBundle(siteSlugs?: string[]): Promise<DomainLiveBundle> {
+  if (process.env.QA_SYNTHETIC === "true") {
+    const slug = siteSlugs?.[0] ?? "mortgagecompare";
+    return { ...qaDomainBundle(slug), domainId: PORTFOLIO_SCOPE_ID };
+  }
   if (!hasDatabase()) {
     return { domainId: PORTFOLIO_SCOPE_ID, lastSync: null, datasets: {} };
   }
@@ -131,6 +137,7 @@ function headlineFrom(domainId: string, snaps: StoredSnapshot[], ga4Mapped = fal
 }
 
 export async function buildPortfolio(siteSlugs?: string[]): Promise<PortfolioLive> {
+  if (process.env.QA_SYNTHETIC === "true") return qaPortfolio(siteSlugs);
   const allSites = await listManagedSites();
   const allowed = siteSlugs ? new Set(siteSlugs) : null;
   const sites = allowed ? allSites.filter((site) => allowed.has(site.id)) : allSites;

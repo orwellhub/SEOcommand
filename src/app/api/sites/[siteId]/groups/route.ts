@@ -9,6 +9,12 @@ import { isManagedSite, setSiteGroups } from "@/platform/site-store";
 const Schema = z.object({ groupIds: z.array(z.string().uuid()).max(20) });
 
 export async function PUT(request: Request, { params }: { params: { siteId: string } }) {
+  if (process.env.QA_SYNTHETIC === "true") {
+    const parsed = Schema.safeParse(await request.json().catch(() => null));
+    return parsed.success
+      ? NextResponse.json({ siteSlug: params.siteId, groupIds: parsed.data.groupIds, synthetic: true })
+      : NextResponse.json({ error: "Invalid group selection." }, { status: 400 });
+  }
   if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
   if (!canWrite(request.headers.get("x-orwell-user-role"))) return NextResponse.json({ error: "Write access required." }, { status: 403 });
   if (!(await isManagedSite(params.siteId))) return NextResponse.json({ error: "Website not found." }, { status: 404 });

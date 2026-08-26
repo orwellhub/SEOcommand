@@ -27,6 +27,11 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (process.env.QA_SYNTHETIC === "true") {
+    const parsed = CreateSchema.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) return NextResponse.json({ error: "Review the group details." }, { status: 400 });
+    return NextResponse.json({ group: { id: crypto.randomUUID(), slug: slugify(parsed.data.name), ...parsed.data, synthetic: true } }, { status: 201 });
+  }
   if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
   if (!canWrite(request.headers.get("x-orwell-user-role"))) {
     return NextResponse.json({ error: "Write access required." }, { status: 403 });

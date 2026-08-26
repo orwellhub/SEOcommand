@@ -19,6 +19,7 @@ function writable(request: Request) {
 }
 
 export async function PATCH(request: Request, { params }: { params: { groupId: string } }) {
+  if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ group: { id: params.groupId, ...(await request.json().catch(() => ({}))), synthetic: true } });
   if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
   if (!writable(request)) return NextResponse.json({ error: "Write access required." }, { status: 403 });
   const parsed = UpdateSchema.safeParse(await request.json().catch(() => null));
@@ -45,6 +46,7 @@ export async function PATCH(request: Request, { params }: { params: { groupId: s
 }
 
 export async function DELETE(request: Request, { params }: { params: { groupId: string } }) {
+  if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ deleted: true, groupId: params.groupId, synthetic: true });
   if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
   if (!writable(request)) return NextResponse.json({ error: "Write access required." }, { status: 403 });
   await db().transaction(async (tx) => {

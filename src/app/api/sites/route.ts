@@ -89,6 +89,18 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (process.env.QA_SYNTHETIC === "true") {
+    if (!canWrite(request.headers.get("x-orwell-user-role"))) return NextResponse.json({ error: "Write access required." }, { status: 403 });
+    const qaParsed = SiteSchema.safeParse(await request.json().catch(() => null));
+    if (!qaParsed.success) return NextResponse.json({ error: "Review the site setup fields.", fields: qaParsed.error.flatten().fieldErrors }, { status: 400 });
+    const input = qaParsed.data;
+    const host = cleanHost(input.host);
+    const forecast = forecastSiteCost({ trackedKeywords: input.trackedKeywords, crawlMaxPages: input.crawlMaxPages, backlinkLimit: input.backlinkLimit, aiPrompts: input.aiPrompts, aiPlatforms: input.aiPlatforms.length, devices: input.devices });
+    return NextResponse.json({
+      site: { slug: slugFor(host), name: input.name, host, lifecycleStatus: "active", spendApproval: "pending", synthetic: true },
+      forecast, approvalRequired: true, freeMonitoringActive: true,
+    }, { status: 201 });
+  }
   if (!hasDatabase()) return unavailable();
   if (!canWrite(request.headers.get("x-orwell-user-role"))) {
     return NextResponse.json({ error: "Write access required." }, { status: 403 });

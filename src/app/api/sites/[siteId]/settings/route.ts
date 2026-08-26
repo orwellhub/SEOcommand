@@ -8,6 +8,7 @@ import { currentMonth } from "@/providers/dataforseo/cost";
 import { setSiteGroups } from "@/platform/site-store";
 import { getManagedSite } from "@/platform/site-store";
 import { canAccessSite } from "@/platform/access";
+import { qaSettings } from "@/data/qa-fixtures";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -87,6 +88,7 @@ async function audit(request: Request, siteSlug: string, action: string, area: s
 }
 
 export async function GET(request: Request, { params }: { params: { siteId: string } }) {
+  if (process.env.QA_SYNTHETIC === "true") return NextResponse.json(qaSettings(params.siteId));
   if (!hasDatabase()) return unavailable();
   if (!await canAccessSite(request, params.siteId)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
   const [storedSite] = await db().select().from(schema.siteProfiles).where(eq(schema.siteProfiles.slug, params.siteId)).limit(1);
@@ -132,6 +134,9 @@ export async function GET(request: Request, { params }: { params: { siteId: stri
 }
 
 export async function PATCH(request: Request, { params }: { params: { siteId: string } }) {
+  if (process.env.QA_SYNTHETIC === "true") {
+    return NextResponse.json({ site: qaSettings(params.siteId).site, saved: true, synthetic: true });
+  }
   if (!hasDatabase()) return unavailable();
   if (!await canAccessSite(request, params.siteId)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
   const role = request.headers.get("x-orwell-user-role");
