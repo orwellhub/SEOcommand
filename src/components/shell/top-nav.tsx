@@ -8,6 +8,7 @@ import { NAV_ITEMS } from "@/lib/nav";
 import { cn } from "@/lib/cn";
 import { useLivePortfolio } from "@/lib/use-live";
 import { SyncBadge } from "@/components/ui/sync-badge";
+import { NotificationBell } from "./notification-bell";
 
 export function TopNav() {
   const pathname = usePathname();
@@ -67,6 +68,7 @@ export function TopNav() {
       </nav>
       <div className="flex items-center gap-2 pr-1">
         <SyncBadge lastSync={lastSync} loading={loading} className="hidden sm:inline-flex" />
+        <NotificationBell />
         <div className="flex items-center gap-2 rounded-md px-2 py-1">
           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-purple text-2xs font-semibold">
             {initials || "OA"}

@@ -1,5 +1,6 @@
 import type { DomainId } from "@/lib/types";
 import { DOMAIN_MAP } from "@/data/domains";
+import type { ManagedSite } from "@/platform/types";
 
 /**
  * DataForSEO runtime configuration, driven entirely by server-side env vars.
@@ -53,6 +54,20 @@ export function locationFor(domainId: DomainId): { location_code: number; langua
   };
 }
 
+export function locationForSite(site: ManagedSite): { location_code: number; language_code: string } {
+  const suffix = site.id.toUpperCase().replace(/[^A-Z0-9]/g, "_");
+  const rawOverride = process.env[`DATAFORSEO_LOCATION_${suffix}`];
+  const override = rawOverride ? Number(rawOverride) : null;
+  const locationCode = Number.isInteger(override) && Number(override) > 0
+    ? Number(override)
+    : site.dataForSeoLocationCode;
+  if (!locationCode) throw new Error(`No DataForSEO location configured for ${site.name}.`);
+  return {
+    location_code: locationCode,
+    language_code: process.env[`DATAFORSEO_LANGUAGE_${suffix}`] || site.dataForSeoLanguageCode,
+  };
+}
+
 /**
  * Verified DataForSEO endpoints (each returned status 20000 on a real call for
  * this account) plus the direct sibling endpoints the adapter also uses. Paths
@@ -66,14 +81,19 @@ export const ENDPOINTS = {
   keywordsSearchVolume: "/v3/keywords_data/google_ads/search_volume/live",
   onPageTaskPost: "/v3/on_page/task_post",
   onPageSummary: (taskId: string) => `/v3/on_page/summary/${taskId}`,
-  aiLlmResponses: "/v3/ai_optimization/chat_gpt/llm_responses/live",
-  aiLlmModels: "/v3/ai_optimization/chat_gpt/llm_responses/models",
+  onPagePages: "/v3/on_page/pages",
+  aiLlmResponses: (provider: "chat_gpt" | "claude" | "gemini" | "perplexity") =>
+    `/v3/ai_optimization/${provider}/llm_responses/live`,
+  aiLlmModels: (provider: "chat_gpt" | "claude" | "gemini" | "perplexity") =>
+    `/v3/ai_optimization/${provider}/llm_responses/models`,
   // --- direct siblings on the same (verified) APIs ---
   labsRankedKeywords: "/v3/dataforseo_labs/google/ranked_keywords/live",
   labsKeywordIdeas: "/v3/dataforseo_labs/google/keyword_ideas/live",
   labsCompetitorsDomain: "/v3/dataforseo_labs/google/competitors_domain/live",
+  labsDomainIntersection: "/v3/dataforseo_labs/google/domain_intersection/live",
   backlinksList: "/v3/backlinks/backlinks/live",
   backlinksReferringDomains: "/v3/backlinks/referring_domains/live",
+  backlinksHistory: "/v3/backlinks/history/live",
 } as const;
 
 /**
@@ -88,10 +108,13 @@ export const COST_ESTIMATE_USD: Record<string, number> = {
   keywordsSearchVolume: 0.05,
   onPageTaskPost: 0.03,
   onPageSummary: 0.0,
+  onPagePages: 0.0,
   aiLlmResponses: 0.06,
   labsRankedKeywords: 0.05,
   labsKeywordIdeas: 0.05,
   labsCompetitorsDomain: 0.03,
+  labsDomainIntersection: 0.04,
   backlinksList: 0.04,
   backlinksReferringDomains: 0.03,
+  backlinksHistory: 0.04,
 };

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Menu, X, Layers, Circle } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/nav";
-import { DOMAINS } from "@/data/domains";
 import { useDomain } from "./domain-context";
 import { cn } from "@/lib/cn";
 
@@ -13,7 +12,7 @@ import { cn } from "@/lib/cn";
 export function MobileNav() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const { scope, setScope } = useDomain();
+  const { scope, setScope, sites } = useDomain();
   const router = useRouter();
 
   /** Picking a site closes the drawer and lands on that property's page. */
@@ -66,7 +65,7 @@ export function MobileNav() {
               >
                 <Layers className="h-4 w-4" /> Portfolio
               </button>
-              {DOMAINS.map((d) => (
+              {sites.map((d) => (
                 <button
                   key={d.id}
                   onClick={() => selectDomain(d.id)}

@@ -15,15 +15,15 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { ScopeNote } from "@/components/ui/scope-note";
 import { Drawer, DrawerField } from "@/components/ui/drawer";
 import { BarSeries } from "@/components/charts/charts";
-import { useDomain, useResolvedDomain } from "@/components/shell/domain-context";
 import { useScopedLive } from "@/lib/use-live";
 import { computeAuthorityScore } from "@/lib/scoring";
 import { fullNumber, percent } from "@/lib/format";
 import { formatDate } from "@/lib/dates";
 import { cn } from "@/lib/cn";
 import type { Backlink, ReferringDomain } from "@/lib/types";
+import type { BacklinkHistoryPoint } from "@/platform/types";
 
-type SubTab = "backlinks" | "referring" | "anchors" | "risk";
+type SubTab = "backlinks" | "history" | "referring" | "anchors" | "risk";
 
 interface AnchorRow {
   anchor: string;
@@ -40,6 +40,7 @@ interface ScoreComponent {
 
 const TABS: { key: SubTab; label: string }[] = [
   { key: "backlinks", label: "Backlinks" },
+  { key: "history", label: "History" },
   { key: "referring", label: "Referring domains" },
   { key: "anchors", label: "Anchors" },
   { key: "risk", label: "Risk review" },
@@ -79,8 +80,6 @@ function ToxicityMeter({ value }: { value: number }) {
 }
 
 export default function BacklinksPage() {
-  const domain = useResolvedDomain();
-  const { scope } = useDomain();
   const { data: bundle, loading, error, isPortfolio, scopeLabel, scopeHost, scopeId } = useScopedLive();
 
   const [tab, setTab] = useState<SubTab>("backlinks");
@@ -88,6 +87,7 @@ export default function BacklinksPage() {
 
   const backlinks = bundle?.datasets.backlinks?.data ?? null;
   const referringDomains = bundle?.datasets.referring_domains?.data ?? null;
+  const backlinkHistory = bundle?.datasets.backlink_history?.data ?? null;
   const visibilitySeries = bundle?.datasets.visibility_series?.data ?? null;
 
   const latestVisibility = useMemo(() => {
@@ -227,6 +227,16 @@ export default function BacklinksPage() {
     ],
     [],
   );
+
+  const historyCols = useMemo<Column<BacklinkHistoryPoint>[]>(() => [
+    { key: "date", header: "Date", sortValue: (row) => row.date, render: (row) => formatDate(row.date) },
+    { key: "backlinks", header: "Backlinks", align: "right", sortValue: (row) => row.backlinks, render: (row) => fullNumber(row.backlinks) },
+    { key: "referring", header: "Referring domains", align: "right", sortValue: (row) => row.referringDomains, render: (row) => fullNumber(row.referringDomains) },
+    { key: "new", header: "New links", align: "right", sortValue: (row) => row.newBacklinks, render: (row) => <span className="text-success">+{fullNumber(row.newBacklinks)}</span> },
+    { key: "lost", header: "Lost links", align: "right", sortValue: (row) => row.lostBacklinks, render: (row) => <span className="text-critical">-{fullNumber(row.lostBacklinks)}</span> },
+    { key: "newDomains", header: "New domains", align: "right", sortValue: (row) => row.newReferringDomains, render: (row) => fullNumber(row.newReferringDomains) },
+    { key: "lostDomains", header: "Lost domains", align: "right", sortValue: (row) => row.lostReferringDomains, render: (row) => fullNumber(row.lostReferringDomains) },
+  ], []);
 
   const referringCols = useMemo<Column<ReferringDomain>[]>(
     () => [
@@ -514,6 +524,13 @@ export default function BacklinksPage() {
               description="Referring-domain data populates on the next scheduled sync."
             />
           )}
+        </Card>
+      )}
+
+      {tab === "history" && (
+        <Card className="p-4">
+          <div className="mb-3"><h3 className="text-sm font-semibold text-ink">Backlink history</h3><p className="mt-0.5 text-2xs text-muted">Historical totals, new and lost links, and referring-domain changes retained independently of current snapshots.</p></div>
+          {backlinkHistory?.length ? <DataTable rows={backlinkHistory} columns={historyCols} searchKeys={(row) => row.date} searchPlaceholder="Search dates…" exportName={`backlink-history-${scopeId}`} pageSize={20} /> : <EmptyState title="Backlink history not yet synced" description="The full historical profile is collected in the first approved scan." />}
         </Card>
       )}
 

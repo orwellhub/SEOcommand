@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ChevronDown, Search, Layers, Circle } from "lucide-react";
-import { DOMAINS } from "@/data/domains";
 import { useDomain, type RangeKey } from "./domain-context";
 import { cn } from "@/lib/cn";
 
@@ -14,7 +13,7 @@ const RANGES: { key: RangeKey; label: string }[] = [
 ];
 
 export function ContextBar() {
-  const { scope, setScope, range, setRange } = useDomain();
+  const { scope, setScope, range, setRange, sites } = useDomain();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const router = useRouter();
@@ -29,9 +28,9 @@ export function ContextBar() {
   const current =
     scope === "portfolio"
       ? { name: "Portfolio", host: "All domains", accent: "#7137F5" }
-      : DOMAINS.find((d) => d.id === scope)!;
+      : sites.find((d) => d.id === scope) ?? { name: String(scope), host: String(scope), accent: "#7137F5" };
 
-  const filtered = DOMAINS.filter(
+  const filtered = sites.filter(
     (d) => d.name.toLowerCase().includes(q.toLowerCase()) || d.host.includes(q.toLowerCase()),
   );
 

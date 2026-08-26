@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Activity, CheckCircle2, FileWarning, Gauge, Hourglass } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { KpiCard } from "@/components/ui/kpi-card";
@@ -21,6 +21,18 @@ import { formatDate } from "@/lib/dates";
 import { fullNumber } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import type { CrawlRun, Severity, TechnicalIssue } from "@/lib/types";
+
+interface CrawlPageRow {
+  id: string;
+  url: string;
+  statusCode: number | null;
+  title: string | null;
+  canonical: string | null;
+  wordCount: number | null;
+  depth: number | null;
+  loadTimeMs: number | null;
+  checks: Record<string, boolean | number | string>;
+}
 
 const SEVERITY_RANK: Record<Severity, number> = { critical: 4, high: 3, medium: 2, low: 1 };
 const SEVERITY_FILTERS: Array<"all" | Severity> = ["all", "critical", "high", "medium", "low"];
@@ -43,6 +55,23 @@ export default function SiteAuditPage() {
 
   const [severityFilter, setSeverityFilter] = useState<"all" | Severity>("all");
   const [selected, setSelected] = useState<TechnicalIssue | null>(null);
+  const [crawlPages, setCrawlPages] = useState<CrawlPageRow[]>([]);
+  const [crawlPageTotal, setCrawlPageTotal] = useState(0);
+
+  useEffect(() => {
+    if (isPortfolio || !scopeId) {
+      setCrawlPages([]);
+      setCrawlPageTotal(0);
+      return;
+    }
+    fetch(`/api/crawls/${scopeId}/pages?limit=250`)
+      .then((response) => response.ok ? response.json() : null)
+      .then((body) => {
+        setCrawlPages(body?.pages ?? []);
+        setCrawlPageTotal(body?.total ?? 0);
+      })
+      .catch(() => undefined);
+  }, [isPortfolio, scopeId]);
 
   const onpage = bundle?.datasets.onpage?.data ?? null;
   const crawlRun = onpage?.crawlRun ?? null;
@@ -98,6 +127,16 @@ export default function SiteAuditPage() {
     ],
     [],
   );
+
+  const pageColumns = useMemo<Column<CrawlPageRow>[]>(() => [
+    { key: "url", header: "URL", sortValue: (row) => row.url, render: (row) => <span className="block max-w-[420px] truncate font-medium text-ink" title={row.url}>{row.url}</span> },
+    { key: "status", header: "Status", align: "right", sortValue: (row) => row.statusCode ?? 0, render: (row) => <span className={row.statusCode && row.statusCode >= 400 ? "font-medium text-critical" : "text-ink"}>{row.statusCode ?? "—"}</span> },
+    { key: "title", header: "Title", sortValue: (row) => row.title ?? "", render: (row) => <span className="block max-w-[260px] truncate text-muted" title={row.title ?? ""}>{row.title || "—"}</span> },
+    { key: "words", header: "Words", align: "right", sortValue: (row) => row.wordCount ?? 0, render: (row) => row.wordCount == null ? "—" : fullNumber(row.wordCount) },
+    { key: "depth", header: "Depth", align: "right", sortValue: (row) => row.depth ?? 0, render: (row) => row.depth ?? "—" },
+    { key: "load", header: "Load", align: "right", sortValue: (row) => row.loadTimeMs ?? 0, render: (row) => row.loadTimeMs == null ? "—" : `${row.loadTimeMs} ms` },
+    { key: "checks", header: "Failed checks", align: "right", sortValue: (row) => Object.values(row.checks).filter(Boolean).length, render: (row) => Object.values(row.checks).filter(Boolean).length },
+  ], []);
 
   if (loading && !bundle) {
     return (
@@ -326,6 +365,19 @@ export default function SiteAuditPage() {
           />
         )}
       </Card>
+
+      {!isPortfolio && (
+        <Card className="p-4">
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-semibold text-ink">Page explorer</h3>
+              <p className="mt-0.5 text-2xs text-muted">URL-level metadata, response codes, crawl depth, loading time and every OnPage check.</p>
+            </div>
+            <span className="text-2xs text-muted">Showing {crawlPages.length} of {crawlPageTotal.toLocaleString()} pages</span>
+          </div>
+          {crawlPages.length ? <DataTable rows={crawlPages} columns={pageColumns} searchKeys={(row) => `${row.url} ${row.title ?? ""} ${row.canonical ?? ""}`} searchPlaceholder="Search crawled URLs…" exportName={`crawl-pages-${scopeId}`} pageSize={25} /> : <EmptyState title="No page-level crawl data yet" description="Detailed pages appear after the next full technical crawl completes." />}
+        </Card>
+      )}
 
       {/* Issue detail drawer */}
       <Drawer

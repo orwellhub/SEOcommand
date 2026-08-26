@@ -21,6 +21,7 @@ import type {
   StrikingDistanceRow,
   TechnicalIssue,
 } from "./types";
+import type { BacklinkHistoryPoint, KeywordGapRow } from "@/platform/types";
 
 /**
  * The live read-model contract. The sync engine writes these dataset keys to
@@ -34,8 +35,10 @@ export const DATASETS = [
   "position_buckets",
   "visibility_point",
   "competitors",
+  "keyword_gaps",
   "backlinks",
   "referring_domains",
+  "backlink_history",
   "onpage",
   "ai_prompts",
   "gsc_totals",
@@ -99,8 +102,10 @@ export interface DomainLiveBundle {
     /** Accumulated daily visibility points (full history, ascending by date). */
     visibility_series?: DS<{ date: string; value: number }[]>;
     competitors?: DS<Competitor[]>;
+    keyword_gaps?: DS<KeywordGapRow[]>;
     backlinks?: DS<Backlink[]>;
     referring_domains?: DS<ReferringDomain[]>;
+    backlink_history?: DS<BacklinkHistoryPoint[]>;
     onpage?: DS<OnPageResult>;
     ai_prompts?: DS<AiPrompt[]>;
     gsc_totals?: DS<GscTotals>;

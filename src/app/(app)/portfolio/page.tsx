@@ -2,13 +2,13 @@
 
 import { useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { CloudOff, Database } from "lucide-react";
+import { CloudOff, Database, Plus } from "lucide-react";
+import Link from "next/link";
 import { PageHeader } from "@/components/ui/page-header";
 import { RefreshButtons } from "@/components/shell/refresh-buttons";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Card, EmptyState, Skeleton } from "@/components/ui/primitives";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { DOMAINS } from "@/data/domains";
 import type { DomainHeadline } from "@/lib/live";
 import { useLivePortfolio } from "@/lib/use-live";
 import { compactNumber, fullNumber, percent } from "@/lib/format";
@@ -27,7 +27,7 @@ function num(v: number | null): string {
 }
 
 export default function PortfolioPage() {
-  const { setScope } = useDomain();
+  const { setScope, sites } = useDomain();
   const router = useRouter();
 
   /** Open a property's landing page, scoping the app to it on the way. */
@@ -53,7 +53,7 @@ export default function PortfolioPage() {
     if (!pm) return [];
     return pm.domains
       .map((d) => {
-        const meta = DOMAINS.find((x) => x.id === d.domainId);
+        const meta = sites.find((x) => x.id === d.domainId);
         return {
           ...d,
           name: meta?.name ?? d.domainId,
@@ -62,7 +62,7 @@ export default function PortfolioPage() {
         };
       })
       .sort((a, b) => (b.clicks28d ?? -1) - (a.clicks28d ?? -1));
-  }, [pm]);
+  }, [pm, sites]);
 
   const ga4Coverage = useMemo(() => {
     const mapped = rows.filter((r) => r.ga4Mapped).length;
@@ -79,7 +79,7 @@ export default function PortfolioPage() {
       header: "Domain",
       sortValue: (r) => r.name,
       render: (r) => {
-        const id = DOMAINS.find((x) => x.id === r.domainId)?.id;
+        const id = sites.find((x) => x.id === r.domainId)?.id;
         return (
           <div className="flex items-center gap-2">
             <button
@@ -235,7 +235,7 @@ export default function PortfolioPage() {
       <PageHeader
         title="Portfolio Command Centre"
         description="Cross-domain organic performance, health and coverage — live provider data only."
-        actions={<RefreshButtons />}
+        actions={<div className="flex items-center gap-2"><RefreshButtons /><Link href="/sites/new" className="inline-flex h-9 items-center gap-1.5 rounded-md bg-purple px-3.5 text-sm font-medium text-white hover:bg-purple-deep"><Plus className="h-4 w-4" /> Add website</Link></div>}
         lastSync={lastSync}
         loading={loading}
       />

@@ -1,8 +1,7 @@
 import type { DomainId, Provenance } from "@/lib/types";
 import type { DerivedRecommendation } from "@/lib/live";
-import { DOMAINS, DOMAIN_MAP } from "@/data/domains";
-import { TRACKED_AI_PROMPTS } from "@/data/ai-prompts";
-import { GA4_PROPERTY_MAP } from "@/providers/google/config";
+import { getManagedSite, listManagedSites, paidJobsApproved } from "@/platform/site-store";
+import { detectTrafficDrop, persistBacklinkLedger, persistDailyRankings, persistDetailedCrawl, persistKeywordGaps, seedTrackedKeywords } from "@/platform/observations";
 import { googleConfigured } from "@/providers/google/auth";
 import {
   gscBreakdown,
@@ -17,14 +16,17 @@ import {
   dataForSeoConfigured,
   ensureOnPageCrawl,
   fetchAiPromptResults,
+  fetchBacklinkHistory,
   fetchBacklinks,
   fetchCompetitors,
   fetchDomainOverviewBundle,
+  fetchDailyTrackedRankings,
+  fetchKeywordGap,
   fetchRankedKeywordsBundle,
   fetchReferringDomains,
 } from "@/providers/dataforseo";
 import { BudgetExceededError, DailyLimitError } from "@/providers/dataforseo/errors";
-import { locationFor } from "@/providers/dataforseo/config";
+import { locationForSite } from "@/providers/dataforseo/config";
 import { isoDate } from "@/lib/dates";
 import { readLatestSnapshots, writeSnapshot } from "./store";
 
@@ -103,25 +105,29 @@ async function collect(
  */
 export interface SyncTiers {
   google: boolean;
+  rankings: boolean;
   dfsLight: boolean;
   dfsHeavy: boolean;
 }
 
-export const ALL_TIERS: SyncTiers = { google: true, dfsLight: true, dfsHeavy: true };
+export const ALL_TIERS: SyncTiers = { google: true, rankings: true, dfsLight: true, dfsHeavy: true };
 
 export async function syncDomain(
   domainId: DomainId,
   tiers: SyncTiers = ALL_TIERS,
 ): Promise<DomainSyncReport> {
   const startedAt = new Date().toISOString();
-  const domain = DOMAIN_MAP[domainId];
+  const domain = await getManagedSite(domainId);
+  if (!domain) throw new Error(`Unknown website "${domainId}".`);
   const today = isoDate(new Date());
   const results: DatasetResult[] = [];
   const existing = await readLatestSnapshots(domainId).catch(() => []);
   const existingByDataset = new Map(existing.map((s) => [s.dataset, s]));
 
-  const dfsLightOk = dataForSeoConfigured() && tiers.dfsLight;
-  const dfsHeavyOk = dataForSeoConfigured() && tiers.dfsHeavy;
+  const approved = paidJobsApproved(domain);
+  const dailyRankOk = dataForSeoConfigured() && tiers.rankings && approved;
+  const dfsLightOk = dataForSeoConfigured() && tiers.dfsLight && approved;
+  const dfsHeavyOk = dataForSeoConfigured() && tiers.dfsHeavy && approved;
   const dfsConfigured = dataForSeoConfigured();
   const googleOk = googleConfigured() && tiers.google;
 
@@ -132,7 +138,7 @@ export async function syncDomain(
 
   let dfsLocation = "location-independent dataset";
   try {
-    const location = locationFor(domainId);
+    const location = locationForSite(domain);
     dfsLocation = `DataForSEO location ${location.location_code} / ${location.language_code}`;
   } catch {
     // Backlink datasets remain valid without a SERP market. Location-dependent
@@ -145,10 +151,35 @@ export async function syncDomain(
       collect("keywords", async () => {
         if (!dfsLightOk) return "skip";
         const { keywords, rankSnapshots } = await fetchRankedKeywordsBundle(domainId);
+        const planned = Number(domain.forecast?.assumptions.trackedKeywords ?? 100);
+        await seedTrackedKeywords(domain, keywords, planned);
         const p = dfsProv();
         await write("keywords", keywords, p);
         await write("rank_snapshots", rankSnapshots, p);
         return { payload: keywords, provenance: p };
+      }),
+    () =>
+      collect("daily_rankings", async () => {
+        if (!dailyRankOk) return "skip";
+        const rankings = await fetchDailyTrackedRankings(domainId);
+        if (!rankings.length) return "skip";
+        await persistDailyRankings(domain, rankings);
+        const p = dfsProv();
+        const snapshots = rankings.map((row) => ({
+          keywordId: row.trackedKeywordId,
+          keyword: row.keyword,
+          date: today,
+          position: row.position ?? 101,
+          prevPosition: row.previousPosition ?? row.position ?? 101,
+          device: row.device,
+          location: String(row.locationCode),
+          url: row.url ?? "",
+          volume: 0,
+          serpFeatures: row.serpFeatures,
+          tags: [],
+        }));
+        await write("rank_snapshots", snapshots, p);
+        return { payload: snapshots, provenance: p };
       }),
     () =>
       collect("position_buckets", async () => {
@@ -165,14 +196,22 @@ export async function syncDomain(
         const data = await fetchCompetitors(domainId);
         const p = dfsProv();
         await write("competitors", data, p);
+        const gaps = (await Promise.all(data.slice(0, 3).map((competitor) => fetchKeywordGap(domainId, competitor.host, 500)))).flat();
+        await persistKeywordGaps(domain, gaps);
+        await write("keyword_gaps", gaps, p);
         return { payload: data, provenance: p };
       }),
     () =>
       collect("backlinks", async () => {
         if (!dfsLightOk) return "skip";
-        const data = await fetchBacklinks(domainId);
+        const [data, history] = await Promise.all([
+          fetchBacklinks(domainId),
+          fetchBacklinkHistory(domainId),
+        ]);
+        await persistBacklinkLedger(domain, data, history);
         const p = dfsProv();
         await write("backlinks", data, p);
+        await write("backlink_history", history, p);
         return { payload: data, provenance: p };
       }),
     () =>
@@ -202,13 +241,13 @@ export async function syncDomain(
           return "pending";
         }
         await write("onpage", res.result, p);
+        await persistDetailedCrawl(domain, res.taskId, res.result, res.pages);
         await write("onpage_task", { taskId: null }, p);
         return { payload: res.result, provenance: p };
       }),
     () =>
       collect("ai_prompts", async () => {
         if (!dfsHeavyOk) return "skip";
-        if (!TRACKED_AI_PROMPTS[domainId]) return "skip";
         const data = await fetchAiPromptResults(domainId);
         if (!data) return "skip";
         const p = dfsProv();
@@ -220,56 +259,58 @@ export async function syncDomain(
 
     () =>
       collect("gsc_totals", async () => {
-        if (!googleOk) return "skip";
+        if (!googleOk || !domain.gscSite) return "skip";
         const p = prov("google-search-console", domain.gscSite);
-        await write("gsc_totals", await gscTotals(domainId, 28), p);
+        const totals = await gscTotals(domainId, 28);
+        await detectTrafficDrop(domain, totals, existingByDataset.get("gsc_totals")?.payload as Parameters<typeof detectTrafficDrop>[2]);
+        await write("gsc_totals", totals, p);
         return { payload: null, provenance: p };
       }),
     () =>
       collect("gsc_timeseries", async () => {
-        if (!googleOk) return "skip";
+        if (!googleOk || !domain.gscSite) return "skip";
         const p = prov("google-search-console", domain.gscSite, 90);
         await write("gsc_timeseries", await gscTimeseries(domainId, 90), p);
         return { payload: null, provenance: p };
       }),
     () =>
       collect("gsc_queries", async () => {
-        if (!googleOk) return "skip";
+        if (!googleOk || !domain.gscSite) return "skip";
         const p = prov("google-search-console", domain.gscSite);
         await write("gsc_queries", await gscBreakdown(domainId, "query", 28, 250), p);
         return { payload: null, provenance: p };
       }),
     () =>
       collect("gsc_pages", async () => {
-        if (!googleOk) return "skip";
+        if (!googleOk || !domain.gscSite) return "skip";
         const p = prov("google-search-console", domain.gscSite);
         await write("gsc_pages", await gscBreakdown(domainId, "page", 28, 250), p);
         return { payload: null, provenance: p };
       }),
     () =>
       collect("gsc_movers", async () => {
-        if (!googleOk) return "skip";
+        if (!googleOk || !domain.gscSite) return "skip";
         const p = prov("google-search-console", domain.gscSite);
         await write("gsc_movers", await gscMovers(domainId, 28, 25, "query"), p);
         return { payload: null, provenance: p };
       }),
     () =>
       collect("gsc_page_movers", async () => {
-        if (!googleOk) return "skip";
+        if (!googleOk || !domain.gscSite) return "skip";
         const p = prov("google-search-console", domain.gscSite);
         await write("gsc_page_movers", await gscMovers(domainId, 28, 25, "page"), p);
         return { payload: null, provenance: p };
       }),
     () =>
       collect("striking_distance", async () => {
-        if (!googleOk) return "skip";
+        if (!googleOk || !domain.gscSite) return "skip";
         const p = prov("google-search-console", domain.gscSite);
         await write("striking_distance", await gscStrikingDistance(domainId, 28), p);
         return { payload: null, provenance: p };
       }),
     () =>
       collect("share_of_market", async () => {
-        if (!googleOk) return "skip";
+        if (!googleOk || !domain.gscSite) return "skip";
         const data = await shareOfMarket(domainId, 28);
         if (!data) return "skip";
         const p = prov("google-search-console", domain.gscSite);
@@ -278,22 +319,22 @@ export async function syncDomain(
       }),
     () =>
       collect("ga4_overview", async () => {
-        if (!googleOk || !GA4_PROPERTY_MAP[domainId]) return "skip";
-        const p = prov("google-analytics", `GA4 ${GA4_PROPERTY_MAP[domainId]}`);
+        if (!googleOk || !domain.ga4PropertyId) return "skip";
+        const p = prov("google-analytics", `GA4 ${domain.ga4PropertyId}`);
         await write("ga4_overview", await ga4OrganicOverview(domainId, 28), p);
         return { payload: null, provenance: p };
       }),
     () =>
       collect("ga4_landing_pages", async () => {
-        if (!googleOk || !GA4_PROPERTY_MAP[domainId]) return "skip";
-        const p = prov("google-analytics", `GA4 ${GA4_PROPERTY_MAP[domainId]}`);
+        if (!googleOk || !domain.ga4PropertyId) return "skip";
+        const p = prov("google-analytics", `GA4 ${domain.ga4PropertyId}`);
         await write("ga4_landing_pages", await ga4LandingPages(domainId, 28, 50), p);
         return { payload: null, provenance: p };
       }),
     () =>
       collect("ga4_channels", async () => {
-        if (!googleOk || !GA4_PROPERTY_MAP[domainId]) return "skip";
-        const p = prov("google-analytics", `GA4 ${GA4_PROPERTY_MAP[domainId]}`);
+        if (!googleOk || !domain.ga4PropertyId) return "skip";
+        const p = prov("google-analytics", `GA4 ${domain.ga4PropertyId}`);
         await write("ga4_channels", await ga4Channels(domainId, 28), p);
         return { payload: null, provenance: p };
       }),
@@ -399,7 +440,7 @@ async function deriveRecommendations(domainId: DomainId): Promise<DerivedRecomme
     });
   }
 
-  if (!GA4_PROPERTY_MAP[domainId]) {
+  if (!(await getManagedSite(domainId))?.ga4PropertyId) {
     recs.push({
       id: `${domainId}-rec-${++n}`,
       domainId,
@@ -426,10 +467,16 @@ export interface FullSyncReport {
 /** Sync every domain in the registry with the given cost tiers. */
 export async function syncAll(tiers: SyncTiers = ALL_TIERS): Promise<FullSyncReport> {
   const startedAt = new Date().toISOString();
+  const sites = (await listManagedSites()).filter((site) => site.source === "registry" || site.lifecycleStatus === "active");
   const reports: DomainSyncReport[] = [];
-  for (const d of DOMAINS) {
-    reports.push(await syncDomain(d.id, tiers));
-  }
+  const concurrency = Math.min(Math.max(Number(process.env.SYNC_CONCURRENCY ?? "2"), 1), 10);
+  let cursor = 0;
+  await Promise.all(Array.from({ length: Math.min(concurrency, sites.length) }, async () => {
+    while (cursor < sites.length) {
+      const site = sites[cursor++];
+      if (site) reports.push(await syncDomain(site.id, tiers));
+    }
+  }));
   return { startedAt, completedAt: new Date().toISOString(), domains: reports };
 }
 
@@ -444,6 +491,7 @@ export function scheduledTiers(now: Date): SyncTiers {
   const dfsHeavy = process.env.SYNC_DFS_HEAVY === "1" || isFirstOfMonth;
   return {
     google: process.env.SYNC_GOOGLE !== "0", // free — on by default every day
+    rankings: process.env.SYNC_RANKINGS !== "0",
     dfsLight: process.env.SYNC_DFS_LIGHT === "1" || isMonday || dfsHeavy,
     dfsHeavy,
   };

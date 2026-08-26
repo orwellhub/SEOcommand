@@ -15,6 +15,7 @@ import type {
   SerpFeature,
   TechnicalIssue,
 } from "@/lib/types";
+import type { BacklinkHistoryPoint, DetailedCrawlPage, KeywordGapRow } from "@/platform/types";
 
 /**
  * Best-effort normalisers from DataForSEO result rows to canonical internal
@@ -278,6 +279,71 @@ export function backlinkSummaryCounts(rows: Row[]): {
     referringDomains: num(s?.referring_domains ?? s?.referring_main_domains),
     rank: num(s?.rank),
   };
+}
+
+export function normalizeBacklinkHistory(rows: Row[]): BacklinkHistoryPoint[] {
+  const items: Row[] = rows[0]?.items ?? rows ?? [];
+  return items.map((item) => ({
+    date: str(item?.date).slice(0, 10),
+    backlinks: num(item?.backlinks),
+    referringDomains: num(item?.referring_domains ?? item?.referring_main_domains),
+    newBacklinks: num(item?.new_backlinks),
+    lostBacklinks: num(item?.lost_backlinks),
+    newReferringDomains: num(item?.new_referring_domains),
+    lostReferringDomains: num(item?.lost_referring_domains),
+    rank: numOrNull(item?.rank),
+    raw: item,
+  })).filter((item) => item.date.length === 10);
+}
+
+/* --------------------- Competitor and keyword gaps --------------------- */
+
+export function normalizeKeywordGaps(rows: Row[], competitorHost: string): KeywordGapRow[] {
+  const items: Row[] = rows[0]?.items ?? rows ?? [];
+  return items.map((item) => {
+    const keyword = item?.keyword_data ?? {};
+    const info = keyword?.keyword_info ?? {};
+    const siteSerp = item?.second_domain_serp_element?.serp_item ?? {};
+    const competitorSerp = item?.first_domain_serp_element?.serp_item ?? {};
+    return {
+      competitorHost,
+      keyword: str(keyword?.keyword),
+      sitePosition: numOrNull(siteSerp?.rank_absolute),
+      competitorPosition: numOrNull(competitorSerp?.rank_absolute),
+      volume: numOrNull(info?.search_volume),
+      difficulty: numOrNull(keyword?.keyword_properties?.keyword_difficulty),
+      intent: intentOrNull(keyword),
+      trafficPotential: numOrNull(item?.first_domain_serp_element?.etv),
+    };
+  }).filter((item) => item.keyword.length > 0);
+}
+
+/* -------------------------- OnPage page detail ------------------------- */
+
+export function normalizeOnPagePages(rows: Row[]): DetailedCrawlPage[] {
+  const items: Row[] = rows[0]?.items ?? rows ?? [];
+  return items.map((item) => {
+    const meta = item?.meta ?? {};
+    const pageTiming = item?.page_timing ?? {};
+    const checks = item?.checks && typeof item.checks === "object" ? item.checks : {};
+    return {
+      url: str(item?.url),
+      statusCode: numOrNull(item?.status_code),
+      title: str(meta?.title) || null,
+      description: str(meta?.description) || null,
+      canonical: str(meta?.canonical) || null,
+      wordCount: numOrNull(meta?.content?.plain_text_word_count ?? item?.content?.plain_text_word_count),
+      contentType: str(item?.content_type) || null,
+      depth: numOrNull(item?.level),
+      loadTimeMs: numOrNull(pageTiming?.duration_time ?? pageTiming?.time_to_interactive),
+      checks,
+      links: {
+        internal: num(item?.links?.internal),
+        external: num(item?.links?.external),
+        broken: num(item?.links?.broken),
+      },
+    };
+  }).filter((item) => item.url.length > 0);
 }
 
 /* -------------------------------- OnPage -------------------------------- */

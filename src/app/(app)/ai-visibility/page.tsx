@@ -1,17 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Bot, CheckCircle2, Settings2, Sparkles, Target, XCircle } from "lucide-react";
+import { Bot, CheckCircle2, Sparkles, Target, XCircle } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Card, EmptyState, Skeleton, StatusBadge } from "@/components/ui/primitives";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { ScopeNote } from "@/components/ui/scope-note";
 import { Drawer, DrawerField } from "@/components/ui/drawer";
-import { useDomain, useResolvedDomain } from "@/components/shell/domain-context";
 import { useScopedLive } from "@/lib/use-live";
-import { TRACKED_AI_PROMPTS } from "@/data/ai-prompts";
-import { getDomain } from "@/data/domains";
 import { percent } from "@/lib/format";
 import { formatDate } from "@/lib/dates";
 import type { AiPrompt } from "@/lib/types";
@@ -33,6 +30,7 @@ const COLUMNS: Column<AiPrompt>[] = [
     ),
   },
   { key: "topic", header: "Topic", sortValue: (r) => r.topic, render: (r) => r.topic },
+  { key: "platform", header: "Model", sortValue: (r) => r.platforms[0] ?? "", render: (r) => <StatusBadge label={r.platforms[0] ?? "unknown"} tone="info" /> },
   {
     key: "mentioned",
     header: "Mentioned",
@@ -62,16 +60,8 @@ const COLUMNS: Column<AiPrompt>[] = [
 ];
 
 export default function AiVisibilityPage() {
-  const domain = useResolvedDomain();
-  const { scope } = useDomain();
   const { data: bundle, loading, error, isPortfolio, scopeLabel, scopeHost, scopeId } = useScopedLive();
   const [selected, setSelected] = useState<AiPrompt | null>(null);
-
-  const trackedConfig = TRACKED_AI_PROMPTS[domain.id];
-  const trackedDomains = useMemo(
-    () => Object.keys(TRACKED_AI_PROMPTS).map((id) => getDomain(id)),
-    [],
-  );
 
   const ds = bundle?.datasets.ai_prompts;
   const prompts = useMemo(() => ds?.data ?? [], [ds]);
@@ -124,47 +114,6 @@ export default function AiVisibilityPage() {
     );
   }
 
-  // Domain not configured for AI prompt tracking — no checks run, no data exists.
-  if (!trackedConfig) {
-    return (
-      <div className="animate-in space-y-5">
-        {header}
-        {scopeNote}
-        <Card className="p-5">
-          <div className="flex items-start gap-3">
-            <Settings2 className="mt-0.5 h-5 w-5 shrink-0 text-muted" />
-            <div>
-              <div className="text-sm font-semibold text-ink">
-                AI prompt tracking is not configured for this domain
-              </div>
-              <p className="mt-1 text-xs text-muted">
-                Add prompts in <code className="rounded bg-workspace px-1 py-0.5">src/data/ai-prompts.ts</code>{" "}
-                to start measuring. Only configured domains run paid LLM checks during sync, which
-                keeps AI spend deliberate. No data is shown here because none has been measured.
-              </p>
-              <div className="mt-3">
-                <div className="text-2xs font-medium uppercase tracking-wide text-muted">
-                  Currently tracked domains
-                </div>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {trackedDomains.map((d) => (
-                    <span
-                      key={d.id}
-                      className="inline-flex items-center gap-1 rounded border border-border bg-workspace px-2 py-0.5 text-2xs font-medium text-ink"
-                    >
-                      <Bot className="h-3 w-3 text-muted" />
-                      {d.host}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
   // Tracked, but the first check has not landed yet.
   if (!ds) {
     return (
@@ -172,8 +121,8 @@ export default function AiVisibilityPage() {
         {header}
         {scopeNote}
         <EmptyState
-          title="No AI checks recorded yet — tracked prompts run on the monthly AI sync"
-          description={`${trackedConfig.length} prompts are configured for ${scopeHost}. Measured mention and citation results will appear here after the next sync completes.`}
+          title="No AI checks recorded yet"
+          description={`Prompts configured during onboarding run after the site's provider forecast is approved. ChatGPT, Claude, Gemini and Perplexity results will appear here after the next AI sync.`}
           icon={<Sparkles className="h-5 w-5" />}
         />
       </div>
@@ -210,9 +159,9 @@ export default function AiVisibilityPage() {
       <Card className="flex items-start gap-3 p-4">
         <Bot className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--accent)]" />
         <p className="text-xs text-muted">
-          Checks currently run against <span className="font-medium text-ink">ChatGPT (gpt-4o)</span>{" "}
-          via DataForSEO. Claude, Gemini and Perplexity endpoints exist and can be enabled later —
-          no results are shown for platforms that are not yet being measured.
+          Checks run independently against <span className="font-medium text-ink">ChatGPT, Claude,
+          Gemini and Perplexity</span> via DataForSEO. Each row names its measured platform; missing
+          results are never inferred from another model.
         </p>
       </Card>
 
@@ -280,7 +229,7 @@ export default function AiVisibilityPage() {
           <div>
             <DrawerField label="Prompt">{selected.prompt}</DrawerField>
 
-            <DrawerField label="Measured response (ChatGPT via DataForSEO)">
+            <DrawerField label={`Measured response (${selected.platforms[0] ?? "LLM"} via DataForSEO)`}>
               <div className="max-h-72 overflow-y-auto rounded-md border border-border bg-workspace/60 p-3">
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted">
                   {selected.sampleResponse}

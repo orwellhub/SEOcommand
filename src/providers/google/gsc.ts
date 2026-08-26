@@ -7,7 +7,8 @@ import type {
   StrikingDistanceRow,
 } from "@/lib/types";
 import { getGoogleAccessToken } from "./auth";
-import { GSC_API, GSC_DATA_LAG_DAYS, GSC_SCOPE, GSC_SITE_MAP } from "./config";
+import { GSC_API, GSC_DATA_LAG_DAYS, GSC_SCOPE } from "./config";
+import { getManagedSite } from "@/platform/site-store";
 import benchmarksRaw from "@/data/benchmarks.json";
 
 /**
@@ -68,9 +69,15 @@ function toRows(payload: any): GscRow[] {
   }));
 }
 
+async function siteFor(domainId: DomainId): Promise<string> {
+  const site = await getManagedSite(domainId);
+  if (!site?.gscSite) throw new Error(`No Search Console property configured for "${domainId}".`);
+  return site.gscSite;
+}
+
 export async function gscTotals(domainId: DomainId, days = 28): Promise<GscTotals> {
   const { start, end } = defaultRange(days);
-  const payload = await gscQuery(GSC_SITE_MAP[domainId], {
+  const payload = await gscQuery(await siteFor(domainId), {
     startDate: start,
     endDate: end,
     dimensions: [],
@@ -93,7 +100,7 @@ export async function gscBreakdown(
   rowLimit = 100,
 ): Promise<GscRow[]> {
   const { start, end } = defaultRange(days);
-  const payload = await gscQuery(GSC_SITE_MAP[domainId], {
+  const payload = await gscQuery(await siteFor(domainId), {
     startDate: start,
     endDate: end,
     dimensions: [dimension],
@@ -110,7 +117,7 @@ export async function gscTimeseries(
   days = 90,
 ): Promise<{ date: string; clicks: number; impressions: number; ctr: number; position: number }[]> {
   const { start, end } = defaultRange(days);
-  const payload = await gscQuery(GSC_SITE_MAP[domainId], {
+  const payload = await gscQuery(await siteFor(domainId), {
     startDate: start,
     endDate: end,
     dimensions: ["date"],
@@ -157,7 +164,7 @@ export async function gscMovers(
   rowLimit = 25,
   dimension: "query" | "page" = "query",
 ): Promise<{ gains: GscMover[]; losses: GscMover[] }> {
-  const site = GSC_SITE_MAP[domainId];
+  const site = await siteFor(domainId);
   const curEnd = new Date();
   curEnd.setUTCDate(curEnd.getUTCDate() - GSC_DATA_LAG_DAYS);
   const curStart = new Date(curEnd);
@@ -222,7 +229,7 @@ function findBenchmark(site: string): BenchmarkEntry | null {
 }
 
 export async function shareOfMarket(domainId: DomainId, days = 28): Promise<ShareOfMarket | null> {
-  const site = GSC_SITE_MAP[domainId];
+  const site = await siteFor(domainId);
   const bench = findBenchmark(site);
   if (!bench) return null;
   const totals = await gscTotals(domainId, days);

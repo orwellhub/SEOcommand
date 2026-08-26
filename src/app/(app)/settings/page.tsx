@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Globe,
   PlugZap,
@@ -11,6 +12,7 @@ import {
   Bot,
   RefreshCw,
   ShieldCheck,
+  Plus,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import {
@@ -28,6 +30,7 @@ import { useLivePortfolio } from "@/lib/use-live";
 import { currency } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import type { Domain, DomainId } from "@/lib/types";
+import { useDomain } from "@/components/shell/domain-context";
 
 /* ---------------------------------------------------------------------- */
 /* API response shapes (from /api/health/* and /api/usage)                */
@@ -189,6 +192,7 @@ export default function SettingsPage() {
 /* ---------------------------------------------------------------------- */
 
 function DomainsSection() {
+  const { sites } = useDomain();
   const columns = useMemo<Column<Domain>[]>(
     () => [
       {
@@ -237,15 +241,18 @@ function DomainsSection() {
 
   return (
     <Card className="p-4">
-      <div className="mb-3">
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+        <div>
         <h3 className="text-sm font-semibold text-ink">Domains & properties</h3>
         <p className="text-2xs text-muted">
-          {DOMAINS.length} domains in the portfolio. The registry (src/data/domains.ts) is the
-          source of truth — every module, provider mapping and sync job derives from it.
+          {sites.length} websites in the runtime portfolio. New websites are stored in Postgres;
+          the original source registry remains as a compatibility fallback.
         </p>
+        </div>
+        <Link href="/sites/new" className="inline-flex h-8 items-center gap-1.5 rounded-md bg-purple px-3 text-xs font-medium text-white hover:bg-purple-deep"><Plus className="h-3.5 w-3.5" /> Add website</Link>
       </div>
       <DataTable
-        rows={DOMAINS}
+        rows={sites}
         columns={columns}
         searchKeys={(d) => `${d.name} ${d.host} ${d.primaryMarket}`}
         exportName="domains"

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, Users, ListOrdered, Target } from "lucide-react";
+import { Search, Users, ListOrdered, Target, GitCompareArrows } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { KpiCard } from "@/components/ui/kpi-card";
 import {
@@ -24,8 +24,8 @@ import {
   position as fmtPosition,
 } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import { useDomain, useResolvedDomain } from "@/components/shell/domain-context";
 import { useScopedLive } from "@/lib/use-live";
+import type { KeywordGapRow } from "@/platform/types";
 import type {
   Keyword,
   Competitor,
@@ -37,7 +37,7 @@ import type {
 
 /* ------------------------------- helpers -------------------------------- */
 
-type SubTab = "ranked" | "queries" | "competitors" | "striking";
+type SubTab = "ranked" | "queries" | "competitors" | "gaps" | "striking";
 
 const INTENT_TONE: Record<SearchIntent, "success" | "info" | "warning" | "neutral"> = {
   transactional: "success",
@@ -99,8 +99,6 @@ function SerpChips({ features }: { features: SerpFeature[] }) {
 /* -------------------------------- page ---------------------------------- */
 
 export default function ResearchPage() {
-  const domain = useResolvedDomain();
-  const { scope } = useDomain();
   const { data: bundle, loading, error, isPortfolio, scopeLabel, scopeHost, scopeId } = useScopedLive();
 
   const [tab, setTab] = useState<SubTab>("ranked");
@@ -115,6 +113,7 @@ export default function ResearchPage() {
   const keywordsDs = datasets?.keywords;
   const queriesDs = datasets?.gsc_queries;
   const competitorsDs = datasets?.competitors;
+  const gapsDs = datasets?.keyword_gaps;
   const strikingDs = datasets?.striking_distance;
 
   const keywords = keywordsDs?.data;
@@ -312,6 +311,16 @@ export default function ResearchPage() {
     [],
   );
 
+  const gapCols = useMemo<Column<KeywordGapRow>[]>(() => [
+    { key: "keyword", header: "Keyword gap", sortValue: (row) => row.keyword, render: (row) => <span className="font-medium text-ink">{row.keyword}</span> },
+    { key: "competitor", header: "Competitor", sortValue: (row) => row.competitorHost, render: (row) => <span className="text-muted">{row.competitorHost}</span> },
+    { key: "competitorPosition", header: "Rival pos.", align: "right", sortValue: (row) => row.competitorPosition ?? 101, render: (row) => row.competitorPosition ?? "—" },
+    { key: "sitePosition", header: "Your pos.", align: "right", sortValue: (row) => row.sitePosition ?? 101, render: (row) => row.sitePosition ?? "Not ranking" },
+    { key: "volume", header: "Volume", align: "right", sortValue: (row) => row.volume ?? 0, render: (row) => row.volume == null ? "—" : fullNumber(row.volume) },
+    { key: "difficulty", header: "Difficulty", align: "right", sortValue: (row) => row.difficulty ?? 0, render: (row) => row.difficulty == null ? "—" : <DifficultyPill value={row.difficulty} /> },
+    { key: "intent", header: "Intent", sortValue: (row) => row.intent ?? "", render: (row) => row.intent ? <StatusBadge label={row.intent} tone="neutral" /> : "—" },
+  ], []);
+
   const strikingCols = useMemo<Column<StrikingDistanceRow>[]>(
     () => [
       {
@@ -349,6 +358,7 @@ export default function ResearchPage() {
     { key: "ranked", label: "Ranked keywords", icon: <Search className="h-3.5 w-3.5" /> },
     { key: "queries", label: "Search queries (GSC)", icon: <ListOrdered className="h-3.5 w-3.5" /> },
     { key: "competitors", label: "Organic competitors", icon: <Users className="h-3.5 w-3.5" /> },
+    { key: "gaps", label: "Keyword gaps", icon: <GitCompareArrows className="h-3.5 w-3.5" /> },
     { key: "striking", label: "Striking distance", icon: <Target className="h-3.5 w-3.5" /> },
   ];
 
@@ -575,6 +585,19 @@ export default function ResearchPage() {
                   exportName={`${scopeId}-competitors`}
                   pageSize={12}
                 />
+              </Card>
+            ))}
+
+          {tab === "gaps" &&
+            (!gapsDs ? (
+              <EmptyState title="Keyword gaps not yet synced" description="The gap scan starts after competitor discovery in the first approved scan." icon={<GitCompareArrows className="h-5 w-5" />} />
+            ) : (
+              <Card className="p-4">
+                <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+                  <div><h3 className="text-sm font-semibold text-ink">Competitor keyword gaps</h3><p className="mt-0.5 text-2xs text-muted">High-demand terms where a principal competitor ranks and {scopeLabel} does not.</p></div>
+                  <SourceBadge source={gapsDs.provenance.source} mode={gapsDs.provenance.mode} freshness={gapsDs.provenance.freshness} />
+                </div>
+                <DataTable rows={gapsDs.data} columns={gapCols} searchKeys={(row) => `${row.keyword} ${row.competitorHost} ${row.intent ?? ""}`} searchPlaceholder="Search keyword gaps…" exportName={`${scopeId}-keyword-gaps`} pageSize={20} />
               </Card>
             ))}
 

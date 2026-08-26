@@ -6,6 +6,7 @@ import {
 } from "./config";
 import { classifyStatus, DailyLimitError, DataForSeoError } from "./errors";
 import type { GuardResult, SpendGuard } from "./cost";
+import { assertSiteSpendAllowed } from "@/platform/spend-approval";
 
 /** The DataForSEO top-level response envelope (fields we rely on). */
 interface DfsEnvelope<T> {
@@ -115,6 +116,7 @@ export class DataForSeoClient {
     opts: { domainSlug?: string | null; critical?: boolean } = {},
   ): Promise<{ result: T[]; guard: GuardResult }> {
     const estimate = COST_ESTIMATE_USD[endpointKey] ?? 0.05;
+    await assertSiteSpendAllowed(opts.domainSlug, endpointKey, estimate);
     const { result, guard } = await this.guard.run<T[]>(
       { endpoint: endpointKey, estimateUsd: estimate, domainSlug: opts.domainSlug, critical: opts.critical },
       async () => {
@@ -139,6 +141,7 @@ export class DataForSeoClient {
     opts: { domainSlug?: string | null; critical?: boolean } = {},
   ): Promise<{ taskId: string | null; guard: GuardResult }> {
     const estimate = COST_ESTIMATE_USD[endpointKey] ?? 0.05;
+    await assertSiteSpendAllowed(opts.domainSlug, endpointKey, estimate);
     const { result, guard } = await this.guard.run<string | null>(
       { endpoint: endpointKey, estimateUsd: estimate, domainSlug: opts.domainSlug, critical: opts.critical },
       async () => {
@@ -205,6 +208,21 @@ export class DataForSeoClient {
     if (cls === "daily_limit") throw new DailyLimitError(path);
     if (isTaskNotReady(task.status_code)) return null; // still crawling — keep polling
     throw new DataForSeoError(task.status_message || "OnPage summary error", task.status_code, path);
+  }
+
+  /** Page-level crawl results. Result retrieval is free after the paid task. */
+  async fetchOnPagePages(
+    taskId: string,
+    limit = 1000,
+    offset = 0,
+  ): Promise<Record<string, unknown>[]> {
+    const { result } = await this.post<Record<string, unknown>>(
+      "onPagePages",
+      ENDPOINTS.onPagePages,
+      [{ id: taskId, limit: Math.min(Math.max(limit, 1), 1000), offset }],
+      { critical: true },
+    );
+    return result;
   }
 
   /** Post + poll convenience used by one-shot flows. */
