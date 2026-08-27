@@ -7,6 +7,8 @@ const SITE_CONTEXT_ROUTES = [
   "/domain",
   "/rankings",
   "/keyword-strategy",
+  "/serp-intelligence",
+  "/market-intelligence",
   "/competitors",
   "/site-audit",
   "/technical-crawler",
@@ -25,12 +27,17 @@ function clean(value: string | null | undefined): string | null {
   return trimmed && trimmed !== "new" ? trimmed : null;
 }
 
-export function siteIdFromLocation(pathname: string, siteQuery?: string | null): string | null {
+export function siteIdFromLocation(
+  pathname: string,
+  siteQuery?: string | null,
+): string | null {
   const match = pathname.match(/^\/sites\/([^/]+)/);
   return clean(match?.[1] ? decodeURIComponent(match[1]) : siteQuery);
 }
 
 export function requiresSiteContext(pathname: string): boolean {
   if (/^\/sites\/(?!new(?:\/|$))[^/]+/.test(pathname)) return true;
-  return SITE_CONTEXT_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
+  return SITE_CONTEXT_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
+  );
 }

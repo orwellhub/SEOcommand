@@ -114,8 +114,8 @@ export function buildShareOfVoice(rows: RankRow[]) {
     winners: leaders.filter((x) => x.change > 0).slice(0, 5),
     losers: leaders
       .filter((x) => x.change < 0)
-      .slice(-5)
-      .reverse(),
+      .sort((a, b) => a.change - b.change)
+      .slice(0, 5),
   };
 }
 
@@ -180,11 +180,105 @@ export function buildLinkResearch(prospects: Link[], ledger: Link[]) {
     brokenOpportunities: ledger.filter((l) => l.status === "lost"),
     newLinks: ledger.filter((l) => l.status === "active").slice(0, 50),
     crm: {
-      discovered: prospects.filter((p) => p.status === "new").length,
+      discovered: prospects.filter((p) => p.status === "discovered").length,
       drafted: prospects.filter((p) => p.status === "drafted").length,
       contacted: prospects.filter((p) => p.status === "contacted").length,
     },
   };
+}
+
+type Intelligence = {
+  shareOfVoice: ReturnType<typeof buildShareOfVoice>;
+  content: ReturnType<typeof buildContentExplorer>;
+  links: ReturnType<typeof buildLinkResearch>;
+  coverage: ReturnType<typeof buildCoverageMatrix>;
+  ai: {
+    opportunities?: Array<Record<string, unknown>>;
+    sources?: Array<Record<string, unknown>>;
+  };
+};
+
+/** A single explainable queue across every research lens. The queue contains
+ * references to stored evidence only; creating work remains a separate,
+ * permissioned action in the UI. */
+export function buildOpportunityQueue(input: Intelligence) {
+  const rows: Array<Record<string, unknown> & { score: number }> = [];
+  for (const cell of input.coverage.cells.filter(
+    (item) => item.state !== "strong",
+  )) {
+    rows.push({
+      id: `coverage:${cell.service}:${cell.market}`,
+      lens: "coverage",
+      kind: cell.state === "missing" ? "market_gap" : "ranking_gap",
+      title: `${cell.state === "missing" ? "Create" : "Improve"} ${cell.service} coverage in market ${cell.market}`,
+      detail: `${cell.state} coverage · demand ${cell.demand}${cell.bestPosition ? ` · best position ${cell.bestPosition}` : ""}`,
+      score: Math.min(
+        95,
+        (cell.state === "missing" ? 70 : 55) +
+          Math.round(Math.min(cell.demand, 5000) / 250),
+      ),
+      confidence: cell.demand > 0 ? "high" : "medium",
+      executionType: cell.targetUrl ? "refresh_brief" : "content_brief",
+      evidence: cell,
+    });
+  }
+  for (const prospect of input.links.intersect.slice(0, 50)) {
+    rows.push({
+      id: `link:${prospect.id}`,
+      lens: "links",
+      kind: "authority_gap",
+      title: `Pursue ${prospect.sourceDomain}`,
+      detail: prospect.reason ?? `Authority ${prospect.authority ?? "unknown"}`,
+      score: prospect.relevance ?? 60,
+      confidence: prospect.competitorHosts?.length ? "high" : "medium",
+      executionType: "link_prospect_list",
+      evidence: prospect,
+    });
+  }
+  for (const competitor of input.content) {
+    for (const gap of competitor.contentGaps.slice(0, 20)) {
+      const keyword = String(gap.keyword ?? "Competitor keyword opportunity");
+      rows.push({
+        id: `content:${competitor.host}:${keyword}`,
+        lens: "content",
+        kind: "content_gap",
+        title: `Close the gap for “${keyword}”`,
+        detail: `${competitor.host} ranks in the top 10`,
+        score: 75,
+        confidence: "medium",
+        executionType: "content_brief",
+        evidence: { host: competitor.host, ...gap },
+      });
+    }
+  }
+  for (const opportunity of input.ai.opportunities ?? []) {
+    const prompt = String(opportunity.prompt ?? "AI prompt opportunity");
+    rows.push({
+      id: `ai:${String(opportunity.id ?? prompt)}`,
+      lens: "ai",
+      kind: "answer_gap",
+      title: `Build an answer for “${prompt}”`,
+      detail: String(opportunity.topic ?? "AI visibility opportunity"),
+      score: Number(opportunity.priorityScore ?? 70),
+      confidence: "medium",
+      executionType: "content_brief",
+      evidence: opportunity,
+    });
+  }
+  for (const newcomer of input.shareOfVoice.newcomers) {
+    rows.push({
+      id: `sov:${newcomer.host}`,
+      lens: "sov",
+      kind: "newcomer",
+      title: `Investigate newcomer ${newcomer.host}`,
+      detail: `${newcomer.share}% share of voice · ${newcomer.change > 0 ? "+" : ""}${newcomer.change} change`,
+      score: Math.min(90, 55 + Math.round(newcomer.share)),
+      confidence: "high",
+      executionType: "competitor_review",
+      evidence: newcomer,
+    });
+  }
+  return rows.sort((a, b) => b.score - a.score).slice(0, 200);
 }
 
 export function buildCoverageMatrix(
@@ -279,6 +373,7 @@ function visibility(position: number | null) {
   return position == null ? 0 : Math.max(0, 101 - position);
 }
 function num(v: unknown) {
+  if (v == null || v === "") return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }

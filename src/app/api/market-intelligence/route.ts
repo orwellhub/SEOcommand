@@ -8,6 +8,7 @@ import {
   buildCoverageMatrix,
   buildForecasts,
   buildLinkResearch,
+  buildOpportunityQueue,
   buildShareOfVoice,
 } from "@/platform/market-intelligence";
 import { getManagedSite } from "@/platform/site-store";
@@ -16,7 +17,14 @@ import { hasDatabase } from "@/sync/store";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
-  const siteSlug = new URL(request.url).searchParams.get("site")?.trim() ?? "";
+  const searchParams = new URL(request.url).searchParams;
+  const siteSlug = searchParams.get("site")?.trim() ?? "";
+  const rangeDays = [7, 28, 90, 365].includes(Number(searchParams.get("days")))
+    ? Number(searchParams.get("days"))
+    : 90;
+  const device = searchParams.get("device")?.trim() ?? "all";
+  const market = searchParams.get("market")?.trim() ?? "all";
+  const segment = searchParams.get("segment")?.trim().toLowerCase() ?? "all";
   if (!siteSlug)
     return NextResponse.json(
       { error: "Choose a website first." },
@@ -103,18 +111,121 @@ export async function GET(request: Request) {
         90,
       ),
     ]);
+  const cutoff = new Date();
+  cutoff.setUTCDate(cutoff.getUTCDate() - rangeDays);
+  const cutoffDate = cutoff.toISOString().slice(0, 10);
+  const filteredRanks = rankRows.filter(
+    (row) =>
+      row.capturedOn >= cutoffDate &&
+      (device === "all" || row.device === device) &&
+      (market === "all" || String(row.locationCode) === market) &&
+      (segment === "all" ||
+        row.intent?.toLowerCase() === segment ||
+        row.tags.some((tag) => tag.toLowerCase() === segment)),
+  );
+  const filteredRuns = runs.filter((run) => new Date(run.capturedAt) >= cutoff);
+  const filteredGaps = gaps.filter(
+    (gap) =>
+      gap.capturedOn >= cutoffDate &&
+      (segment === "all" || gap.intent?.toLowerCase() === segment),
+  );
+  const shareOfVoice = buildShareOfVoice(filteredRanks);
+  const content = buildContentExplorer(filteredRuns);
+  const linkResearch = buildLinkResearch(prospects, links);
+  const coverage = buildCoverageMatrix(filteredRanks, filteredGaps);
+  const intelligence = {
+    shareOfVoice,
+    content,
+    links: linkResearch,
+    coverage,
+    ai,
+  };
+  const dataset = (
+    observedAt: Date | string | null | undefined,
+    records: number,
+    minimumHistory = 1,
+  ) => ({
+    observedAt: observedAt ? new Date(observedAt).toISOString() : null,
+    records,
+    state:
+      records === 0 ? "empty" : records < minimumHistory ? "partial" : "ready",
+    confidence:
+      records === 0 ? "none" : records < minimumHistory ? "low" : "high",
+  });
+  const latest = <T>(
+    items: T[],
+    read: (item: T) => Date | string | null | undefined,
+  ) =>
+    items.reduce<Date | string | null>(
+      (best, item) =>
+        !best || +new Date(read(item) ?? 0) > +new Date(best)
+          ? (read(item) ?? best)
+          : best,
+      null,
+    );
+  const datasets = {
+    rankings: dataset(
+      latest(filteredRanks, (row) => row.capturedOn),
+      filteredRanks.length,
+      2,
+    ),
+    competitors: dataset(
+      latest(filteredRuns, (run) => run.capturedAt),
+      filteredRuns.length,
+      2,
+    ),
+    links: dataset(
+      latest(prospects, (row) => row.updatedAt),
+      prospects.length,
+    ),
+    coverage: dataset(
+      latest(filteredGaps, (row) => row.capturedOn),
+      filteredGaps.length,
+    ),
+    ai: dataset(
+      latest(ai.observations, (row) => row.capturedAt),
+      ai.observations.length,
+    ),
+    outcomes: dataset(
+      latest(work, (row) => row.updatedAt),
+      work.length,
+      3,
+    ),
+  };
+  const observedDates = Object.values(datasets)
+    .map((item) => item.observedAt)
+    .filter((value): value is string => Boolean(value));
   return NextResponse.json({
-    shareOfVoice: buildShareOfVoice(rankRows),
-    content: buildContentExplorer(runs),
-    links: buildLinkResearch(prospects, links),
-    coverage: buildCoverageMatrix(rankRows, gaps),
+    shareOfVoice,
+    content,
+    links: linkResearch,
+    coverage,
     ai,
     forecasts: buildForecasts(work),
+    opportunities: buildOpportunityQueue(intelligence),
     dashboards,
+    datasets,
+    filters: {
+      applied: { days: rangeDays, device, market, segment },
+      options: {
+        devices: [...new Set(rankRows.map((row) => row.device))].sort(),
+        markets: [
+          ...new Set(rankRows.map((row) => String(row.locationCode))),
+        ].sort(),
+        segments: [
+          ...new Set(
+            rankRows
+              .flatMap((row) => [row.intent, ...row.tags])
+              .filter((value): value is string => Boolean(value)),
+          ),
+        ].sort(),
+      },
+    },
     provenance: {
       source: "Stored DataForSEO, GSC, GA4 and AI observations",
       site: siteSlug,
-      collectedAt: new Date().toISOString(),
+      observedAt: observedDates.sort().at(-1) ?? null,
+      generatedAt: new Date().toISOString(),
       paidRefresh: false,
     },
   });
@@ -302,11 +413,76 @@ function qa(site: string) {
         upside: 22.5,
       },
     ],
+    opportunities: [
+      {
+        id: "coverage:commercial:2826",
+        lens: "coverage",
+        kind: "market_gap",
+        title: "Create commercial coverage in market 2826",
+        detail: "missing coverage · demand 3100",
+        score: 82,
+        confidence: "high",
+        executionType: "content_brief",
+        evidence: {
+          service: "commercial",
+          market: "2826",
+          state: "missing",
+          demand: 3100,
+        },
+      },
+    ],
     dashboards: [],
+    datasets: {
+      rankings: {
+        observedAt: "2026-08-27T00:00:00.000Z",
+        records: 68,
+        state: "ready",
+        confidence: "high",
+      },
+      competitors: {
+        observedAt: "2026-08-27T00:00:00.000Z",
+        records: 2,
+        state: "ready",
+        confidence: "high",
+      },
+      links: {
+        observedAt: "2026-08-27T00:00:00.000Z",
+        records: 2,
+        state: "ready",
+        confidence: "high",
+      },
+      coverage: {
+        observedAt: "2026-08-27T00:00:00.000Z",
+        records: 4,
+        state: "ready",
+        confidence: "high",
+      },
+      ai: {
+        observedAt: "2026-08-27T00:00:00.000Z",
+        records: 120,
+        state: "ready",
+        confidence: "high",
+      },
+      outcomes: {
+        observedAt: "2026-08-27T00:00:00.000Z",
+        records: 5,
+        state: "ready",
+        confidence: "high",
+      },
+    },
+    filters: {
+      applied: { days: 90, device: "all", market: "all", segment: "all" },
+      options: {
+        devices: ["desktop", "mobile"],
+        markets: ["2784", "2826"],
+        segments: ["commercial", "informational"],
+      },
+    },
     provenance: {
       source: "Synthetic stored observations",
       site,
-      collectedAt: new Date().toISOString(),
+      observedAt: "2026-08-27T00:00:00.000Z",
+      generatedAt: new Date().toISOString(),
       paidRefresh: false,
     },
     synthetic: true,

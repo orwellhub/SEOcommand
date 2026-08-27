@@ -7,12 +7,23 @@ import { POST as refreshKeywordStrategy } from "./keyword-strategy/route";
 import { POST as discoverLinks } from "./link-building/route";
 import { GET as getLocalSeo } from "./local-seo/route";
 import { GET as getMonitoring } from "./monitoring/route";
-import { GET as getNotifications, PATCH as patchNotification } from "./notifications/route";
+import { GET as getMarketIntelligence } from "./market-intelligence/route";
+import { POST as saveCustomDashboard } from "./custom-dashboards/route";
+import {
+  GET as getNotifications,
+  PATCH as patchNotification,
+} from "./notifications/route";
 import { POST as createGroup } from "./portfolio-groups/route";
 import { POST as approveSite } from "./sites/[siteId]/approval/route";
-import { GET as getSiteSettings, PATCH as patchSiteSettings } from "./sites/[siteId]/settings/route";
+import {
+  GET as getSiteSettings,
+  PATCH as patchSiteSettings,
+} from "./sites/[siteId]/settings/route";
 import { POST as queueBrowserCrawl } from "./technical/browser-crawl/route";
-import { GET as getWorkflowTasks, POST as createWorkflowTask } from "./workflow/tasks/route";
+import {
+  GET as getWorkflowTasks,
+  POST as createWorkflowTask,
+} from "./workflow/tasks/route";
 import { QA_GROUPS } from "@/data/qa-fixtures";
 import { resolveGroupSiteSlugs } from "@/platform/site-store";
 import { createSessionToken, SESSION_COOKIE, type AppRole } from "@/lib/auth";
@@ -26,7 +37,18 @@ async function request(
   groupIds: string[] = [],
   init: RequestInit = {},
 ) {
-  const token = await createSessionToken({ email: `${role}@orwell.test`, name: role, role, groupIds, siteIds: [], allAccess: false, grants: [] }, process.env.AUTH_SECRET!);
+  const token = await createSessionToken(
+    {
+      email: `${role}@orwell.test`,
+      name: role,
+      role,
+      groupIds,
+      siteIds: [],
+      allAccess: false,
+      grants: [],
+    },
+    process.env.AUTH_SECRET!,
+  );
   const headers = new Headers(init.headers);
   headers.set("content-type", "application/json");
   headers.set("cookie", `${SESSION_COOKIE}=${token}`);
@@ -48,82 +70,260 @@ describe("API access contract", () => {
     const financeSites = new Set(await resolveGroupSiteSlugs(FINANCE.id));
     const headers = [FINANCE.id];
 
-    const actionResponse = await getActionCentre(await request("/api/action-centre", "manager", headers));
-    const action = await json(actionResponse) as { items: Array<{ siteSlug: string }> };
+    const actionResponse = await getActionCentre(
+      await request("/api/action-centre", "manager", headers),
+    );
+    const action = (await json(actionResponse)) as {
+      items: Array<{ siteSlug: string }>;
+    };
     expect(action.items.length).toBeGreaterThan(0);
-    expect(action.items.every((item) => financeSites.has(item.siteSlug))).toBe(true);
+    expect(action.items.every((item) => financeSites.has(item.siteSlug))).toBe(
+      true,
+    );
 
-    const notificationResponse = await getNotifications(await request("/api/notifications", "manager", headers));
-    const notifications = await json(notificationResponse) as { items: Array<{ siteSlug: string }> };
-    expect(notifications.items.every((item) => financeSites.has(item.siteSlug))).toBe(true);
+    const notificationResponse = await getNotifications(
+      await request("/api/notifications", "manager", headers),
+    );
+    const notifications = (await json(notificationResponse)) as {
+      items: Array<{ siteSlug: string }>;
+    };
+    expect(
+      notifications.items.every((item) => financeSites.has(item.siteSlug)),
+    ).toBe(true);
 
     const [aiResponse, monitoringResponse, localResponse] = await Promise.all([
-      getAiVisibility(await request("/api/ai-visibility?scope=portfolio", "manager", headers)),
-      getMonitoring(await request("/api/monitoring?scope=portfolio", "manager", headers)),
-      getLocalSeo(await request("/api/local-seo?scope=portfolio", "manager", headers)),
+      getAiVisibility(
+        await request("/api/ai-visibility?scope=portfolio", "manager", headers),
+      ),
+      getMonitoring(
+        await request("/api/monitoring?scope=portfolio", "manager", headers),
+      ),
+      getLocalSeo(
+        await request("/api/local-seo?scope=portfolio", "manager", headers),
+      ),
     ]);
-    const ai = await json(aiResponse) as { scope: { siteSlugs: string[] } };
-    const monitoring = await json(monitoringResponse) as { latest: Array<{ siteSlug: string }> };
-    const local = await json(localResponse) as { locations: Array<{ siteSlug: string }> };
-    expect(ai.scope.siteSlugs.every((siteSlug) => financeSites.has(siteSlug))).toBe(true);
-    expect(monitoring.latest.every((item) => financeSites.has(item.siteSlug))).toBe(true);
-    expect(local.locations.every((item) => financeSites.has(item.siteSlug))).toBe(true);
+    const ai = (await json(aiResponse)) as { scope: { siteSlugs: string[] } };
+    const monitoring = (await json(monitoringResponse)) as {
+      latest: Array<{ siteSlug: string }>;
+    };
+    const local = (await json(localResponse)) as {
+      locations: Array<{ siteSlug: string }>;
+    };
+    expect(
+      ai.scope.siteSlugs.every((siteSlug) => financeSites.has(siteSlug)),
+    ).toBe(true);
+    expect(
+      monitoring.latest.every((item) => financeSites.has(item.siteSlug)),
+    ).toBe(true);
+    expect(
+      local.locations.every((item) => financeSites.has(item.siteSlug)),
+    ).toBe(true);
   });
 
   it("lets an Owner read and approve an assigned site but not edit operational settings", async () => {
     const params = { params: Promise.resolve({ siteId: "mortgagecompare" }) };
-    const getResponse = await getSiteSettings(await request("/api/sites/mortgagecompare/settings", "manager", [FINANCE.id]), params);
+    const getResponse = await getSiteSettings(
+      await request("/api/sites/mortgagecompare/settings", "manager", [
+        FINANCE.id,
+      ]),
+      params,
+    );
     expect(getResponse.status).toBe(200);
 
-    const workflowResponse = await getWorkflowTasks(await request("/api/workflow/tasks?domain=mortgagecompare", "manager", [FINANCE.id]));
+    const workflowResponse = await getWorkflowTasks(
+      await request("/api/workflow/tasks?domain=mortgagecompare", "manager", [
+        FINANCE.id,
+      ]),
+    );
     expect(workflowResponse.status).toBe(200);
     expect(await json(workflowResponse)).toMatchObject({ synthetic: true });
 
-    const approvalResponse = await approveSite(await request("/api/sites/mortgagecompare/approval", "manager", [FINANCE.id], {
-      method: "POST",
-      body: JSON.stringify({ action: "approve", approvedMonthlyUsd: 10 }),
-    }), params);
+    const approvalResponse = await approveSite(
+      await request(
+        "/api/sites/mortgagecompare/approval",
+        "manager",
+        [FINANCE.id],
+        {
+          method: "POST",
+          body: JSON.stringify({ action: "approve", approvedMonthlyUsd: 10 }),
+        },
+      ),
+      params,
+    );
     expect(approvalResponse.status).toBe(200);
 
-    const editResponse = await patchSiteSettings(await request("/api/sites/mortgagecompare/settings", "manager", [FINANCE.id], {
-      method: "PATCH",
-      body: JSON.stringify({
-        section: "general",
-        name: "MortgageCompare",
-        host: "mortgagecompare.ae",
-        industry: "Mortgage comparison",
-        primaryMarket: "United Arab Emirates",
-        locationCode: 2784,
-        languageCode: "en",
-        devices: ["desktop"],
-        lifecycleStatus: "active",
-        accent: "#335cff",
-      }),
-    }), params);
+    const editResponse = await patchSiteSettings(
+      await request(
+        "/api/sites/mortgagecompare/settings",
+        "manager",
+        [FINANCE.id],
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            section: "general",
+            name: "MortgageCompare",
+            host: "mortgagecompare.ae",
+            industry: "Mortgage comparison",
+            primaryMarket: "United Arab Emirates",
+            locationCode: 2784,
+            languageCode: "en",
+            devices: ["desktop"],
+            lifecycleStatus: "active",
+            accent: "#335cff",
+          }),
+        },
+      ),
+      params,
+    );
     expect(editResponse.status).toBe(403);
   });
 
   it("blocks out-of-scope Owners and viewers", async () => {
     const params = { params: Promise.resolve({ siteId: "mortgagecompare" }) };
-    const owner = await request("/api/sites/mortgagecompare/settings", "manager", [LAUNCHES.id]);
-    const viewer = await request("/api/sites/mortgagecompare/settings", "viewer", [LAUNCHES.id]);
+    const owner = await request(
+      "/api/sites/mortgagecompare/settings",
+      "manager",
+      [LAUNCHES.id],
+    );
+    const viewer = await request(
+      "/api/sites/mortgagecompare/settings",
+      "viewer",
+      [LAUNCHES.id],
+    );
     expect((await getSiteSettings(owner, params)).status).toBe(403);
     expect((await getSiteSettings(viewer, params)).status).toBe(403);
+    expect(
+      (
+        await getMarketIntelligence(
+          await request(
+            "/api/market-intelligence?site=mortgagecompare",
+            "manager",
+            [LAUNCHES.id],
+          ),
+        )
+      ).status,
+    ).toBe(403);
+  });
+
+  it("keeps Market Intelligence explicitly site-scoped", async () => {
+    expect(
+      (
+        await getMarketIntelligence(
+          await request("/api/market-intelligence", "manager", [FINANCE.id]),
+        )
+      ).status,
+    ).toBe(400);
+    const response = await getMarketIntelligence(
+      await request(
+        "/api/market-intelligence?site=mortgagecompare",
+        "manager",
+        [FINANCE.id],
+      ),
+    );
+    expect(response.status).toBe(200);
+    await expect(json(response)).resolves.toMatchObject({
+      synthetic: true,
+      provenance: { site: "mortgagecompare", paidRefresh: false },
+    });
   });
 
   it("applies write checks before every synthetic success path", async () => {
     const viewerGroups = [FINANCE.id];
     const calls = [
-      createGroup(await request("/api/portfolio-groups", "viewer", viewerGroups, { method: "POST", body: JSON.stringify({ name: "Blocked group" }) })),
-      queueBrowserCrawl(await request("/api/technical/browser-crawl", "viewer", viewerGroups, { method: "POST", body: JSON.stringify({ siteSlug: "mortgagecompare", maxPages: 20 }) })),
-      exploreCompetitor(await request("/api/competitor-explorer", "viewer", viewerGroups, { method: "POST", body: JSON.stringify({ siteSlug: "mortgagecompare", targetHost: "competitor.test" }) })),
-      refreshKeywordStrategy(await request("/api/keyword-strategy", "viewer", viewerGroups, { method: "POST", body: JSON.stringify({ siteSlug: "mortgagecompare" }) })),
-      discoverLinks(await request("/api/link-building", "viewer", viewerGroups, { method: "POST", body: JSON.stringify({ siteSlug: "mortgagecompare", competitors: ["competitor.test"] }) })),
-      createAiPrompt(await request("/api/ai-prompts", "viewer", viewerGroups, { method: "POST", body: JSON.stringify({ siteSlug: "mortgagecompare", prompt: "Which mortgage provider is best?", topic: "Comparison", platforms: ["chatgpt"] }) })),
-      patchNotification(await request("/api/notifications", "viewer", viewerGroups, { method: "PATCH", body: JSON.stringify({ id: "20000000-0000-4000-8000-000000000001", action: "resolve" }) })),
-      createWorkflowTask(await request("/api/workflow/tasks", "viewer", viewerGroups, { method: "POST", body: JSON.stringify({ domainId: "mortgagecompare", action: "approve", recommendation: { id: "qa-rec", title: "Blocked recommendation", module: "Technical", effort: "S", priorityScore: 80 } }) })),
+      createGroup(
+        await request("/api/portfolio-groups", "viewer", viewerGroups, {
+          method: "POST",
+          body: JSON.stringify({ name: "Blocked group" }),
+        }),
+      ),
+      queueBrowserCrawl(
+        await request("/api/technical/browser-crawl", "viewer", viewerGroups, {
+          method: "POST",
+          body: JSON.stringify({ siteSlug: "mortgagecompare", maxPages: 20 }),
+        }),
+      ),
+      exploreCompetitor(
+        await request("/api/competitor-explorer", "viewer", viewerGroups, {
+          method: "POST",
+          body: JSON.stringify({
+            siteSlug: "mortgagecompare",
+            targetHost: "competitor.test",
+          }),
+        }),
+      ),
+      refreshKeywordStrategy(
+        await request("/api/keyword-strategy", "viewer", viewerGroups, {
+          method: "POST",
+          body: JSON.stringify({ siteSlug: "mortgagecompare" }),
+        }),
+      ),
+      discoverLinks(
+        await request("/api/link-building", "viewer", viewerGroups, {
+          method: "POST",
+          body: JSON.stringify({
+            siteSlug: "mortgagecompare",
+            competitors: ["competitor.test"],
+          }),
+        }),
+      ),
+      createAiPrompt(
+        await request("/api/ai-prompts", "viewer", viewerGroups, {
+          method: "POST",
+          body: JSON.stringify({
+            siteSlug: "mortgagecompare",
+            prompt: "Which mortgage provider is best?",
+            topic: "Comparison",
+            platforms: ["chatgpt"],
+          }),
+        }),
+      ),
+      patchNotification(
+        await request("/api/notifications", "viewer", viewerGroups, {
+          method: "PATCH",
+          body: JSON.stringify({
+            id: "20000000-0000-4000-8000-000000000001",
+            action: "resolve",
+          }),
+        }),
+      ),
+      createWorkflowTask(
+        await request("/api/workflow/tasks", "viewer", viewerGroups, {
+          method: "POST",
+          body: JSON.stringify({
+            domainId: "mortgagecompare",
+            action: "approve",
+            recommendation: {
+              id: "qa-rec",
+              title: "Blocked recommendation",
+              module: "Technical",
+              effort: "S",
+              priorityScore: 80,
+            },
+          }),
+        }),
+      ),
+      saveCustomDashboard(
+        await request("/api/custom-dashboards", "viewer", viewerGroups, {
+          method: "POST",
+          body: JSON.stringify({
+            siteSlug: "mortgagecompare",
+            name: "Blocked view",
+            widgets: [
+              {
+                id: "sov",
+                kind: "metric",
+                title: "Share of voice",
+                metric: "share_of_voice",
+                size: "medium",
+              },
+            ],
+          }),
+        }),
+      ),
     ];
     const responses = await Promise.all(calls);
-    expect(responses.map((response) => response.status)).toEqual(responses.map(() => 403));
+    expect(responses.map((response) => response.status)).toEqual(
+      responses.map(() => 403),
+    );
   });
 });

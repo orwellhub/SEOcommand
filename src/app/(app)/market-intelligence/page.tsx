@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import {
   Brain,
   CircleDollarSign,
@@ -11,9 +12,13 @@ import {
   Save,
   ShieldCheck,
   TrendingUp,
+  Trash2,
   Users,
 } from "lucide-react";
-import { useResolvedDomain } from "@/components/shell/domain-context";
+import {
+  useDomain,
+  useResolvedDomain,
+} from "@/components/shell/domain-context";
 import { PageHeader } from "@/components/ui/page-header";
 import {
   Button,
@@ -27,9 +32,17 @@ import {
   type SiteFinding,
 } from "@/components/workflow/site-finding-work-drawer";
 type Tab =
-  "sov" | "content" | "links" | "coverage" | "ai" | "builder" | "forecast";
+  | "opportunities"
+  | "sov"
+  | "content"
+  | "links"
+  | "coverage"
+  | "ai"
+  | "builder"
+  | "forecast";
 type Data = Record<string, any>;
 const tabs: Array<{ id: Tab; label: string; icon: any }> = [
+  { id: "opportunities", label: "Opportunity queue", icon: TrendingUp },
   { id: "sov", label: "Share of voice", icon: Users },
   { id: "content", label: "Content explorer", icon: FileStack },
   { id: "links", label: "Link research", icon: Link2 },
@@ -49,9 +62,13 @@ const widgetOptions = [
   "forecast",
 ] as const;
 export default function MarketIntelligencePage() {
+  const { range } = useDomain();
   const domain = useResolvedDomain();
   const [data, setData] = useState<Data | null>(null);
-  const [tab, setTab] = useState<Tab>("sov");
+  const [tab, setTab] = useState<Tab>("opportunities");
+  const [device, setDevice] = useState("all");
+  const [market, setMarket] = useState("all");
+  const [segment, setSegment] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [work, setWork] = useState<SiteFinding | null>(null);
@@ -68,7 +85,7 @@ export default function MarketIntelligencePage() {
     setLoading(true);
     try {
       const r = await fetch(
-        `/api/market-intelligence?site=${encodeURIComponent(domain.id)}`,
+        `/api/market-intelligence?site=${encodeURIComponent(domain.id)}&days=${range.slice(0, -1)}&device=${encodeURIComponent(device)}&market=${encodeURIComponent(market)}&segment=${encodeURIComponent(segment)}`,
         { cache: "no-store" },
       );
       const b = await r.json();
@@ -85,7 +102,7 @@ export default function MarketIntelligencePage() {
     } finally {
       setLoading(false);
     }
-  }, [domain.id]);
+  }, [device, domain.id, market, range, segment]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -149,11 +166,32 @@ export default function MarketIntelligencePage() {
       setSaving(false);
     }
   }
+  async function deleteDashboard(id: string) {
+    setError(null);
+    const response = await fetch("/api/custom-dashboards", {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id, siteSlug: domain.id }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok)
+      return setError(body.error ?? "Dashboard could not be removed.");
+    setData((current: any) =>
+      current
+        ? {
+            ...current,
+            dashboards: current.dashboards.filter(
+              (item: any) => item.id !== id,
+            ),
+          }
+        : current,
+    );
+  }
   return (
     <div className="animate-in space-y-5">
       <PageHeader
         title="Market intelligence"
-        description={`Seven connected research lenses for ${domain.name}—each backed by stored evidence and linked to execution.`}
+        description={`A prioritised market map for ${domain.name}—every finding keeps its stored evidence and execution path.`}
       />
       {error && (
         <div
@@ -191,8 +229,76 @@ export default function MarketIntelligencePage() {
             <ShieldCheck className="mr-1 inline h-3.5 w-3.5 text-success" />
             {data.provenance.source} ·{" "}
             {data.provenance.paidRefresh ? "Paid refresh" : "No paid refresh"} ·{" "}
-            {new Date(data.provenance.collectedAt).toLocaleString()}
+            {data.provenance.observedAt
+              ? `Latest stored observation ${new Date(data.provenance.observedAt).toLocaleString()}`
+              : "No stored observation in this range"}
           </div>
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3">
+            <span className="mr-1 text-[10px] font-bold uppercase tracking-[0.12em] text-muted">
+              Market slice
+            </span>
+            <FilterSelect
+              label="Device"
+              value={device}
+              setValue={setDevice}
+              options={data.filters.options.devices}
+            />
+            <FilterSelect
+              label="Market"
+              value={market}
+              setValue={setMarket}
+              options={data.filters.options.markets}
+              prefix="Market "
+            />
+            <FilterSelect
+              label="Segment"
+              value={segment}
+              setValue={setSegment}
+              options={data.filters.options.segments}
+            />
+            <Link
+              href={`/scan-centre?site=${encodeURIComponent(domain.id)}`}
+              className="ml-auto text-xs font-bold text-purple hover:underline"
+            >
+              Manage collection and cost
+            </Link>
+          </div>
+          <DataHealth datasets={data.datasets} />
+          {tab === "opportunities" && (
+            <Opportunities
+              rows={data.opportunities}
+              onWork={(row: any) =>
+                setWork(
+                  finding({
+                    key: row.id,
+                    title: row.title,
+                    module:
+                      row.lens === "links"
+                        ? "Backlinks"
+                        : row.lens === "ai"
+                          ? "AI visibility"
+                          : "Content",
+                    type: [
+                      "content_brief",
+                      "refresh_brief",
+                      "link_prospect_list",
+                      "technical_task",
+                    ].includes(row.executionType)
+                      ? row.executionType
+                      : "content_brief",
+                    score: row.score,
+                    keywords:
+                      row.evidence?.keyword || row.evidence?.prompt
+                        ? [row.evidence.keyword ?? row.evidence.prompt]
+                        : [],
+                    url: row.evidence?.targetUrl ?? null,
+                    evidence: row.detail,
+                    raw: row,
+                  }),
+                )
+              }
+            />
+          )}
           {tab === "sov" && <Sov data={data.shareOfVoice} />}{" "}
           {tab === "content" && (
             <Content
@@ -277,12 +383,13 @@ export default function MarketIntelligencePage() {
           )}{" "}
           {tab === "builder" && (
             <Builder
-              data={data.dashboards ?? []}
+              data={data}
               name={dashboardName}
               setName={setDashboardName}
               widgets={widgets}
               setWidgets={setWidgets}
               save={() => void saveDashboard()}
+              remove={(id) => void deleteDashboard(id)}
               saving={saving}
             />
           )}{" "}
@@ -298,7 +405,144 @@ export default function MarketIntelligencePage() {
     </div>
   );
 }
+function FilterSelect({
+  label,
+  value,
+  setValue,
+  options,
+  prefix = "",
+}: {
+  label: string;
+  value: string;
+  setValue: (value: string) => void;
+  options: string[];
+  prefix?: string;
+}) {
+  return (
+    <label className="flex items-center gap-1.5 text-[10px] font-semibold text-muted">
+      <span>{label}</span>
+      <select
+        aria-label={label}
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        className="h-8 rounded-md border border-border bg-workspace px-2 text-xs font-semibold text-ink"
+      >
+        <option value="all">All</option>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {prefix}
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+function DataHealth({
+  datasets,
+}: {
+  datasets: Record<
+    string,
+    {
+      observedAt: string | null;
+      records: number;
+      state: string;
+      confidence: string;
+    }
+  >;
+}) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
+      {Object.entries(datasets).map(([name, item]) => (
+        <div
+          key={name}
+          className="rounded-md border border-border bg-card px-3 py-2"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] font-bold capitalize text-ink">
+              {name}
+            </span>
+            <StatusBadge
+              label={item.state}
+              tone={
+                item.state === "ready"
+                  ? "success"
+                  : item.state === "partial"
+                    ? "warning"
+                    : "neutral"
+              }
+            />
+          </div>
+          <div className="mt-1 text-[9px] text-muted">
+            {item.records} records · {item.confidence} confidence
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+function Opportunities({
+  rows,
+  onWork,
+}: {
+  rows: any[];
+  onWork: (row: any) => void;
+}) {
+  if (!rows.length)
+    return (
+      <EmptyState
+        title="No defensible opportunities in this slice"
+        description="Collect ranking, competitor, link-gap or AI observations, or broaden the market filters above."
+        icon={<TrendingUp className="h-6 w-6" />}
+      />
+    );
+  return (
+    <Card>
+      <Head
+        title="Prioritised opportunity queue"
+        sub="Ranked by evidence, demand and competitive position; execution still requires an explicit handoff"
+      />
+      <div className="divide-y divide-border">
+        {rows.slice(0, 50).map((row) => (
+          <div
+            key={row.id}
+            className="grid gap-3 p-4 md:grid-cols-[56px_minmax(0,1fr)_120px_auto] md:items-center"
+          >
+            <div className="rounded-md bg-ink px-2 py-2 text-center text-sm font-black text-card tnum">
+              {row.score}
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <b className="text-sm text-ink">{row.title}</b>
+                <StatusBadge label={row.lens} tone="info" />
+              </div>
+              <p className="mt-1 text-xs text-muted">{row.detail}</p>
+            </div>
+            <div className="text-[10px] text-muted">
+              <b className="block capitalize text-ink">
+                {row.confidence} confidence
+              </b>
+              {String(row.kind).replace(/_/g, " ")}
+            </div>
+            <Button onClick={() => onWork(row)}>
+              <Plus className="h-3.5 w-3.5" />
+              Create work
+            </Button>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
 function Sov({ data }: { data: any }) {
+  if (!data.leaders.length)
+    return (
+      <EmptyState
+        title="Share of Voice needs ranking history"
+        description="Track keywords for at least two dates to compare your visibility with observed competitors."
+        icon={<Users className="h-6 w-6" />}
+      />
+    );
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_340px]">
       <Card>
@@ -364,7 +608,7 @@ function Content({ data, onWork }: { data: any[]; onWork: (r: any) => void }) {
               title={c.host}
               sub={`${c.organicTraffic ?? "—"} organic traffic · ${c.publishingVelocity ?? "—"} new pages/month`}
             />
-            <div className="grid divide-y divide-border lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+            <div className="grid divide-y divide-border lg:grid-cols-4 lg:divide-x lg:divide-y-0">
               <List title="Top content" rows={c.topPages} action={onWork} />
               <List
                 title="Recently published"
@@ -376,6 +620,7 @@ function Content({ data, onWork }: { data: any[]; onWork: (r: any) => void }) {
                 rows={c.decliningPages}
                 action={onWork}
               />
+              <List title="Content gaps" rows={c.contentGaps} action={onWork} />
             </div>
           </Card>
         ))
@@ -414,6 +659,14 @@ function Links({ data, onWork }: { data: any; onWork: (r: any) => void }) {
   );
 }
 function Coverage({ data, onWork }: { data: any; onWork: (r: any) => void }) {
+  if (!data.markets.length || !data.services.length)
+    return (
+      <EmptyState
+        title="Coverage matrix needs tracked markets"
+        description="Add tracked keywords with a market and service tag, then collect the first ranking observation."
+        icon={<Grid3X3 className="h-6 w-6" />}
+      />
+    );
   return (
     <Card>
       <Head
@@ -505,14 +758,16 @@ function Builder({
   widgets,
   setWidgets,
   save,
+  remove,
   saving,
 }: {
-  data: any[];
+  data: any;
   name: string;
   setName: (x: string) => void;
   widgets: string[];
   setWidgets: (x: string[]) => void;
   save: () => void;
+  remove: (id: string) => void;
   saving: boolean;
 }) {
   return (
@@ -543,8 +798,26 @@ function Builder({
             </label>
           ))}
         </div>
+        <div className="border-t border-border p-4">
+          <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-muted">
+            Live preview
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {widgets.map((metric) => (
+              <div key={metric} className="rounded-md bg-workspace p-3">
+                <div className="text-[10px] font-semibold capitalize text-muted">
+                  {metric.replace(/_/g, " ")}
+                </div>
+                <div className="mt-2 text-xl font-black text-ink">
+                  {widgetValue(metric, data)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
         <div className="flex gap-2 border-t border-border p-4">
           <input
+            aria-label="Dashboard name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="h-9 flex-1 rounded-md border border-border px-3 text-xs"
@@ -560,20 +833,53 @@ function Builder({
         </div>
       </Card>
       <Card>
-        <Head title="Saved views" sub={`${data.length} reusable dashboards`} />
+        <Head
+          title="Saved views"
+          sub={`${data.dashboards.length} reusable dashboards`}
+        />
         <div className="divide-y divide-border">
-          {data.map((d) => (
-            <div key={d.id} className="p-3">
-              <b className="text-xs text-ink">{d.name}</b>
-              <div className="mt-1 text-[10px] text-muted">
-                {d.widgets.length} widgets · {d.scopeType}
+          {data.dashboards.map((d: any) => (
+            <div key={d.id} className="flex items-center gap-2 p-3">
+              <div className="min-w-0 flex-1">
+                <b className="text-xs text-ink">{d.name}</b>
+                <div className="mt-1 text-[10px] text-muted">
+                  {d.widgets.length} widgets · {d.scopeType}
+                </div>
               </div>
+              <Button size="sm" onClick={() => remove(d.id)}>
+                <Trash2 className="h-3 w-3" />
+                Remove
+              </Button>
             </div>
           ))}
+          {!data.dashboards.length && (
+            <div className="p-4 text-xs text-muted">
+              Save the first reusable view from the preview.
+            </div>
+          )}
         </div>
       </Card>
     </div>
   );
+}
+function widgetValue(metric: string, data: any) {
+  if (metric === "share_of_voice")
+    return `${data.shareOfVoice.leaders.find((item: any) => item.host === "owned")?.share ?? 0}%`;
+  if (metric === "newcomers") return data.shareOfVoice.newcomers.length;
+  if (metric === "publishing_velocity")
+    return data.content
+      .reduce(
+        (sum: number, item: any) => sum + (item.publishingVelocity ?? 0),
+        0,
+      )
+      .toFixed(1);
+  if (metric === "link_opportunities") return data.links.intersect.length;
+  if (metric === "coverage_gaps")
+    return data.coverage.cells.filter((item: any) => item.state !== "strong")
+      .length;
+  if (metric === "ai_share_of_voice") return `${data.ai.summary.shareOfVoice}%`;
+  if (metric === "verified_value") return data.datasets.outcomes.records;
+  return data.forecasts.filter((item: any) => item.eligible).length || "Locked";
 }
 function Forecast({ rows }: { rows: any[] }) {
   return (
