@@ -137,32 +137,59 @@ export interface LinkGapProspect {
   competitorHosts: string[];
 }
 
+export function buildLinkGapRequest(siteHost: string, competitorHosts: string[]) {
+  return {
+    targets: Object.fromEntries(competitorHosts.map((host, index) => [String(index + 1), host])),
+    exclude_targets: [siteHost],
+    limit: 500,
+    // Domain Intersection metrics are nested under the numbered target. There is
+    // no top-level `rank` field to sort by.
+    order_by: ["1.rank,desc"],
+    rank_scale: "one_hundred",
+  };
+}
+
+export function parseLinkGapProspects(
+  result: Row[],
+  competitorHosts: string[],
+  siteHost: string,
+): LinkGapProspect[] {
+  return items(result).map((item): LinkGapProspect | null => {
+    const intersections = Object.entries(record(item.domain_intersection)).flatMap(([targetIndex, value]) => {
+      const evidence = record(value);
+      const sourceDomain = string(evidence.target);
+      if (!sourceDomain) return [];
+      const competitorHost = competitorHosts[Number(targetIndex) - 1];
+      return [{ sourceDomain, competitorHost, authority: number(evidence.rank) }];
+    });
+    const first = intersections[0];
+    if (!first) return null;
+    const matchedCompetitors = [...new Set(intersections.map((entry) => entry.competitorHost).filter((host): host is string => Boolean(host)))];
+    const authorities = intersections.map((entry) => entry.authority).filter((value): value is number => value !== null);
+    const authority = authorities.length ? Math.max(...authorities) : null;
+    const linked = matchedCompetitors.length || intersections.length;
+    return {
+      sourceDomain: first.sourceDomain,
+      authority,
+      relevance: Math.min(100, Math.round((linked / competitorHosts.length) * 60 + Math.min(authority ?? 0, 100) * 0.4)),
+      reason: `Links to ${linked} selected competitor${linked === 1 ? "" : "s"}, but not ${siteHost}.`,
+      competitorHosts: matchedCompetitors,
+    };
+  }).filter((item): item is LinkGapProspect => Boolean(item));
+}
+
 export async function discoverLinkGapProspects(siteSlug: string, competitorInputs: string[]): Promise<LinkGapProspect[]> {
   const site = await getManagedSite(siteSlug);
   if (!site) throw new Error("Website not found.");
   const competitorHosts = [...new Set(competitorInputs.map(cleanCompetitorHost))].filter((host) => host !== site.host).slice(0, 10);
   if (!competitorHosts.length) throw new Error("Add at least one competitor domain.");
-  const targets = Object.fromEntries(competitorHosts.map((host, index) => [String(index + 1), host]));
   const { result } = await getDataForSeoClient().post<Row>(
     "backlinksDomainIntersection",
     ENDPOINTS.backlinksDomainIntersection,
-    [{ targets, exclude_targets: [site.host], limit: 500, order_by: ["rank,desc"], rank_scale: "one_hundred" }],
+    [buildLinkGapRequest(site.host, competitorHosts)],
     { domainSlug: siteSlug },
   );
-  const prospects = items(result).map((item): LinkGapProspect | null => {
-    const sourceDomain = string(item.domain) ?? string(item.target) ?? string(item.main_domain);
-    if (!sourceDomain) return null;
-    const intersection = record(item.domain_intersection);
-    const linked = Object.values(intersection).filter((value) => Object.keys(record(value)).length > 0).length;
-    const authority = number(item.rank);
-    return {
-      sourceDomain,
-      authority,
-      relevance: Math.min(100, Math.round((linked / competitorHosts.length) * 60 + Math.min(authority ?? 0, 100) * 0.4)),
-      reason: `Links to ${linked || "multiple"} selected competitor${linked === 1 ? "" : "s"}, but not ${site.host}.`,
-      competitorHosts,
-    };
-  }).filter((item): item is LinkGapProspect => Boolean(item));
+  const prospects = parseLinkGapProspects(result, competitorHosts, site.host);
   for (let index = 0; index < prospects.length; index += 200) {
     await db().insert(schema.linkProspects).values(prospects.slice(index, index + 200).map((prospect) => ({ siteSlug, ...prospect })))
       .onConflictDoUpdate({
