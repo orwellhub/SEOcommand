@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { canAccessSite, hasPermission } from "@/platform/access";
@@ -16,10 +16,11 @@ const qaProjects: QaProject[] = [];
 export async function GET(request: Request) {
   const siteSlug = new URL(request.url).searchParams.get("site")?.trim() || null;
   if (siteSlug && !await canAccessSite(request, siteSlug)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
-  if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ ok: true, projects: qaProjects.filter((item) => !siteSlug || item.siteSlug === siteSlug), synthetic: true });
+  if (!await hasPermission(request, "research", siteSlug)) return NextResponse.json({ error: "Research permission required." }, { status: 403 });
+  if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ ok: true, projects: qaProjects.filter((item) => item.siteSlug === siteSlug), synthetic: true });
   if (!hasDatabase()) return NextResponse.json({ error: "Research projects require DATABASE_URL." }, { status: 503 });
   const query = db().select().from(schema.keywordProjects).$dynamic();
-  const projects = await (siteSlug ? query.where(eq(schema.keywordProjects.siteSlug, siteSlug)) : query).orderBy(desc(schema.keywordProjects.updatedAt)).limit(200);
+  const projects = await (siteSlug ? query.where(eq(schema.keywordProjects.siteSlug, siteSlug)) : query.where(isNull(schema.keywordProjects.siteSlug))).orderBy(desc(schema.keywordProjects.updatedAt)).limit(200);
   return NextResponse.json({ ok: true, projects });
 }
 

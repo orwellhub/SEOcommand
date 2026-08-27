@@ -24,7 +24,7 @@ export function GroupManager({
   const [name, setName] = useState("");
   const [parentId, setParentId] = useState<string>("");
   const [color, setColor] = useState(COLORS[0]!);
-  const [selectedSite, setSelectedSite] = useState(sites[0]?.id ?? "");
+  const [selectedSite, setSelectedSite] = useState("");
   const [memberships, setMemberships] = useState<Set<string>>(() => new Set());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +43,7 @@ export function GroupManager({
 
   function openManager() {
     setGroups(initialGroups);
-    const site = selectedSite || sites[0]?.id || "";
+    const site = sites.some((candidate) => candidate.id === selectedSite) ? selectedSite : "";
     setSelectedSite(site);
     setMemberships(new Set(initialGroups.filter((group) => group.siteSlugs.includes(site)).map((group) => group.id)));
     setOpen(true);
@@ -168,6 +168,7 @@ export function GroupManager({
               <p className="mt-1 text-xs text-muted">A website can belong to more than one operational group.</p>
             </div>
             <select className={inputClass} value={selectedSite} onChange={(event) => chooseSite(event.target.value)}>
+              <option value="">Choose a website</option>
               {sites.map((site) => <option key={site.id} value={site.id}>{site.name} · {site.host}</option>)}
             </select>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">

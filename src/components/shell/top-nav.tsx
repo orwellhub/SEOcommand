@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { LogOut, Moon, Search, Sun, Command, ChevronRight } from "lucide-react";
 import { useDomain } from "./domain-context";
-import { SITE_NAV } from "@/lib/nav";
+import { GLOBAL_NAV, RESEARCH_NAV, SITE_NAV, type NavItem } from "@/lib/nav";
 import { roleLabel } from "@/lib/auth";
 import { NotificationBell } from "./notification-bell";
 import { JobDrawer } from "./job-drawer";
@@ -62,17 +62,27 @@ export function TopNav() {
 
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return { sites: sites.slice(0, 5), groups: groups.slice(0, 3), modules: SITE_NAV.slice(0, 4) };
+    const tools = [...GLOBAL_NAV, ...RESEARCH_NAV.slice(1), ...SITE_NAV]
+      .filter((item, index, items) => items.findIndex((candidate) => candidate.href === item.href && candidate.label === item.label) === index);
+    if (!q) return { sites: sites.slice(0, 5), groups: groups.slice(0, 3), modules: tools.slice(0, 7) };
     return {
       sites: sites.filter((site) => site.name.toLowerCase().includes(q) || site.host.includes(q)).slice(0, 8),
       groups: groups.filter((group) => group.name.toLowerCase().includes(q)).slice(0, 5),
-      modules: SITE_NAV.filter((item) => item.label.toLowerCase().includes(q)).slice(0, 5),
+      modules: tools.filter((item) => item.label.toLowerCase().includes(q)).slice(0, 8),
     };
   }, [groups, query, sites]);
 
   function openSite(id: string) {
     setScope(id);
     router.push(`/sites/${id}`);
+  }
+
+  function openTool(item: NavItem) {
+    if (item.group === "site") {
+      if (!activeDomain) return router.push("/sites");
+      return router.push(`${item.href}?site=${encodeURIComponent(activeDomain.id)}`);
+    }
+    router.push(item.href);
   }
 
   const initials = (user?.name || user?.email || "Orwell")
@@ -84,10 +94,10 @@ export function TopNav() {
         type="button"
         onClick={() => setSearchOpen(true)}
         className="flex h-10 min-w-0 flex-1 items-center gap-3 rounded-md border border-border bg-workspace px-3 text-left text-sm text-muted transition-colors hover:border-purple/40 sm:max-w-lg"
-        aria-label="Search websites, groups and modules"
+        aria-label="Search websites, research and tools"
       >
         <Search className="h-4 w-4 shrink-0" />
-        <span className="truncate">Search websites, groups or tools…</span>
+        <span className="truncate">Search websites, research or tools…</span>
         <span className="ml-auto hidden items-center gap-1 rounded border border-border bg-card px-1.5 py-0.5 text-2xs sm:flex"><Command className="h-3 w-3" /> K</span>
       </button>
       <ProviderBalance />
@@ -111,7 +121,7 @@ export function TopNav() {
           <div className="absolute left-4 right-4 top-[72px] z-50 mx-auto max-w-2xl overflow-hidden rounded-lg border border-border bg-card shadow-pop sm:left-6 sm:right-auto sm:w-[640px]">
             <div className="flex items-center gap-3 border-b border-border px-4 py-3">
               <Search className="h-5 w-5 text-purple" />
-              <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} className="min-w-0 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-muted" placeholder="Jump to a website, group or tool" />
+              <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} className="min-w-0 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-muted" placeholder="Jump to a website, research area or tool" />
               <button onClick={() => setSearchOpen(false)} className="rounded border border-border px-2 py-1 text-2xs text-muted">Esc</button>
             </div>
             <div className="max-h-[60vh] overflow-y-auto p-2">
@@ -122,7 +132,7 @@ export function TopNav() {
                 {matches.groups.map((group) => <SearchResult key={group.id} color={group.color} title={group.name} subtitle={`${group.siteSlugs.length} websites`} onClick={() => { setScope(`group:${group.id}`); router.push("/portfolio"); }} />)}
               </SearchSection>
               <SearchSection label="Tools">
-                {matches.modules.map((item) => <SearchResult key={item.href} title={item.label} subtitle="Open for the current website" onClick={() => router.push(`${item.href}${activeDomain ?? sites[0] ? `?site=${(activeDomain ?? sites[0])!.id}` : ""}`)} />)}
+                {matches.modules.map((item) => <SearchResult key={`${item.href}:${item.label}`} title={item.label} subtitle={item.group === "site" ? (activeDomain ? `Open for ${activeDomain.name}` : "Choose a website first") : item.group === "research" || item.href === "/research" ? "Global research workspace" : "Open workspace"} onClick={() => openTool(item)} />)}
               </SearchSection>
             </div>
           </div>

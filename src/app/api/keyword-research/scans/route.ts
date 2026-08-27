@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { hasDatabase } from "@/sync/store";
@@ -66,6 +66,7 @@ export async function GET(request: Request) {
   try {
     const siteSlug = new URL(request.url).searchParams.get("site")?.trim() || null;
     if (siteSlug && !await canAccessSite(request, siteSlug)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
+    if (!await hasPermission(request, "research", siteSlug)) return NextResponse.json({ error: "Research permission required." }, { status: 403 });
     if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ ok: true, scans: [], synthetic: true });
     if (!hasDatabase()) return unavailable();
     const query = db()
@@ -87,7 +88,7 @@ export async function GET(request: Request) {
       })
       .from(schema.keywordScans)
       .$dynamic();
-    const scans = await (siteSlug ? query.where(eq(schema.keywordScans.siteSlug, siteSlug)) : query)
+    const scans = await (siteSlug ? query.where(eq(schema.keywordScans.siteSlug, siteSlug)) : query.where(isNull(schema.keywordScans.siteSlug)))
       .orderBy(desc(schema.keywordScans.createdAt)).limit(LIST_LIMIT);
     return NextResponse.json({ ok: true, scans });
   } catch (err) {

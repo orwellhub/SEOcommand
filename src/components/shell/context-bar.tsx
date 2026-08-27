@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ArrowLeft, ChevronRight, ExternalLink, ScanLine, Settings2 } from "lucide-react";
-import { SITE_NAV, SCAN_CENTRE, TECHNICAL_SECONDARY, KEYWORD_SECONDARY, BACKLINK_SECONDARY } from "@/lib/nav";
+import { SITE_NAV, SCAN_CENTRE, TECHNICAL_SECONDARY, KEYWORD_SECONDARY, BACKLINK_SECONDARY, RESEARCH_NAV } from "@/lib/nav";
 import { useDomain, type RangeKey } from "./domain-context";
 import { cn } from "@/lib/cn";
+import { siteIdFromLocation } from "@/lib/site-context";
 
 const RANGES: { key: RangeKey; label: string }[] = [
   { key: "7d", label: "7 days" },
@@ -25,7 +26,21 @@ export function ContextBar() {
   const websiteMode = isWebsiteWorkspace(pathname, siteQuery);
   const siteId = activeDomain?.id;
 
-  if (!websiteMode || !activeDomain || !siteId) return null;
+  if (!websiteMode && (pathname === "/research" || pathname.startsWith("/keyword-research"))) {
+    return (
+      <div className="border-b border-border bg-card">
+        <div className="flex min-h-11 items-center gap-3 px-4 sm:px-6">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 text-2xs text-muted"><span className="font-bold uppercase tracking-[0.14em] text-purple">Global research</span><ChevronRight className="h-3 w-3" /><span className="truncate text-ink">Independent of any website</span></div>
+        </div>
+        <nav className="flex gap-1 overflow-x-auto px-4 sm:px-6" aria-label="Global research workspace">
+          {RESEARCH_NAV.map((item) => { const Icon = item.icon; const path = item.href.split("?")[0]!; const view = new URLSearchParams(item.href.split("?")[1] ?? "").get("view"); const active = pathname === path && (view ? searchParams.get("view") === view : !searchParams.get("view")); return <Link key={item.href} href={item.href} className={cn("flex shrink-0 items-center gap-1.5 border-b-2 px-2 py-2.5 text-xs font-semibold", active ? "border-purple text-purple" : "border-transparent text-muted hover:border-border hover:text-ink")}><Icon className="h-3.5 w-3.5" />{item.label}</Link>; })}
+        </nav>
+      </div>
+    );
+  }
+
+  const requestedSiteId = siteIdFromLocation(pathname, siteQuery);
+  if (!websiteMode || !activeDomain || !siteId || requestedSiteId !== siteId) return null;
 
   const overview = SITE_NAV[0]!;
   const navItems = pathname.startsWith("/site-audit") || pathname.startsWith("/technical-crawler") || pathname.startsWith("/monitoring")

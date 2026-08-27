@@ -29,8 +29,11 @@ export default function CompetitorsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
     setResult(null);
-    fetch(`/api/competitor-explorer?site=${encodeURIComponent(domain.id)}`).then((response) => response.json()).then((body) => setRecent(body.runs ?? [])).catch(() => undefined);
+    setRecent([]);
+    fetch(`/api/competitor-explorer?site=${encodeURIComponent(domain.id)}`).then((response) => response.json()).then((body) => { if (active) setRecent(body.runs ?? []); }).catch(() => undefined);
+    return () => { active = false; };
   }, [domain.id]);
 
   const explore = async () => {

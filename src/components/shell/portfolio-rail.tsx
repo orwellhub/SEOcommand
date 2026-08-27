@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Check, ChevronDown, ChevronRight, Circle, Ellipsis, Folder, FolderOpen,
   FolderPlus, GripVertical, Pencil, Plus, Settings2, Trash2, X,
@@ -17,6 +17,7 @@ type DropMode = "before" | "inside" | "after";
 export function PortfolioRail() {
   const { scope, setScope, sites, groups, refreshPortfolio } = useDomain();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -231,13 +232,15 @@ export function PortfolioRail() {
 
   return (
     <aside className="relative hidden w-[292px] shrink-0 flex-col border-r border-border bg-rail text-ink lg:flex" onDragOver={(event) => event.preventDefault()}>
-      <Link href="/action-centre" className="flex h-16 items-center gap-3 border-b border-border px-4">
+      <Link href="/home" className="flex h-16 items-center gap-3 border-b border-border px-4">
         <span className="relative grid h-9 w-9 grid-cols-2 gap-1 rounded-md bg-ink p-2"><span className="rounded-[2px] bg-[#335CFF]" /><span className="rounded-[2px] bg-[#12B8C4]" /><span className="rounded-[2px] bg-[#FF6B5E]" /><span className="rounded-[2px] bg-[#F2B544]" /></span>
         <span className="leading-tight"><span className="block text-sm font-extrabold tracking-tight">Orwell Command</span><span className="block text-[10px] font-medium uppercase tracking-[0.14em] text-muted">SEO operations</span></span>
       </Link>
       <nav className="space-y-1 border-b border-border p-3">
         {GLOBAL_NAV.map((item) => {
-          const active = pathname.startsWith(item.href);
+          const active = item.href === "/research"
+            ? pathname === "/research" && !searchParams.get("site")
+            : pathname.startsWith(item.href);
           const Icon = item.icon;
           return <Link key={item.href} href={item.href} className={cn("flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold transition-colors", active ? "bg-ink text-card shadow-sm" : "text-muted hover:bg-card hover:text-ink")}><Icon className={cn("h-4 w-4", active && "text-[#7FE4EA]")} />{item.label}</Link>;
         })}

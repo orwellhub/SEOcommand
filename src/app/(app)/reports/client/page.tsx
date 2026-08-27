@@ -13,9 +13,9 @@ import { resolveReportBranding, type ReportBranding } from "@/reports/branding";
 
 export default function ClientReportPage() {
   const searchParams = useSearchParams();
-  const { sites, activeDomain, setScope } = useDomain();
-  const siteId = searchParams.get("site") ?? activeDomain?.id ?? sites[0]?.id ?? "";
-  const site = sites.find((item) => item.id === siteId) ?? activeDomain ?? sites[0];
+  const { sites, setScope } = useDomain();
+  const siteId = searchParams.get("site")?.trim() ?? "";
+  const site = sites.find((item) => item.id === siteId);
   const template = REPORT_TEMPLATES.find((item) => item.id === searchParams.get("template")) ?? REPORT_TEMPLATES.find((item) => item.id === "tpl-domain")!;
   const live = useLiveDomain(siteId);
   const [branding, setBranding] = useState<ReportBranding | null>(site ? resolveReportBranding(site) : null);

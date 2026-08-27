@@ -3,8 +3,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { Domain, DomainId } from "@/lib/types";
-import { DOMAINS } from "@/data/domains";
 import type { PortfolioGroup } from "@/platform/types";
+import { siteIdFromLocation } from "@/lib/site-context";
 
 export type Scope = DomainId | "portfolio" | `group:${string}`;
 
@@ -31,7 +31,7 @@ export function DomainProvider({ children }: { children: React.ReactNode }) {
   const [scope, setScope] = useState<Scope>("portfolio");
   const [scopeReady, setScopeReady] = useState(false);
   const [range, setRange] = useState<RangeKey>("28d");
-  const [sites, setSites] = useState<Domain[]>(DOMAINS);
+  const [sites, setSites] = useState<Domain[]>([]);
   const [groups, setGroups] = useState<PortfolioGroup[]>([]);
   const [sitesLoading, setSitesLoading] = useState(true);
 
@@ -41,7 +41,7 @@ export function DomainProvider({ children }: { children: React.ReactNode }) {
       const response = await fetch("/api/sites", { cache: "no-store" });
       if (!response.ok) throw new Error(`Site registry request failed (${response.status})`);
       const body = await response.json() as { sites?: Domain[]; groups?: PortfolioGroup[] };
-      if (body.sites?.length) setSites(body.sites);
+      setSites(body.sites ?? []);
       if (body.groups) setGroups(body.groups);
     } finally {
       setSitesLoading(false);
@@ -56,7 +56,7 @@ export function DomainProvider({ children }: { children: React.ReactNode }) {
         return response.json() as Promise<{ sites?: Domain[]; groups?: PortfolioGroup[] }>;
       })
       .then((body) => {
-        if (active && body.sites?.length) setSites(body.sites);
+        if (active) setSites(body.sites ?? []);
         if (active && body.groups) setGroups(body.groups);
       })
       .catch(() => undefined)
@@ -71,8 +71,7 @@ export function DomainProvider({ children }: { children: React.ReactNode }) {
   // reporting scope. Keeping this in one effect prevents a saved portfolio
   // scope from racing and overwriting a directly opened website workspace.
   useEffect(() => {
-    const siteMatch = pathname.match(/^\/sites\/([^/]+)/);
-    const requested = siteMatch?.[1] ?? searchParams.get("site");
+    const requested = siteIdFromLocation(pathname, searchParams.get("site"));
     const saved = window.localStorage.getItem("orwell.scope");
     if (requested && requested !== "new") setScope(requested as Scope);
     else if (pathname === "/portfolio" && saved?.startsWith("group:")) setScope(saved as Scope);
@@ -123,9 +122,9 @@ export function useDomain(): DomainState {
   return ctx;
 }
 
-/** Resolve the domain a module page should render for. Modules that require a
- * specific domain fall back to the first pilot when scope is portfolio. */
+/** Resolve a website only after an explicit route or query selection. */
 export function useResolvedDomain(): Domain {
-  const { activeDomain, sites } = useDomain();
-  return activeDomain ?? sites[0] ?? DOMAINS[0]!;
+  const { activeDomain } = useDomain();
+  if (!activeDomain) throw new Error("This tool requires an explicit website context.");
+  return activeDomain;
 }

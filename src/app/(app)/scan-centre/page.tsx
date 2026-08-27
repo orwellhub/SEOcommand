@@ -38,8 +38,7 @@ export default function ScanCentrePage() {
 
   useEffect(() => {
     if (activeDomain?.id) setSiteSlug(activeDomain.id);
-    else if (!siteSlug && sites[0]) setSiteSlug(sites[0].id);
-  }, [activeDomain?.id, siteSlug, sites]);
+  }, [activeDomain?.id]);
   const load = useCallback(async () => {
     if (!siteSlug) return;
     setLoading(true);
@@ -83,6 +82,7 @@ export default function ScanCentrePage() {
   return <div>
     <PageHeader title="Scan Centre" description="Refresh one tool or run a complete website scan—with cost preview, live progress and direct links to the evidence." actions={
       <select value={siteSlug} onChange={(event) => { setSiteSlug(event.target.value); setScope(event.target.value); }} className="h-9 min-w-52 rounded-md border border-border bg-card px-3 text-sm font-semibold text-ink outline-none focus:border-purple">
+        <option value="" disabled>Choose a website</option>
         {sites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
       </select>
     } />

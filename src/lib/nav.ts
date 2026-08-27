@@ -1,6 +1,6 @@
 import {
-  Activity, Bell, Bot, Building2, FileText, Gauge, GitCompareArrows,
-  LayoutDashboard, Link2, ListChecks, MapPinned, Radar, Search, Settings,
+  Activity, Bell, Bot, Building2, FileText, FolderKanban, Gauge, GitCompareArrows,
+  Home, LayoutDashboard, Link2, ListChecks, MapPinned, Radar, Search, Settings,
   ScanLine, ShieldCheck, Sparkles, Swords, TrendingUp, Waypoints, type LucideIcon,
 } from "lucide-react";
 
@@ -8,15 +8,24 @@ export interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
-  group?: "global" | "site";
+  group?: "global" | "research" | "site";
 }
 
 export const GLOBAL_NAV: NavItem[] = [
-  { href: "/action-centre", label: "Action centre", icon: ListChecks, group: "global" },
+  { href: "/home", label: "Home", icon: Home, group: "global" },
   { href: "/portfolio", label: "Portfolio", icon: LayoutDashboard, group: "global" },
+  { href: "/research", label: "Research", icon: Search, group: "global" },
+  { href: "/sites", label: "Sites", icon: Building2, group: "global" },
+  { href: "/action-centre", label: "Action centre", icon: ListChecks, group: "global" },
   { href: "/reports", label: "Reports", icon: FileText, group: "global" },
   { href: "/notifications", label: "Notifications", icon: Bell, group: "global" },
   { href: "/settings", label: "Admin", icon: Settings, group: "global" },
+];
+
+export const RESEARCH_NAV: NavItem[] = [
+  { href: "/research", label: "Research home", icon: Search, group: "research" },
+  { href: "/keyword-research", label: "Keyword research", icon: Waypoints, group: "research" },
+  { href: "/keyword-research?view=projects", label: "Research projects", icon: FolderKanban, group: "research" },
 ];
 
 export const SITE_NAV: NavItem[] = [
@@ -44,15 +53,15 @@ export const BACKLINK_SECONDARY: NavItem[] = [{ href: "/link-building", label: "
 export const AI_SECONDARY: NavItem[] = [{ href: "/ai-visibility", label: "AI visibility", icon: Bot }];
 
 /** Compatibility exports used by small-screen and legacy surfaces. */
-export const NAV_ITEMS: NavItem[] = [...GLOBAL_NAV, SCAN_CENTRE, ...SITE_NAV, ...TECHNICAL_SECONDARY, ...KEYWORD_SECONDARY, ...BACKLINK_SECONDARY];
+export const NAV_ITEMS: NavItem[] = [...GLOBAL_NAV, ...RESEARCH_NAV.slice(1), SCAN_CENTRE, ...SITE_NAV, ...TECHNICAL_SECONDARY, ...KEYWORD_SECONDARY, ...BACKLINK_SECONDARY];
 export const PRIMARY_NAV = SITE_NAV;
 export const NAV_SECTIONS = [
-  { label: "Portfolio", icon: Building2, items: GLOBAL_NAV.slice(0, 2) },
+  { label: "Portfolio", icon: Building2, items: GLOBAL_NAV.slice(0, 5) },
   { label: "Search", icon: Search, items: SITE_NAV.slice(1, 5) },
   { label: "Technical", icon: ShieldCheck, items: [SITE_NAV[5]!, ...TECHNICAL_SECONDARY] },
   { label: "Authority", icon: Link2, items: [SITE_NAV[7]!, ...BACKLINK_SECONDARY] },
   { label: "Local", icon: MapPinned, items: [SITE_NAV[9]!] },
   { label: "AI visibility", icon: Sparkles, items: [SITE_NAV[8]!] },
   { label: "Actions", icon: ListChecks, items: [SITE_NAV[6]!, { href: "/recommendations", label: "Recommendations", icon: ListChecks }] },
-  { label: "Reports", icon: FileText, items: [GLOBAL_NAV[2]!] },
+  { label: "Reports", icon: FileText, items: [GLOBAL_NAV[5]!] },
 ];

@@ -21,13 +21,22 @@ export default function KeywordStrategyPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    const response = await fetch(`/api/keyword-strategy?site=${encodeURIComponent(domain.id)}`);
+  const load = useCallback(async (signal?: AbortSignal) => {
+    const response = await fetch(`/api/keyword-strategy?site=${encodeURIComponent(domain.id)}`, { signal });
     const body = await response.json();
     if (response.ok) setStrategy(body.strategy);
     else setError(body.error ?? "Keyword strategy could not be loaded.");
   }, [domain.id]);
-  useEffect(() => { setStrategy(null); void load(); }, [load]);
+  useEffect(() => {
+    const controller = new AbortController();
+    setStrategy(null);
+    setError(null);
+    void load(controller.signal).catch((cause) => {
+      if (cause instanceof DOMException && cause.name === "AbortError") return;
+      setError(cause instanceof Error ? cause.message : "Keyword strategy could not be loaded.");
+    });
+    return () => controller.abort();
+  }, [load]);
 
   const refresh = async () => {
     setBusy(true); setError(null);

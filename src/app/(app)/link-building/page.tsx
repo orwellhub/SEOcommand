@@ -27,12 +27,22 @@ export default function LinkBuildingPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    const response = await fetch(`/api/link-building?site=${encodeURIComponent(domain.id)}`);
+  const load = useCallback(async (signal?: AbortSignal) => {
+    const response = await fetch(`/api/link-building?site=${encodeURIComponent(domain.id)}`, { signal });
     const body = await response.json();
     if (response.ok) setData(body); else setError(body.error ?? "Link workflow could not be loaded.");
   }, [domain.id]);
-  useEffect(() => { setData(null); void load(); }, [load]);
+  useEffect(() => {
+    const controller = new AbortController();
+    setData(null);
+    setSelected(null);
+    setError(null);
+    void load(controller.signal).catch((cause) => {
+      if (cause instanceof DOMException && cause.name === "AbortError") return;
+      setError(cause instanceof Error ? cause.message : "Link workflow could not be loaded.");
+    });
+    return () => controller.abort();
+  }, [load]);
 
   const discover = async () => {
     setBusy("discover"); setError(null); setNotice(null);

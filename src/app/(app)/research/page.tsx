@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, Users, ListOrdered, Target, GitCompareArrows } from "lucide-react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { ArrowRight, Bot, Building2, Globe2, Link2, Search, Sparkles, Users, ListOrdered, Target, GitCompareArrows } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { KpiCard } from "@/components/ui/kpi-card";
 import {
@@ -99,6 +101,38 @@ function SerpChips({ features }: { features: SerpFeature[] }) {
 /* -------------------------------- page ---------------------------------- */
 
 export default function ResearchPage() {
+  const searchParams = useSearchParams();
+  return searchParams.get("site") ? <SearchPerformancePage /> : <GlobalResearchHome />;
+}
+
+const RESEARCH_AREAS = [
+  { title: "Keyword research", description: "Discover worldwide demand, questions, intent and commercial signals.", href: "/keyword-research", icon: Search, color: "#335CFF", available: true },
+  { title: "Domain research", description: "Explore any domain, its organic footprint, strongest pages and competitors.", icon: Globe2, color: "#12B8C4", available: false },
+  { title: "Topic opportunities", description: "Turn clusters, gaps and existing-page evidence into ranked opportunities.", icon: Sparkles, color: "#7137F5", available: false },
+  { title: "Competitive research", description: "Compare domains, keyword coverage, content gaps and market movement.", icon: Users, color: "#FF6B5E", available: false },
+  { title: "Backlink research", description: "Investigate referring domains, link intersections and earned mentions.", icon: Link2, color: "#F2B544", available: false },
+  { title: "AI research", description: "Discover prompts, citation sources and competitor visibility across answer engines.", icon: Bot, color: "#16A879", available: false },
+] as const;
+
+function GlobalResearchHome() {
+  return (
+    <div className="animate-in space-y-5">
+      <PageHeader title="Research" description="Explore markets, domains and topics independently. Nothing is connected to a website until you explicitly map it." />
+      <Card className="overflow-hidden border-0 bg-ink text-white">
+        <div className="grid gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-center lg:p-8"><div><div className="text-2xs font-bold uppercase tracking-[0.16em] text-white/45">Global workspace</div><h1 className="mt-3 max-w-3xl text-3xl font-black tracking-tight">Research first. Decide where it belongs later.</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-white/65">Save reusable evidence, qualify an opportunity and then map it to one or more websites through an explicit, auditable hand-off.</p><Link href="/keyword-research" className="mt-5 inline-flex h-10 items-center gap-2 rounded-md bg-[#6B5BFF] px-4 text-sm font-bold text-white hover:bg-[#7B6DFF]">Start keyword research <ArrowRight className="h-4 w-4" /></Link></div><div className="rounded-lg border border-white/10 bg-white/[0.06] p-4"><div className="text-2xs font-bold uppercase tracking-wide text-white/45">Workflow</div><div className="mt-3 space-y-2">{["Research and save evidence", "Qualify and value the opportunity", "Map it to a website or page", "Approve, execute and verify"].map((label, index) => <div key={label} className="flex items-center gap-3 rounded-md bg-white/[0.05] px-3 py-2.5"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-[10px] font-black text-[#7FE4EA]">{index + 1}</span><span className="text-xs font-semibold text-white/80">{label}</span></div>)}</div></div></div>
+      </Card>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {RESEARCH_AREAS.map(({ title, description, icon: Icon, color, available, ...item }) => {
+          const content = <><span className="absolute inset-x-0 top-0 h-1" style={{ background: color }} /><div className="flex items-start justify-between gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-lg" style={{ color, background: `${color}14` }}><Icon className="h-5 w-5" /></span><span className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${available ? "border-success/20 bg-success/10 text-success" : "border-border bg-workspace text-muted"}`}>{available ? "Available" : "Next stage"}</span></div><h2 className="mt-4 text-base font-extrabold text-ink">{title}</h2><p className="mt-1 min-h-10 text-xs leading-5 text-muted">{description}</p>{available && <div className="mt-4 flex items-center gap-1 text-xs font-bold text-purple">Open research <ArrowRight className="h-3.5 w-3.5" /></div>}</>;
+          return available && "href" in item ? <Link key={title} href={item.href} className="group relative overflow-hidden rounded-lg border border-border bg-card p-5 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-pop">{content}</Link> : <div key={title} className="relative overflow-hidden rounded-lg border border-border bg-card p-5 shadow-card">{content}</div>;
+        })}
+      </div>
+      <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-4"><Building2 className="mt-0.5 h-4 w-4 shrink-0 text-purple" /><div><div className="text-sm font-bold text-ink">Website context remains explicit</div><p className="mt-1 text-xs leading-5 text-muted">Opening Research does not inherit the last website you viewed. A website is attached only through a visible Map to website action.</p></div></div>
+    </div>
+  );
+}
+
+function SearchPerformancePage() {
   const { data: bundle, loading, error, isPortfolio, scopeLabel, scopeHost, scopeId } = useScopedLive();
 
   const [tab, setTab] = useState<SubTab>("ranked");

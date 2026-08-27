@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Menu, X, Layers, Circle, Folder } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/nav";
 import { useDomain } from "./domain-context";
@@ -12,6 +12,7 @@ import { cn } from "@/lib/cn";
 export function MobileNav() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { scope, setScope, sites, groups, refreshPortfolio } = useDomain();
   const router = useRouter();
 
@@ -116,10 +117,14 @@ export function MobileNav() {
               <div className="px-2 pb-1 text-2xs font-bold uppercase tracking-wider text-muted">Tools</div>
               {NAV_ITEMS.map((item) => {
                 const Icon = item.icon;
-                const active = pathname.startsWith(item.href);
+                const [itemPath, itemQuery] = item.href.split("?");
+                const itemView = new URLSearchParams(itemQuery ?? "").get("view");
+                const active = itemPath === "/research"
+                  ? pathname === "/research" && (item.group === "site" ? Boolean(searchParams.get("site")) : !searchParams.get("site"))
+                  : pathname.startsWith(itemPath!) && (itemView ? searchParams.get("view") === itemView : true);
                 return (
                   <Link
-                    key={item.href}
+                    key={`${item.group}:${item.href}:${item.label}`}
                     href={scope !== "portfolio" && !scope.startsWith("group:") && item.group === "site" ? `${item.href}?site=${scope}` : item.href}
                     onClick={() => setOpen(false)}
                     className={cn(

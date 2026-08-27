@@ -266,7 +266,8 @@ export default function ReportsPage() {
   }, [activeDomain]);
 
   const scopedPm = useMemo<PortfolioLive | null>(() => {
-    if (!pm || scopeType === "portfolio" || !scopeId) return pm;
+    if (!pm || scopeType === "portfolio") return pm;
+    if (!scopeId) return { ...pm, domains: [], totals: { ...pm.totals, domainsSynced: 0, clicks28d: 0, impressions28d: 0, sessions28d: 0, conversions28d: 0, referringDomains: 0, avgHealth: null, avgVisibility: null } };
     let allowed = new Set<string>();
     if (scopeType === "site") allowed.add(scopeId);
     else if (scopeType === "group") {
@@ -442,7 +443,7 @@ export default function ReportsPage() {
         description={`${PAGE_DESCRIPTION} Current reporting scope: ${scopeLabel}.`}
         lastSync={lastSync}
         loading={loading}
-        actions={<div className="flex items-center gap-2"><select value={scopeType} onChange={(event) => { const next = event.target.value as typeof scopeType; setScopeType(next); setScopeId(next === "site" ? activeDomain?.id ?? sites[0]?.id ?? "" : next === "group" ? groups[0]?.id ?? "" : next === "campaign" ? campaignOptions[0]?.id ?? "" : ""); }} className="h-9 rounded-md border border-border bg-card px-3 text-xs font-bold text-ink"><option value="portfolio">Portfolio</option><option value="group">Folder</option><option value="site">Website</option><option value="campaign" disabled={!activeDomain}>Campaign</option></select>{scopeType !== "portfolio" && <select value={scopeId} onChange={(event) => setScopeId(event.target.value)} className="h-9 max-w-56 rounded-md border border-border bg-card px-3 text-xs font-bold text-ink">{(scopeType === "group" ? groups : scopeType === "site" ? sites : campaignOptions).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>}</div>}
+        actions={<div className="flex items-center gap-2"><select value={scopeType} onChange={(event) => { const next = event.target.value as typeof scopeType; setScopeType(next); setScopeId(next === "site" ? activeDomain?.id ?? "" : ""); }} className="h-9 rounded-md border border-border bg-card px-3 text-xs font-bold text-ink"><option value="portfolio">Portfolio</option><option value="group">Folder</option><option value="site">Website</option><option value="campaign" disabled={!activeDomain}>Campaign</option></select>{scopeType !== "portfolio" && <select value={scopeId} onChange={(event) => setScopeId(event.target.value)} className="h-9 max-w-56 rounded-md border border-border bg-card px-3 text-xs font-bold text-ink"><option value="">Choose {scopeType === "group" ? "a folder" : scopeType === "site" ? "a website" : "a campaign"}</option>{(scopeType === "group" ? groups : scopeType === "site" ? sites : campaignOptions).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>}</div>}
       />
 
       <Card className="relative overflow-hidden border-0 bg-[#11182B] text-white">

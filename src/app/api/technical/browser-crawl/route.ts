@@ -10,14 +10,14 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const siteSlug = new URL(request.url).searchParams.get("site") ?? "mortgagecompare";
+  const siteSlug = new URL(request.url).searchParams.get("site")?.trim();
+  if (!siteSlug) return NextResponse.json({ error: "Choose a website first." }, { status: 400 });
   if (!(await getManagedSite(siteSlug))) return NextResponse.json({ error: "Website not found." }, { status: 404 });
   if (!await canAccessSite(request, siteSlug)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
   if (process.env.QA_SYNTHETIC === "true") {
     return NextResponse.json(qaBrowserCrawl(siteSlug));
   }
   if (!hasDatabase()) return NextResponse.json({ error: "Browser crawl history requires DATABASE_URL." }, { status: 503 });
-  if (!(await getManagedSite(siteSlug))) return NextResponse.json({ error: "Website not found." }, { status: 404 });
   return NextResponse.json(await latestBrowserCrawl(siteSlug));
 }
 
