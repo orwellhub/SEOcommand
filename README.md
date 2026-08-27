@@ -17,7 +17,7 @@ designed for 300+ websites without another registry rebuild.
 
 ## Stack
 
-- **Next.js 14** (App Router) + **React 18** + **TypeScript** (strict)
+- **Next.js 16** (App Router) + **React 19** + **TypeScript** (strict)
 - **Tailwind CSS** with a deliberate design-token + component layer ("Portfolio Atlas")
 - **Recharts** + dependency-free SVG sparklines
 - **Drizzle ORM** + **PostgreSQL** (snapshot store + production data model)
@@ -52,8 +52,10 @@ npm run test         # vitest
 | Portfolio | `/portfolio` | GSC clicks + GA4 sessions/conversions + health/authority aggregates per domain |
 | Websites | `/sites` | Database registry, lifecycle, connections and per-site provider approval |
 | Add website | `/sites/new` | Google discovery, market/devices, GitHub/Hostinger/webhook, alerts and cost approval |
+| Scan Centre | `/scan-centre` | Full-site or individual-tool jobs with a cost preview, approval gate, progress and result links |
 | Domain overview | `/domain` | GSC totals & 90-day trend, GA4 overview, top pages, movers, competitors, crawl snapshot |
 | Research | `/research` | Ranked keywords, GSC queries, competitors, keyword gaps and striking-distance |
+| Keyword Research | `/keyword-research` | Worldwide country/city discovery, domain footprints, projects, saved evidence and tracking campaigns |
 | Competitor Explorer | `/competitors` | On-demand organic footprint, ranked keywords, top pages and backlink authority |
 | Keyword Strategy | `/keyword-strategy` | Intent clusters, GSC page mapping, opportunity scoring and cannibalisation evidence |
 | Rankings | `/rankings` | Approved daily exact SERP checks, history, position distribution and alerts |
@@ -63,12 +65,13 @@ npm run test         # vitest
 | Backlinks | `/backlinks` | Current link ledger, history from 2019, new/lost data, anchors and risk |
 | Link Building | `/link-building` | Competitor link intersections, contact research, editable drafts and human-gated delivery |
 | Local SEO | `/local-seo` | Public Google Business Profile signals, reviews/rating movement and 3×3/5×5 Maps rank grids |
-| AI Visibility | `/ai-visibility` | Independent ChatGPT, Claude, Gemini and Perplexity checks |
+| AI Visibility | `/ai-visibility` | ChatGPT, Claude, Gemini, Perplexity, Google AI Overview/Mode and configured Copilot evidence |
 | Notifications | `/notifications` | In-app ranking, technical, traffic and backlink alerts |
 | Content | `/content` | Page-level GSC performance: inventory, measured decay/rise, GA4 landing pages |
 | Recommendations | `/recommendations` | Derived at sync time from measured signals; human-approval task flow |
-| Reports | `/reports` | Live previews, CSV/PDF export, persisted schedules and signed delivery webhook |
-| Settings | `/settings` | Real connection probes, live spend vs the **$200/month guardrail**, sync schedule |
+| Reports | `/reports` | Portfolio/folder/site/campaign previews, CSV/PDF export, email schedules and signed delivery webhook |
+| Website settings | `/sites/[siteId]/settings` | Per-site folders, budgets, connectors, prompts, monitoring, alerts and audited changes |
+| Settings | `/settings` | Provider health, users/scoped permissions, WhatsApp setup and portfolio controls |
 
 ## Architecture at a glance
 
@@ -94,10 +97,12 @@ in [`docs/architecture.md`](docs/architecture.md).
 
 ## Roles & auth
 
-The internal deployment uses signed, 12-hour HTTP-only sessions. Configure a single
-`AUTH_EMAIL`/`AUTH_PASSWORD` account or multiple `AUTH_USERS_JSON` users. Roles are
-`admin`, `manager`, `seo_analyst` and `viewer`; mutation APIs reject viewer writes. All
-dashboard and live-data APIs are protected, while `/api/sync` keeps its independent
+The internal deployment uses signed, 12-hour HTTP-only sessions. Configure a bootstrap
+`AUTH_EMAIL`/`AUTH_PASSWORD` account, then invite database-backed users in **Settings →
+Users & roles**. Roles are `admin`, `manager`, `seo_analyst` and `viewer`; explicit
+permissions can be scoped to the whole portfolio, a nested folder or one website.
+Mutation APIs enforce the permission and website scope, not merely the visible role.
+All dashboard and live-data APIs are protected, while `/api/sync` keeps its independent
 `SYNC_TOKEN` bearer boundary for automation.
 
 ## Operations
@@ -133,6 +138,11 @@ approved. Link outreach also remains a draft until a user approves it; delivery 
 an HTTPS `OUTREACH_EMAIL_WEBHOOK_URL`. Google Business monitoring currently uses public
 profile, rating and review-count evidence—it does not edit a Business Profile or post
 review replies.
+
+WhatsApp alerts can use Meta Cloud API directly or a generic webhook. Configure
+`META_WHATSAPP_TOKEN`, `META_WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN` and the
+optional `META_WHATSAPP_GRAPH_VERSION`; no access token is stored in the browser or
+application database. Website recipients and event types remain site-specific.
 
 See [`docs/dataforseo-integration.md`](docs/dataforseo-integration.md),
 [`docs/google-integration.md`](docs/google-integration.md) (Search Console + GA4),

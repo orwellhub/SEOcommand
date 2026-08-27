@@ -1,7 +1,7 @@
 import {
   Activity, Bell, Bot, Building2, FileText, Gauge, GitCompareArrows,
   LayoutDashboard, Link2, ListChecks, MapPinned, Radar, Search, Settings,
-  ShieldCheck, Sparkles, Swords, TrendingUp, Waypoints, type LucideIcon,
+  ScanLine, ShieldCheck, Sparkles, Swords, TrendingUp, Waypoints, type LucideIcon,
 } from "lucide-react";
 
 export interface NavItem {
@@ -33,6 +33,8 @@ export const SITE_NAV: NavItem[] = [
   { href: "/reports", label: "Reports", icon: FileText, group: "site" },
 ];
 
+export const SCAN_CENTRE: NavItem = { href: "/scan-centre", label: "Scan centre", icon: ScanLine, group: "site" };
+
 export const TECHNICAL_SECONDARY: NavItem[] = [
   { href: "/technical-crawler", label: "Rendered crawler", icon: GitCompareArrows },
   { href: "/monitoring", label: "Reliability", icon: Radar },
@@ -42,7 +44,7 @@ export const BACKLINK_SECONDARY: NavItem[] = [{ href: "/link-building", label: "
 export const AI_SECONDARY: NavItem[] = [{ href: "/ai-visibility", label: "AI visibility", icon: Bot }];
 
 /** Compatibility exports used by small-screen and legacy surfaces. */
-export const NAV_ITEMS: NavItem[] = [...GLOBAL_NAV, ...SITE_NAV, ...TECHNICAL_SECONDARY, ...KEYWORD_SECONDARY, ...BACKLINK_SECONDARY];
+export const NAV_ITEMS: NavItem[] = [...GLOBAL_NAV, SCAN_CENTRE, ...SITE_NAV, ...TECHNICAL_SECONDARY, ...KEYWORD_SECONDARY, ...BACKLINK_SECONDARY];
 export const PRIMARY_NAV = SITE_NAV;
 export const NAV_SECTIONS = [
   { label: "Portfolio", icon: Building2, items: GLOBAL_NAV.slice(0, 2) },

@@ -46,6 +46,26 @@ export interface PortfolioGroup {
   parentId: string | null;
   sortOrder: number;
   siteSlugs: string[];
+  /** Websites whose navigational home is this folder. `siteSlugs` still
+   * includes secondary reporting memberships. */
+  primarySiteSlugs: string[];
+}
+
+export type ScanModule =
+  | "google"
+  | "rankings"
+  | "keywords"
+  | "competitors"
+  | "technical"
+  | "backlinks"
+  | "ai"
+  | "local"
+  | "reliability";
+
+export interface ScanRequest {
+  siteSlug: string;
+  modules: ScanModule[];
+  label?: string;
 }
 
 export interface SiteCostForecastLine {

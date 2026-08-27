@@ -15,6 +15,23 @@ function webhookFor(channel: string): string | undefined {
   return undefined;
 }
 
+function metaWhatsAppConfigured() { return Boolean(process.env.META_WHATSAPP_TOKEN && process.env.META_WHATSAPP_PHONE_NUMBER_ID); }
+
+async function postMetaWhatsApp(recipient: string, notification: Record<string, unknown>) {
+  const token = process.env.META_WHATSAPP_TOKEN!;
+  const senderId = process.env.META_WHATSAPP_PHONE_NUMBER_ID!;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_BASE_URL || "";
+  const action = typeof notification.actionUrl === "string" && notification.actionUrl ? `${baseUrl}${notification.actionUrl}` : "";
+  const message = [String(notification.title ?? "SEO Command Centre alert"), notification.detail ? String(notification.detail) : "", action].filter(Boolean).join("\n\n").slice(0, 3_800);
+  const response = await fetch(`https://graph.facebook.com/${process.env.META_WHATSAPP_GRAPH_VERSION || "v23.0"}/${encodeURIComponent(senderId)}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ messaging_product: "whatsapp", to: recipient.replace(/^whatsapp:/, "").replace(/[^0-9]/g, ""), type: "text", text: { body: message } }),
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!response.ok) throw new Error(`Meta WhatsApp returned HTTP ${response.status}: ${(await response.text()).slice(0, 250)}`);
+}
+
 export interface AlertWebhookRequest {
   url: URL;
   headers: Record<string, string>;
@@ -77,21 +94,22 @@ export async function deliverQueuedAlerts(limit = 200): Promise<AlertDeliverySum
   let skipped = 0;
   for (const item of queued) {
     const webhook = webhookFor(item.delivery.channel);
-    if (!webhook) {
+    const directWhatsApp = item.delivery.channel === "whatsapp" && metaWhatsAppConfigured() && Boolean(item.delivery.recipient);
+    if (!webhook && !directWhatsApp) {
       skipped++;
       continue;
     }
     try {
-      const request = buildAlertWebhookRequest({
-        webhook,
-        secret: process.env.ALERT_WEBHOOK_SECRET,
-        production: process.env.NODE_ENV === "production",
-        eventType: item.notification.eventType,
-        channel: item.delivery.channel,
-        recipient: item.delivery.recipient,
-        notification: item.notification as unknown as Record<string, unknown>,
-      });
-      await postAlertWebhook(request);
+      if (directWhatsApp) await postMetaWhatsApp(item.delivery.recipient!, item.notification as unknown as Record<string, unknown>);
+      else {
+        const request = buildAlertWebhookRequest({
+          webhook: webhook!, secret: process.env.ALERT_WEBHOOK_SECRET,
+          production: process.env.NODE_ENV === "production", eventType: item.notification.eventType,
+          channel: item.delivery.channel, recipient: item.delivery.recipient,
+          notification: item.notification as unknown as Record<string, unknown>,
+        });
+        await postAlertWebhook(request);
+      }
       await db().update(schema.notificationDeliveries).set({ status: "delivered", deliveredAt: new Date(), attempts: item.delivery.attempts + 1, lastError: null }).where(eq(schema.notificationDeliveries.id, item.delivery.id));
       delivered++;
     } catch (error) {

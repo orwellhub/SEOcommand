@@ -12,7 +12,7 @@ import { cn } from "@/lib/cn";
 export function MobileNav() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const { scope, setScope, sites, groups } = useDomain();
+  const { scope, setScope, sites, groups, refreshPortfolio } = useDomain();
   const router = useRouter();
 
   /** Picking a site closes the drawer and lands on that property's page. */
@@ -32,6 +32,17 @@ export function MobileNav() {
     setScope(`group:${id}`);
     router.push("/portfolio");
     setOpen(false);
+  }
+
+  async function moveSite(siteId: string, primaryGroupId: string | null) {
+    const memberships = groups.filter((group) => group.siteSlugs.includes(siteId)).map((group) => group.id);
+    const groupIds = primaryGroupId ? [...new Set([primaryGroupId, ...memberships])] : [];
+    const response = await fetch(`/api/sites/${encodeURIComponent(siteId)}/groups`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ groupIds, primaryGroupId }),
+    });
+    if (response.ok) await refreshPortfolio();
   }
 
   return (
@@ -84,19 +95,21 @@ export function MobileNav() {
                   {group.name}
                 </button>
               ))}
-              {sites.map((d) => (
-                <button
-                  key={d.id}
-                  onClick={() => selectDomain(d.id)}
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm",
-                    scope === d.id ? "bg-rail-selected" : "hover:bg-workspace",
-                  )}
-                >
-                  <Circle className="h-2.5 w-2.5" style={{ fill: d.accent, color: d.accent }} />
-                  {d.name}
-                </button>
-              ))}
+              {sites.map((d) => {
+                const primary = groups.find((group) => group.primarySiteSlugs?.includes(d.id))?.id
+                  ?? groups.find((group) => group.siteSlugs.includes(d.id))?.id
+                  ?? "";
+                return <div key={d.id} className={cn("flex items-center rounded-md", scope === d.id ? "bg-rail-selected" : "hover:bg-workspace")}>
+                  <button onClick={() => selectDomain(d.id)} className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left text-sm">
+                    <Circle className="h-2.5 w-2.5 shrink-0" style={{ fill: d.accent, color: d.accent }} />
+                    <span className="truncate">{d.name}</span>
+                  </button>
+                  <select aria-label={`Move ${d.name} to folder`} value={primary} onChange={(event) => void moveSite(d.id, event.target.value || null)} className="mr-2 h-7 max-w-24 rounded border border-border bg-card px-1 text-[10px] text-muted">
+                    <option value="">Unfiled</option>
+                    {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+                  </select>
+                </div>;
+              })}
             </div>
 
             <div className="mt-2 flex-1 overflow-y-auto px-3">

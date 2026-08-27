@@ -54,6 +54,11 @@ async function main() {
   "ai_response_observations",
   "portfolio_notifications",
   "access_audit_events",
+  "workspace_users",
+  "user_access_grants",
+  "keyword_projects",
+  "rank_tracking_campaigns",
+  "messaging_integrations",
 ];
   const missing = requiredTables.filter((table) => !tableNames.has(table));
   if (missing.length) throw new Error(`Migration rehearsal is missing tables: ${missing.join(", ")}`);

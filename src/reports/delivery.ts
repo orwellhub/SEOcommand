@@ -3,6 +3,7 @@ import { and, eq, lte } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { nextReportRun, type ReportCadence } from "@/lib/report-schedule";
 import { buildDomainBundle, buildPortfolio } from "@/sync/bundle";
+import { resolveGroupSiteSlugs } from "@/platform/site-store";
 
 export interface DeliverySummary {
   due: number;
@@ -41,9 +42,17 @@ export async function deliverDueReports(now = new Date()): Promise<DeliverySumma
 
   for (const schedule of due) {
     try {
-      const data = schedule.domainSlug
-        ? await buildDomainBundle(schedule.domainSlug)
-        : portfolio;
+      let data: unknown;
+      if (schedule.scopeType === "group" && schedule.scopeId) {
+        const siteSlugs = await resolveGroupSiteSlugs(schedule.scopeId);
+        data = { scope: { type: "group", id: schedule.scopeId }, domains: await Promise.all(siteSlugs.map(buildDomainBundle)) };
+      } else if (schedule.scopeType === "campaign" && schedule.scopeId) {
+        const [campaign] = await db().select().from(schema.rankTrackingCampaigns).where(eq(schema.rankTrackingCampaigns.id, schedule.scopeId)).limit(1);
+        const keywords = campaign ? await db().select().from(schema.rankTrackingKeywords).where(eq(schema.rankTrackingKeywords.campaignId, campaign.id)) : [];
+        data = { scope: { type: "campaign", id: schedule.scopeId }, campaign, keywords };
+      } else if (schedule.domainSlug || schedule.scopeType === "site") {
+        data = await buildDomainBundle(schedule.domainSlug ?? schedule.scopeId!);
+      } else data = portfolio;
       const payload = JSON.stringify({
         event: "seo.report.due",
         schedule: {
@@ -52,7 +61,11 @@ export async function deliverDueReports(now = new Date()): Promise<DeliverySumma
           templateName: schedule.templateName,
           cadence: schedule.cadence,
           domainId: schedule.domainSlug,
+          scopeType: schedule.scopeType,
+          scopeId: schedule.scopeId,
           recipients: schedule.recipients,
+          channels: schedule.channels,
+          definition: schedule.definition,
           format: schedule.format,
         },
         generatedAt: now.toISOString(),

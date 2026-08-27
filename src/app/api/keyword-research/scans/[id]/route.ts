@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { canWrite } from "@/lib/auth";
 import { hasDatabase } from "@/sync/store";
 import type { KeywordResearchResult, KeywordResearchRow } from "@/lib/types";
 import { qaKeywordResearch } from "@/data/qa-fixtures";
+import { canAccessSite, hasPermission } from "@/platform/access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,7 +27,7 @@ function unavailable() {
   );
 }
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (process.env.QA_SYNTHETIC === "true" && id.startsWith("qa-")) {
     const pieces = id.split("-");
@@ -54,6 +54,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     if (!row) {
       return NextResponse.json({ ok: false, error: "Saved search not found." }, { status: 404 });
     }
+    if (row.siteSlug && !await canAccessSite(request, row.siteSlug)) return NextResponse.json({ ok: false, error: "Saved search not found." }, { status: 404 });
     const result: KeywordResearchResult = {
       seed: row.seed,
       locationCode: row.locationCode,
@@ -73,13 +74,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (!canWrite(request.headers.get("x-orwell-user-role"))) {
-    return NextResponse.json(
-      { ok: false, error: "Your role does not permit deleting searches." },
-      { status: 403 },
-    );
-  }
   if (process.env.QA_SYNTHETIC === "true" && id.startsWith("qa-")) {
+    if (!await hasPermission(request, "research")) return NextResponse.json({ ok: false, error: "Research permission required." }, { status: 403 });
     return NextResponse.json({ ok: true, synthetic: true });
   }
   if (!hasDatabase()) return unavailable();
@@ -87,6 +83,9 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     return NextResponse.json({ ok: false, error: "Invalid scan id." }, { status: 400 });
   }
   try {
+    const [existing] = await db().select({ siteSlug: schema.keywordScans.siteSlug }).from(schema.keywordScans).where(eq(schema.keywordScans.id, id)).limit(1);
+    if (!existing || (existing.siteSlug && !await canAccessSite(request, existing.siteSlug))) return NextResponse.json({ ok: false, error: "Saved search not found." }, { status: 404 });
+    if (!await hasPermission(request, "research", existing.siteSlug)) return NextResponse.json({ ok: false, error: "Research permission required." }, { status: 403 });
     const deleted = await db()
       .delete(schema.keywordScans)
       .where(eq(schema.keywordScans.id, id))

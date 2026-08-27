@@ -1,16 +1,25 @@
 import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { canWrite } from "@/lib/auth";
 import { syncLocalLocation } from "@/platform/local-seo";
 import { BudgetExceededError, DailyLimitError } from "@/providers/dataforseo/errors";
+import { db, schema } from "@/db";
+import { canAccessSite, hasPermission } from "@/platform/access";
+import { hasDatabase } from "@/sync/store";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request, { params }: { params: Promise<{ locationId: string }> }) {
   const { locationId } = await params;
-  if (!canWrite(request.headers.get("x-orwell-user-role"))) return NextResponse.json({ error: "Write access required." }, { status: 403 });
   if (!z.string().uuid().safeParse(locationId).success) return NextResponse.json({ error: "Invalid location." }, { status: 400 });
-  if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ result: { locationId, status: "completed", costUsd: 0, synthetic: true } });
+  if (process.env.QA_SYNTHETIC === "true") {
+    if (!await hasPermission(request, "run_scans")) return NextResponse.json({ error: "Run-scan permission required." }, { status: 403 });
+    return NextResponse.json({ result: { locationId, status: "completed", costUsd: 0, synthetic: true } });
+  }
+  if (!hasDatabase()) return NextResponse.json({ error: "Local SEO requires DATABASE_URL." }, { status: 503 });
+  const [location] = await db().select({ siteSlug: schema.localSeoLocations.siteSlug }).from(schema.localSeoLocations).where(eq(schema.localSeoLocations.id, locationId)).limit(1);
+  if (!location || !await canAccessSite(request, location.siteSlug)) return NextResponse.json({ error: "Location not found." }, { status: 404 });
+  if (!await hasPermission(request, "run_scans", location.siteSlug)) return NextResponse.json({ error: "Run-scan permission required for this website." }, { status: 403 });
   try {
     return NextResponse.json({ result: await syncLocalLocation(locationId) });
   } catch (error) {

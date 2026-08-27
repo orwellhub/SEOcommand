@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { Domain, DomainId } from "@/lib/types";
 import { DOMAINS } from "@/data/domains";
@@ -16,6 +16,7 @@ interface DomainState {
   sites: Domain[];
   groups: PortfolioGroup[];
   sitesLoading: boolean;
+  refreshPortfolio: () => Promise<void>;
   range: RangeKey;
   setRange: (r: RangeKey) => void;
 }
@@ -34,9 +35,22 @@ export function DomainProvider({ children }: { children: React.ReactNode }) {
   const [groups, setGroups] = useState<PortfolioGroup[]>([]);
   const [sitesLoading, setSitesLoading] = useState(true);
 
+  const refreshPortfolio = useCallback(async () => {
+    setSitesLoading(true);
+    try {
+      const response = await fetch("/api/sites", { cache: "no-store" });
+      if (!response.ok) throw new Error(`Site registry request failed (${response.status})`);
+      const body = await response.json() as { sites?: Domain[]; groups?: PortfolioGroup[] };
+      if (body.sites?.length) setSites(body.sites);
+      if (body.groups) setGroups(body.groups);
+    } finally {
+      setSitesLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     let active = true;
-    fetch("/api/sites")
+    fetch("/api/sites", { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) throw new Error(`Site registry request failed (${response.status})`);
         return response.json() as Promise<{ sites?: Domain[]; groups?: PortfolioGroup[] }>;
@@ -61,7 +75,8 @@ export function DomainProvider({ children }: { children: React.ReactNode }) {
     const requested = siteMatch?.[1] ?? searchParams.get("site");
     const saved = window.localStorage.getItem("orwell.scope");
     if (requested && requested !== "new") setScope(requested as Scope);
-    else if (saved) setScope(saved as Scope);
+    else if (pathname === "/portfolio" && saved?.startsWith("group:")) setScope(saved as Scope);
+    else setScope("portfolio");
     setScopeReady(true);
   }, [pathname, searchParams]);
 
@@ -92,10 +107,11 @@ export function DomainProvider({ children }: { children: React.ReactNode }) {
       sites,
       groups,
       sitesLoading,
+      refreshPortfolio,
       range,
       setRange,
     }),
-    [scope, activeDomain, activeGroup, sites, groups, sitesLoading, range],
+    [scope, activeDomain, activeGroup, sites, groups, sitesLoading, refreshPortfolio, range],
   );
 
   return <DomainCtx.Provider value={value}>{children}</DomainCtx.Provider>;

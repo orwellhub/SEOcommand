@@ -121,11 +121,28 @@ export async function fetchRankedKeywordsBundle(
  */
 export async function researchKeywords(opts: {
   seed: string;
+  sourceType?: "seed" | "domain" | "competitor" | "questions";
+  siteSlug?: string | null;
   locationCode: number;
   languageCode: string;
   limit?: number;
 }): Promise<KeywordResearchRow[]> {
   const client = getDataForSeoClient();
+  const limit = Math.min(Math.max(opts.limit ?? 100, 1), 1000);
+  if (opts.sourceType === "domain" || opts.sourceType === "competitor") {
+    let target = opts.seed.trim().toLowerCase();
+    try { target = new URL(target.includes("://") ? target : `https://${target}`).hostname; } catch { target = target.replace(/^https?:\/\//, "").split("/")[0] ?? target; }
+    if (!target || !target.includes(".")) throw new Error("Enter a valid domain or website URL for domain research.");
+    const { result } = await client.post(
+      "labsRankedKeywords",
+      ENDPOINTS.labsRankedKeywords,
+      [{ target, location_code: opts.locationCode, language_code: opts.languageCode, limit, order_by: ["keyword_data.keyword_info.search_volume,desc"] }],
+      { domainSlug: opts.siteSlug ?? null },
+    );
+    const sourceRows = result as Record<string, unknown>[];
+    const items = (sourceRows[0]?.items ?? sourceRows) as Record<string, unknown>[];
+    return normalizeKeywordIdeas([{ items: items.map((item) => item.keyword_data ?? item) }]);
+  }
   const { result } = await client.post(
     "labsKeywordIdeas",
     ENDPOINTS.labsKeywordIdeas,
@@ -134,13 +151,16 @@ export async function researchKeywords(opts: {
         keywords: [opts.seed],
         location_code: opts.locationCode,
         language_code: opts.languageCode,
-        limit: Math.min(Math.max(opts.limit ?? 100, 1), 1000),
+        limit,
         order_by: ["keyword_info.search_volume,desc"],
       },
     ],
-    { domainSlug: null },
+    { domainSlug: opts.siteSlug ?? null },
   );
-  return normalizeKeywordIdeas(result as Record<string, unknown>[]);
+  const rows = normalizeKeywordIdeas(result as Record<string, unknown>[]);
+  if (opts.sourceType !== "questions") return rows;
+  const question = /^(who|what|when|where|why|how|which|can|could|should|is|are|do|does|will)\b/i;
+  return rows.slice().sort((left, right) => Number(question.test(right.keyword)) - Number(question.test(left.keyword)));
 }
 
 /** domain_rank_overview once → visibility point + position buckets + est traffic. */

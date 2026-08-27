@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 import {
-  Activity, Bell, Check, ChevronRight, CircleDollarSign, Cloud, Code2, Database,
+  Activity, Bell, Bot, Check, ChevronRight, CircleDollarSign, Cloud, Code2, Database,
   FolderTree, Gauge, Globe2, History, KeyRound, MapPinned, PlugZap, Save, Settings2,
-  SlidersHorizontal,
+  SlidersHorizontal, Plus, Trash2,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button, Card, EmptyState, Skeleton, StatusBadge } from "@/components/ui/primitives";
@@ -15,8 +15,9 @@ import { DEFAULT_ALERT_CHANNELS } from "@/platform/notification-defaults";
 
 const TABS = [
   { id: "general", label: "General", icon: Settings2 },
-  { id: "targeting", label: "Groups & targeting", icon: FolderTree },
+  { id: "targeting", label: "Folders & targeting", icon: FolderTree },
   { id: "strategy", label: "Search strategy", icon: SlidersHorizontal },
+  { id: "prompts", label: "AI prompt checks", icon: Bot },
   { id: "monitoring", label: "Monitoring", icon: Activity },
   { id: "local", label: "Local SEO", icon: MapPinned },
   { id: "budget", label: "Budget & usage", icon: CircleDollarSign },
@@ -41,7 +42,7 @@ interface Connection {
   id: string; kind: ConnectionKind; status: string; displayName: string; remoteUrl: string | null;
   config: Record<string, unknown>; lastCheckedAt: string | null;
 }
-interface Group { id: string; name: string; color: string; parentId: string | null; }
+interface Group { id: string; name: string; color: string; parentId: string | null; siteSlugs: string[]; primarySiteSlugs: string[]; }
 interface NotificationRule {
   channels: string[]; recipients: string[]; eventTypes: string[]; rankDropThreshold: number; trafficDropPct: number; enabled: boolean;
 }
@@ -51,6 +52,7 @@ interface SettingsData {
   notificationRule: NotificationRule | null; spend: { month: string; totalUsd: number; lines: { endpoint: string; spentUsd: number }[] };
   auditEvents: AuditEvent[]; credentialPolicy: string;
 }
+interface SessionGrant { scopeType: "portfolio" | "group" | "site"; scopeId: string | null; permissions: string[]; }
 
 const DEFAULT_EVENTS = ["rank_drop", "technical_regression", "traffic_drop", "site_unavailable", "tls_risk", "lost_backlink", "local_rating_drop"];
 const BUDGET_CATEGORIES = [
@@ -60,14 +62,17 @@ const BUDGET_CATEGORIES = [
 
 export default function SiteSettingsPage() {
   const params = useParams<{ siteId: string }>();
+  const searchParams = useSearchParams();
   const siteId = String(params?.siteId ?? "");
   const { setScope } = useDomain();
   const [tab, setTab] = useState<TabId>("general");
   const [data, setData] = useState<SettingsData | null>(null);
   const [draft, setDraft] = useState<SiteRow | null>(null);
   const [groupIds, setGroupIds] = useState<string[]>([]);
+  const [primaryGroupId, setPrimaryGroupId] = useState<string | null>(null);
   const [rule, setRule] = useState<NotificationRule | null>(null);
   const [role, setRole] = useState<string | null>(null);
+  const [permissions, setPermissions] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
@@ -75,16 +80,40 @@ export default function SiteSettingsPage() {
     Promise.all([
       fetch(`/api/sites/${siteId}/settings`).then((response) => response.ok ? response.json() : Promise.reject(new Error("Website settings could not be loaded."))),
       fetch("/api/auth/session").then((response) => response.json()),
-    ]).then(([settings, session]: [SettingsData, { user?: { role?: string } }]) => {
+    ]).then(([settings, session]: [SettingsData, { user?: { role?: string; grants?: SessionGrant[] } }]) => {
       setData(settings); setDraft(settings.site); setGroupIds(settings.groupIds);
+      setPrimaryGroupId(settings.groups.find((group) => group.primarySiteSlugs?.includes(siteId))?.id ?? settings.groupIds[0] ?? null);
       setRule(settings.notificationRule ?? { channels: [...DEFAULT_ALERT_CHANNELS], recipients: [], eventTypes: DEFAULT_EVENTS, rankDropThreshold: 5, trafficDropPct: 20, enabled: true });
-      setRole(session.user?.role ?? null); setScope(siteId);
+      const sessionRole = session.user?.role ?? null;
+      const grants = session.user?.grants ?? [];
+      const groupAncestors = new Set(settings.groupIds);
+      let added = true;
+      while (added) {
+        added = false;
+        for (const group of settings.groups) if (groupAncestors.has(group.id) && group.parentId && !groupAncestors.has(group.parentId)) { groupAncestors.add(group.parentId); added = true; }
+      }
+      const explicit = grants.flatMap((grant) => grant.scopeType === "portfolio" || (grant.scopeType === "site" && grant.scopeId === siteId) || (grant.scopeType === "group" && grant.scopeId && groupAncestors.has(grant.scopeId)) ? grant.permissions : []);
+      const legacy: Record<string, string[]> = {
+        admin: ["view", "research", "run_scans", "manage_content", "manage_connectors", "approve_spend", "manage_users", "manage_reports"],
+        manager: ["view", "research", "run_scans", "manage_connectors", "approve_spend", "manage_users", "manage_reports"],
+        seo_analyst: ["view", "research", "run_scans", "manage_content"],
+        viewer: ["view"],
+      };
+      setPermissions([...new Set(grants.length ? explicit : legacy[sessionRole ?? "viewer"] ?? ["view"])]);
+      setRole(sessionRole); setScope(siteId);
     }).catch((error: Error) => setNotice({ tone: "error", text: error.message }));
   }
   useEffect(load, [siteId, setScope]);
+  useEffect(() => {
+    const requested = searchParams.get("tab");
+    const aliases: Record<string, TabId> = { budgets: "budget", connectors: "connections", folders: "targeting", prompts: "prompts" };
+    const resolved = aliases[requested ?? ""] ?? requested;
+    if (TABS.some((item) => item.id === resolved)) setTab(resolved as TabId);
+  }, [searchParams]);
 
-  const canEdit = role === "admin" || role === "seo_analyst";
-  const canBudget = role === "admin" || role === "manager";
+  const canEdit = permissions.includes("manage_content");
+  const canConnect = permissions.includes("manage_connectors");
+  const canBudget = permissions.includes("approve_spend");
   const monthlyLimit = draft?.approvedMonthlyUsd ?? 0;
   const proposedMonthlyLimit = draft?.approvedMonthlyUsd ?? draft?.forecastMonthlyUsd ?? 0;
   const budgetValid = Boolean(draft && proposedMonthlyLimit >= draft.forecastMonthlyUsd);
@@ -101,6 +130,7 @@ export default function SiteSettingsPage() {
       setData(result.settings);
       setDraft(result.settings.site);
       setGroupIds(result.settings.groupIds);
+      setPrimaryGroupId(result.settings.groups.find((group) => group.primarySiteSlugs?.includes(siteId))?.id ?? result.settings.groupIds[0] ?? null);
       setRule(result.settings.notificationRule ?? rule);
       return;
     }
@@ -137,16 +167,25 @@ export default function SiteSettingsPage() {
             <SaveBar canSave={canEdit} saving={saving} role={role} onSave={() => save({ section: "general", name: draft.name, host: draft.host, industry: draft.industry, primaryMarket: draft.primaryMarket, locationCode: draft.locationCode, languageCode: draft.languageCode, devices: draft.devices, lifecycleStatus: draft.lifecycleStatus, accent: draft.accent })} />
           </SettingsPanel>}
 
-          {tab === "targeting" && <SettingsPanel title="Groups & targeting" description="Place this website in multiple portfolio groups and define its search market." icon={<MapPinned className="h-5 w-5" />}>
-            <div className="mb-6 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{data.groups.map((group) => <label key={group.id} className={cn("flex cursor-pointer items-center gap-3 rounded-md border p-3", groupIds.includes(group.id) ? "border-purple bg-purple/5" : "border-border")}><input type="checkbox" disabled={!canEdit} checked={groupIds.includes(group.id)} onChange={() => setGroupIds((values) => values.includes(group.id) ? values.filter((id) => id !== group.id) : [...values, group.id])} /><span className="h-2.5 w-2.5 rounded-full" style={{ background: group.color }} /><span className="text-sm font-semibold text-ink">{group.name}</span></label>)}</div>
+          {tab === "targeting" && <SettingsPanel title="Folders & targeting" description="Choose one primary folder for navigation and optional secondary groups for cross-portfolio reporting." icon={<MapPinned className="h-5 w-5" />}>
+            <div className="mb-6 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{data.groups.map((group) => <div key={group.id} className={cn("rounded-md border p-3", groupIds.includes(group.id) ? "border-purple bg-purple/5" : "border-border")}><label className="flex cursor-pointer items-center gap-3"><input type="checkbox" disabled={!canEdit} checked={groupIds.includes(group.id)} onChange={() => setGroupIds((values) => {
+              if (values.includes(group.id)) {
+                if (primaryGroupId === group.id) setPrimaryGroupId(null);
+                return values.filter((id) => id !== group.id);
+              }
+              if (!primaryGroupId) setPrimaryGroupId(group.id);
+              return [...values, group.id];
+            })} /><span className="h-2.5 w-2.5 rounded-full" style={{ background: group.color }} /><span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{group.name}</span></label>{groupIds.includes(group.id) && <button type="button" disabled={!canEdit} onClick={() => setPrimaryGroupId(group.id)} className={cn("mt-2 w-full rounded px-2 py-1 text-[10px] font-bold uppercase tracking-wide", primaryGroupId === group.id ? "bg-purple text-white" : "bg-card text-muted hover:text-ink")}>{primaryGroupId === group.id ? "Primary folder" : "Make primary"}</button>}</div>)}</div>
             <FieldGrid>
               <Field label="Primary market"><Input value={draft.primaryMarket} disabled={!canEdit} onChange={(value) => setDraft({ ...draft, primaryMarket: value })} /></Field>
               <Field label="Location code"><NumberInput value={draft.locationCode} disabled={!canEdit} onChange={(value) => setDraft({ ...draft, locationCode: value })} /></Field>
               <Field label="Language"><Input value={draft.languageCode} disabled={!canEdit} onChange={(value) => setDraft({ ...draft, languageCode: value })} /></Field>
               <Field label="Devices"><div className="flex gap-2">{(["desktop", "mobile"] as const).map((device) => <button key={device} disabled={!canEdit} onClick={() => setDraft({ ...draft, devices: draft.devices.includes(device) ? draft.devices.filter((value) => value !== device) : [...draft.devices, device] })} className={cn("rounded-md border px-3 py-2 text-xs font-semibold capitalize", draft.devices.includes(device) ? "border-purple bg-purple/10 text-purple" : "border-border text-muted")}>{device}</button>)}</div></Field>
             </FieldGrid>
-            <SaveBar canSave={canEdit} saving={saving} role={role} onSave={async () => { await save({ section: "groups", groupIds }); await save({ section: "general", name: draft.name, host: draft.host, industry: draft.industry, primaryMarket: draft.primaryMarket, locationCode: draft.locationCode, languageCode: draft.languageCode, devices: draft.devices, lifecycleStatus: draft.lifecycleStatus, accent: draft.accent }); }} />
+            <SaveBar canSave={canEdit} saving={saving} role={role} onSave={async () => { await save({ section: "groups", groupIds, primaryGroupId }); await save({ section: "general", name: draft.name, host: draft.host, industry: draft.industry, primaryMarket: draft.primaryMarket, locationCode: draft.locationCode, languageCode: draft.languageCode, devices: draft.devices, lifecycleStatus: draft.lifecycleStatus, accent: draft.accent }); }} />
           </SettingsPanel>}
+
+          {tab === "prompts" && <AiPromptSettings siteId={siteId} canEdit={canEdit} />}
 
           {tab === "monitoring" && <SettingsPanel title="Monitoring" description="Cadence and capacity controls for rankings, crawl, links, AI, Local SEO and reliability." icon={<Gauge className="h-5 w-5" />}>
             <FieldGrid>
@@ -196,18 +235,18 @@ export default function SiteSettingsPage() {
           {tab === "connections" && <SettingsPanel title="Connections" description={data.credentialPolicy} icon={<PlugZap className="h-5 w-5" />}>
             <div className="grid gap-4 xl:grid-cols-2">
               <ConnectorCard icon={<Cloud />} name="Google Search Console" status={draft.gscProperty ? "connected" : "needs setup"} detail={draft.gscProperty || "Map a central Google property"} color="#335CFF">
-                <Input disabled={!canEdit} value={draft.gscProperty ?? ""} placeholder="sc-domain:example.com" onChange={(value) => setDraft({ ...draft, gscProperty: value || null })} />
+                <Input disabled={!canConnect} value={draft.gscProperty ?? ""} placeholder="sc-domain:example.com" onChange={(value) => setDraft({ ...draft, gscProperty: value || null })} />
               </ConnectorCard>
               <ConnectorCard icon={<Database />} name="Google Analytics 4" status={draft.ga4Property ? "connected" : "needs setup"} detail={draft.ga4Property || "Map a GA4 property ID"} color="#F2B544">
-                <Input disabled={!canEdit} value={draft.ga4Property ?? ""} placeholder="123456789" onChange={(value) => setDraft({ ...draft, ga4Property: value || null })} />
+                <Input disabled={!canConnect} value={draft.ga4Property ?? ""} placeholder="123456789" onChange={(value) => setDraft({ ...draft, ga4Property: value || null })} />
               </ConnectorCard>
               <ConnectorCard icon={<Database />} name="DataForSEO" status={draft.spendApproval === "approved" ? "approved" : "spend gated"} detail="Central credential · paid jobs respect this site's budget" color="#16A879" />
               {(["github", "hostinger_git", "webhook"] as const).map((kind) => {
                 const existing = data.connections.find((item) => item.kind === kind);
-                return <EditableConnector key={kind} kind={kind} existing={existing} canEdit={canEdit} saving={saving} onSave={(remoteUrl) => save({ section: "connection", connection: { kind, displayName: kind === "github" ? "GitHub repository" : kind === "hostinger_git" ? "Hostinger Git deployment" : "Generic webhook", remoteUrl: remoteUrl || null, status: remoteUrl ? "connected" : "pending", config: { publishMode: "review_only" } } })} />;
+                return <EditableConnector key={kind} kind={kind} existing={existing} canEdit={canConnect} saving={saving} onSave={(remoteUrl) => save({ section: "connection", connection: { kind, displayName: kind === "github" ? "GitHub repository" : kind === "hostinger_git" ? "Hostinger Git deployment" : "Generic webhook", remoteUrl: remoteUrl || null, status: remoteUrl ? "connected" : "pending", config: { publishMode: "review_only" } } })} />;
               })}
             </div>
-            <SaveBar canSave={canEdit} saving={saving} role={role} onSave={() => save({ section: "google", gscProperty: draft.gscProperty, ga4Property: draft.ga4Property })} label="Save Google mappings" />
+            <SaveBar canSave={canConnect} saving={saving} role={role} onSave={() => save({ section: "google", gscProperty: draft.gscProperty, ga4Property: draft.ga4Property })} label="Save Google mappings" />
           </SettingsPanel>}
 
           {tab === "alerts" && <SettingsPanel title="Alerts" description="Route meaningful changes to the in-app centre and email. WhatsApp can remain off until configured." icon={<Bell className="h-5 w-5" />}>
@@ -252,4 +291,96 @@ function AccessRole({ label, detail, color }: { label: string; detail: string; c
 function listText(value: unknown): string { return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string").join("\n") : ""; }
 function TextList({ label, value, onChange, disabled, placeholder }: { label: string; value: string; onChange: (values: string[]) => void; disabled?: boolean; placeholder?: string }) {
   return <label className="block"><span className="mb-1.5 block text-2xs font-bold uppercase tracking-wide text-muted">{label}</span><textarea rows={6} value={value} disabled={disabled} placeholder={placeholder} onChange={(event) => onChange(event.target.value.split("\n").map((item) => item.trim()).filter(Boolean))} className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm leading-6 text-ink outline-none placeholder:text-muted focus:border-purple disabled:bg-workspace disabled:text-muted" /></label>;
+}
+
+interface PromptRow {
+  id: string;
+  prompt: string;
+  topic: string;
+  platforms: string[];
+  cadence: "daily" | "weekly" | "monthly";
+  sampleCount: number;
+  active: boolean;
+  nextRunAt?: string | null;
+}
+
+const AI_PLATFORMS = ["chatgpt", "claude", "gemini", "perplexity", "google_ai_overview", "google_ai_mode", "copilot"];
+
+function AiPromptSettings({ siteId, canEdit }: { siteId: string; canEdit: boolean }) {
+  const [prompts, setPrompts] = useState<PromptRow[]>([]);
+  const [bulk, setBulk] = useState("");
+  const [topic, setTopic] = useState("Brand discovery");
+  const [cadence, setCadence] = useState<PromptRow["cadence"]>("weekly");
+  const [sampleCount, setSampleCount] = useState(1);
+  const [platforms, setPlatforms] = useState<string[]>(AI_PLATFORMS);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const loadPrompts = useCallback(async () => {
+    const response = await fetch(`/api/ai-prompts?scope=${encodeURIComponent(siteId)}`, { cache: "no-store" });
+    const body = await response.json().catch(() => ({}));
+    if (response.ok) setPrompts(body.prompts ?? []);
+  }, [siteId]);
+
+  useEffect(() => { void loadPrompts(); }, [loadPrompts]);
+
+  async function addPrompts() {
+    const rows = bulk.split("\n").map((value) => value.trim()).filter((value) => value.length >= 8);
+    if (!rows.length || !platforms.length) return;
+    setBusy(true); setMessage(null);
+    try {
+      for (const prompt of rows) {
+        const response = await fetch("/api/ai-prompts", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ siteSlug: siteId, prompt, topic, platforms, cadence, sampleCount, priority: 60, source: rows.length > 1 ? "bulk_settings" : "manual_settings" }),
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body.error ?? `Could not add “${prompt}”.`);
+      }
+      setBulk("");
+      await loadPrompts();
+      setMessage(`${rows.length} prompt${rows.length === 1 ? "" : "s"} added. Checks will run on the selected cadence and remain inside this website's AI budget.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Prompts could not be added.");
+    } finally { setBusy(false); }
+  }
+
+  async function removePrompt(id: string) {
+    setBusy(true);
+    const response = await fetch(`/api/ai-prompts/${id}`, { method: "DELETE" });
+    if (response.ok) await loadPrompts();
+    else setMessage("The prompt could not be removed.");
+    setBusy(false);
+  }
+
+  function importCsv(file: File | undefined) {
+    if (!file) return;
+    file.text().then((text) => {
+      const lines = text.split(/\r?\n/).map((line) => line.split(",")[0]?.replace(/^"|"$/g, "").trim()).filter((line): line is string => Boolean(line && line.toLowerCase() !== "prompt"));
+      setBulk(lines.join("\n"));
+      setMessage(`${lines.length} prompts loaded from ${file.name}. Review them before adding.`);
+    }).catch(() => setMessage("The CSV file could not be read."));
+  }
+
+  return <SettingsPanel title="AI prompt checks" description="Add manual questions or import a CSV. The same prompt records appear in AI Visibility, so settings and measurement never drift apart." icon={<Bot className="h-5 w-5" />}>
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(300px,0.75fr)]">
+      <div>
+        <Field label="Prompts · one per line"><textarea rows={7} disabled={!canEdit || busy} value={bulk} onChange={(event) => setBulk(event.target.value)} placeholder={"Which UAE mortgage broker should I compare?\nWhat is the best mortgage comparison website in Dubai?"} className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm leading-6 text-ink outline-none placeholder:text-muted focus:border-purple disabled:bg-workspace" /></Field>
+        <div className="mt-3 flex flex-wrap items-end gap-3">
+          <Field label="Topic"><Input value={topic} disabled={!canEdit} onChange={setTopic} /></Field>
+          <Field label="Cadence"><Select value={cadence} disabled={!canEdit} options={["daily", "weekly", "monthly"]} onChange={(value) => setCadence(value as PromptRow["cadence"])} /></Field>
+          <Field label="Samples"><NumberInput value={sampleCount} disabled={!canEdit} onChange={(value) => setSampleCount(Math.min(5, Math.max(1, value)))} /></Field>
+        </div>
+        <div className="mt-4"><div className="mb-2 text-2xs font-bold uppercase tracking-wide text-muted">Platforms</div><div className="flex flex-wrap gap-2">{AI_PLATFORMS.map((platform) => <button key={platform} type="button" disabled={!canEdit} onClick={() => setPlatforms((current) => current.includes(platform) ? current.filter((value) => value !== platform) : [...current, platform])} className={cn("rounded-md border px-2.5 py-1.5 text-2xs font-semibold capitalize", platforms.includes(platform) ? "border-purple bg-purple/10 text-purple" : "border-border text-muted")}>{platform.replace(/_/g, " ")}</button>)}</div></div>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Button variant="primary" disabled={!canEdit || busy || !bulk.trim() || !platforms.length} onClick={() => void addPrompts()}><Plus className="h-4 w-4" />{busy ? "Adding…" : "Add prompt checks"}</Button>
+          <label className="inline-flex h-9 cursor-pointer items-center rounded-md border border-border bg-card px-3.5 text-sm font-medium text-ink hover:bg-workspace"><input type="file" accept=".csv,text/csv" className="sr-only" disabled={!canEdit || busy} onChange={(event) => importCsv(event.target.files?.[0])} />Import CSV</label>
+        </div>
+        {message && <div role="status" className="mt-4 rounded-md border border-border bg-workspace px-3 py-2 text-xs leading-5 text-ink">{message}</div>}
+      </div>
+      <div className="rounded-lg border border-border bg-workspace/50 p-4"><div className="text-xs font-bold uppercase tracking-wide text-muted">Default measurement</div><div className="mt-4 space-y-3"><Metric label="Platforms" value={String(platforms.length)} color="#7137F5" /><Metric label="Cadence" value={cadence} color="#12B8C4" /><Metric label="Samples" value={String(sampleCount)} color="#F2B544" /></div><p className="mt-4 text-2xs leading-5 text-muted">Every run is forecast and blocked before spend if this website or the AI category reaches its approved limit.</p></div>
+    </div>
+    <div className="mt-7 border-t border-border pt-5"><div className="mb-3 flex items-center justify-between"><h3 className="text-sm font-bold text-ink">Tracked prompts</h3><StatusBadge label={`${prompts.length} active`} tone={prompts.length ? "info" : "neutral"} /></div>{prompts.length ? <div className="divide-y divide-border rounded-md border border-border">{prompts.map((prompt) => <div key={prompt.id} className="flex items-start gap-3 p-3"><span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-purple" /><div className="min-w-0 flex-1"><div className="text-xs font-semibold leading-5 text-ink">{prompt.prompt}</div><div className="mt-1 text-[10px] text-muted">{prompt.topic} · {prompt.platforms.length} platforms · {prompt.cadence} · {prompt.sampleCount} sample{prompt.sampleCount === 1 ? "" : "s"}</div></div><button disabled={!canEdit || busy} onClick={() => void removePrompt(prompt.id)} className="rounded p-1.5 text-muted hover:bg-critical/10 hover:text-critical" aria-label={`Remove ${prompt.prompt}`}><Trash2 className="h-3.5 w-3.5" /></button></div>)}</div> : <EmptyState title="No prompt checks configured" description="Add a manual question, import a CSV or approve discovered prompts from AI Visibility." />}</div>
+  </SettingsPanel>;
 }

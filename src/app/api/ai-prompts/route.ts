@@ -1,11 +1,10 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { canWrite } from "@/lib/auth";
 import { db, schema } from "@/db";
 import { getManagedSite, listManagedSites, resolveGroupSiteSlugs } from "@/platform/site-store";
 import { hasDatabase } from "@/sync/store";
-import { canAccessSite, filterAccessibleSiteSlugs } from "@/platform/access";
+import { canAccessSite, filterAccessibleSiteSlugs, hasPermission } from "@/platform/access";
 
 const Platform = z.enum(["chatgpt", "claude", "gemini", "perplexity", "google_ai_overview", "google_ai_mode", "copilot"]);
 const CreateSchema = z.object({
@@ -37,12 +36,12 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!canWrite(request.headers.get("x-orwell-user-role"))) return NextResponse.json({ error: "Write access required." }, { status: 403 });
   const parsed = CreateSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Review the prompt fields.", fields: parsed.error.flatten().fieldErrors }, { status: 400 });
   const site = await getManagedSite(parsed.data.siteSlug);
   if (!site) return NextResponse.json({ error: "Website not found." }, { status: 404 });
   if (!await canAccessSite(request, parsed.data.siteSlug)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
+  if (!await hasPermission(request, "manage_content", parsed.data.siteSlug)) return NextResponse.json({ error: "AI prompt permission required for this website." }, { status: 403 });
   if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ prompt: { id: "51000000-0000-4000-8000-000000000099", ...parsed.data, active: true, synthetic: true } }, { status: 201 });
   if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
   const [prompt] = await db().insert(schema.aiTrackingPrompts).values({

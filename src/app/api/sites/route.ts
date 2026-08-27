@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { canWrite } from "@/lib/auth";
 import { db, schema } from "@/db";
 import { hasDatabase } from "@/sync/store";
 import { forecastSiteCost } from "@/platform/cost-forecast";
-import { listManagedSites, listPortfolioGroups, listSiteConnections, resolveGroupSiteSlugs } from "@/platform/site-store";
+import { listManagedSites, listPortfolioGroups, listSiteConnections } from "@/platform/site-store";
+import { accessibleSiteSlugs, hasPermission } from "@/platform/access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,20 +65,16 @@ function unavailable() {
 }
 
 export async function GET(request: Request) {
-  const role = request.headers.get("x-orwell-user-role");
-  const grantedGroups = request.headers.get("x-orwell-user-groups")?.split(",").filter(Boolean) ?? [];
   const allSites = await listManagedSites();
-  const restricted = role === "manager" || role === "viewer";
-  const allowedSlugs = restricted
-    ? new Set((await Promise.all(grantedGroups.map(resolveGroupSiteSlugs))).flat())
-    : null;
+  const accessible = await accessibleSiteSlugs(request);
+  const allowedSlugs = accessible === null ? null : new Set(accessible);
   const sites = allowedSlugs ? allSites.filter((site) => allowedSlugs.has(site.id)) : allSites;
   const [connections, groups] = await Promise.all([
     listSiteConnections(sites.map((site) => site.id)),
     listPortfolioGroups(),
   ]);
   const visibleGroups = allowedSlugs
-    ? groups.filter((group) => group.siteSlugs.some((slug) => allowedSlugs.has(slug)) || grantedGroups.includes(group.id))
+    ? groups.filter((group) => group.siteSlugs.some((slug) => allowedSlugs.has(slug)))
     : groups;
   return NextResponse.json({
     sites,
@@ -90,7 +86,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   if (process.env.QA_SYNTHETIC === "true") {
-    if (!canWrite(request.headers.get("x-orwell-user-role"))) return NextResponse.json({ error: "Write access required." }, { status: 403 });
+    if (!await hasPermission(request, "manage_content")) return NextResponse.json({ error: "Portfolio website-management permission required." }, { status: 403 });
     const qaParsed = SiteSchema.safeParse(await request.json().catch(() => null));
     if (!qaParsed.success) return NextResponse.json({ error: "Review the site setup fields.", fields: qaParsed.error.flatten().fieldErrors }, { status: 400 });
     const input = qaParsed.data;
@@ -102,9 +98,7 @@ export async function POST(request: Request) {
     }, { status: 201 });
   }
   if (!hasDatabase()) return unavailable();
-  if (!canWrite(request.headers.get("x-orwell-user-role"))) {
-    return NextResponse.json({ error: "Write access required." }, { status: 403 });
-  }
+  if (!await hasPermission(request, "manage_content")) return NextResponse.json({ error: "Portfolio website-management permission required." }, { status: 403 });
   const parsed = SiteSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json(
@@ -193,7 +187,7 @@ export async function POST(request: Request) {
 
     if (input.groupIds.length) {
       await tx.insert(schema.siteGroupMemberships).values(
-        input.groupIds.map((groupId) => ({ groupId, siteSlug: slug })),
+        input.groupIds.map((groupId, sortOrder) => ({ groupId, siteSlug: slug, isPrimary: sortOrder === 0, sortOrder })),
       );
     }
 

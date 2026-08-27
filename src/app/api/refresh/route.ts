@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { isManagedSite } from "@/platform/site-store";
-import { canWrite } from "@/lib/auth";
 import { syncAll, syncDomain, type SyncTiers } from "@/sync/engine";
 import { hasDatabase } from "@/sync/store";
+import { canAccessSite, hasPermission } from "@/platform/access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,19 +38,6 @@ interface Body {
 }
 
 export async function POST(request: Request) {
-  if (!canWrite(request.headers.get("x-orwell-user-role"))) {
-    return NextResponse.json(
-      { error: "Your role does not permit triggering a refresh." },
-      { status: 403 },
-    );
-  }
-  if (!hasDatabase()) {
-    return NextResponse.json(
-      { error: "Refresh requires DATABASE_URL to store the results." },
-      { status: 503 },
-    );
-  }
-
   let body: Body;
   try {
     body = (await request.json()) as Body;
@@ -71,6 +58,9 @@ export async function POST(request: Request) {
   if (domainId && !(await isManagedSite(domainId))) {
     return NextResponse.json({ error: `Unknown domain "${domainId}".` }, { status: 404 });
   }
+  if (domainId && !await canAccessSite(request, domainId)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
+  if (!await hasPermission(request, "run_scans", domainId)) return NextResponse.json({ error: "Run-scan permission required for this scope." }, { status: 403 });
+  if (!hasDatabase()) return NextResponse.json({ error: "Refresh requires DATABASE_URL to store the results." }, { status: 503 });
 
   const startedAt = Date.now();
   try {

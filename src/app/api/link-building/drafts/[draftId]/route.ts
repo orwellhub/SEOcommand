@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { canWrite } from "@/lib/auth";
 import { db, schema } from "@/db";
 import { approveOutreachDraft, sendApprovedOutreach } from "@/platform/link-outreach";
+import { canAccessSite, hasPermission } from "@/platform/access";
+import { hasDatabase } from "@/sync/store";
 
 export const runtime = "nodejs";
 
@@ -15,10 +16,10 @@ const ActionSchema = z.discriminatedUnion("action", [
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ draftId: string }> }) {
   const { draftId } = await params;
-  if (!canWrite(request.headers.get("x-orwell-user-role"))) return NextResponse.json({ error: "Write access required." }, { status: 403 });
   const parsed = ActionSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Choose a valid draft action." }, { status: 400 });
   if (process.env.QA_SYNTHETIC === "true") {
+    if (!await hasPermission(request, "manage_content")) return NextResponse.json({ error: "Outreach permission required." }, { status: 403 });
     const now = new Date().toISOString();
     const status = parsed.data.action === "approve" ? "approved" : parsed.data.action === "send" ? "sent" : "draft";
     return NextResponse.json({
@@ -34,6 +35,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ dr
     });
   }
   if (!z.string().uuid().safeParse(draftId).success) return NextResponse.json({ error: "Invalid draft." }, { status: 400 });
+  if (!hasDatabase()) return NextResponse.json({ error: "Link workflow requires DATABASE_URL." }, { status: 503 });
+  const [existing] = await db().select({ siteSlug: schema.outreachDrafts.siteSlug }).from(schema.outreachDrafts).where(eq(schema.outreachDrafts.id, draftId)).limit(1);
+  if (!existing || !await canAccessSite(request, existing.siteSlug)) return NextResponse.json({ error: "Draft not found." }, { status: 404 });
+  if (!await hasPermission(request, "manage_content", existing.siteSlug)) return NextResponse.json({ error: "Outreach permission required for this website." }, { status: 403 });
   try {
     if (parsed.data.action === "approve") return NextResponse.json({ draft: await approveOutreachDraft(draftId, request.headers.get("x-orwell-user-email")) });
     if (parsed.data.action === "send") return NextResponse.json(await sendApprovedOutreach(draftId));

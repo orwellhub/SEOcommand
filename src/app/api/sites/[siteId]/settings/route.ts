@@ -1,13 +1,12 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { canApproveBudget, canWrite } from "@/lib/auth";
 import { db, schema } from "@/db";
 import { hasDatabase } from "@/sync/store";
 import { currentMonth } from "@/providers/dataforseo/cost";
-import { setSiteGroups } from "@/platform/site-store";
+import { listPortfolioGroups, setSiteGroups } from "@/platform/site-store";
 import { getManagedSite } from "@/platform/site-store";
-import { canAccessSite } from "@/platform/access";
+import { canAccessSite, hasPermission } from "@/platform/access";
 import { qaSettings } from "@/data/qa-fixtures";
 
 export const runtime = "nodejs";
@@ -37,6 +36,7 @@ const PatchSchema = z.discriminatedUnion("section", [
   z.object({
     section: z.literal("groups"),
     groupIds: z.array(z.string().uuid()).max(50),
+    primaryGroupId: z.string().uuid().nullable().optional(),
   }),
   z.object({
     section: z.literal("budget"),
@@ -110,7 +110,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ site
   const [connections, memberships, groups, rules, spend, auditEvents] = await Promise.all([
     db().select().from(schema.siteConnections).where(eq(schema.siteConnections.siteSlug, siteId)),
     db().select().from(schema.siteGroupMemberships).where(eq(schema.siteGroupMemberships.siteSlug, siteId)),
-    db().select().from(schema.portfolioGroups),
+    listPortfolioGroups(),
     db().select().from(schema.notificationRules).where(eq(schema.notificationRules.siteSlug, siteId)),
     db().select({
       endpoint: schema.providerSpend.endpoint,
@@ -137,7 +137,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ site
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await params;
-  const role = request.headers.get("x-orwell-user-role");
   if (!(await getManagedSite(siteId))) return NextResponse.json({ error: "Website not found." }, { status: 404 });
   if (!await canAccessSite(request, siteId)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
   const parsed = PatchSchema.safeParse(await request.json().catch(() => null));
@@ -145,11 +144,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ si
     return NextResponse.json({ error: "Review the settings fields.", fields: parsed.error.flatten() }, { status: 400 });
   }
   const input = parsed.data;
-  if (input.section === "budget") {
-    if (!canApproveBudget(role)) return NextResponse.json({ error: "Admin or Owner approval required." }, { status: 403 });
-  } else if (!canWrite(role)) {
-    return NextResponse.json({ error: "Admin or SEO operator access required." }, { status: 403 });
-  }
+  const permission = input.section === "budget"
+    ? "approve_spend"
+    : input.section === "connection" || input.section === "google"
+      ? "manage_connectors"
+      : "manage_content";
+  if (!await hasPermission(request, permission, siteId)) return NextResponse.json({ error: `${permission.replaceAll("_", " ")} permission required for this website.` }, { status: 403 });
   if (process.env.QA_SYNTHETIC === "true") {
     const settings = qaSettings(siteId);
     const site = { ...settings.site };
@@ -157,6 +157,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ si
       Object.assign(site, input);
     } else if (input.section === "groups") {
       settings.groupIds = input.groupIds;
+      settings.groups = settings.groups.map((group) => ({
+        ...group,
+        siteSlugs: input.groupIds.includes(group.id) ? [...new Set([...group.siteSlugs, siteId])] : group.siteSlugs.filter((slug) => slug !== siteId),
+        primarySiteSlugs: input.primaryGroupId === group.id ? [...new Set([...(group.primarySiteSlugs ?? []), siteId])] : (group.primarySiteSlugs ?? []).filter((slug) => slug !== siteId),
+      }));
     } else if (input.section === "budget") {
       if (input.spendApproval === "approved" && (input.approvedMonthlyUsd ?? 0) < site.forecastMonthlyUsd) {
         return NextResponse.json({ error: "The approved ceiling cannot be below the current forecast." }, { status: 400 });
@@ -216,8 +221,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ si
   }
 
   if (input.section === "groups") {
-    await setSiteGroups(siteId, input.groupIds);
-    await audit(request, siteId, "updated", "groups", "Updated portfolio group membership.", { groupIds: input.groupIds });
+    await setSiteGroups(siteId, input.groupIds, input.primaryGroupId ?? input.groupIds[0] ?? null);
+    await audit(request, siteId, "updated", "groups", "Updated portfolio folder and reporting memberships.", { groupIds: input.groupIds, primaryGroupId: input.primaryGroupId ?? null });
   } else if (input.section === "connection") {
     const connection = input.connection;
     await db().insert(schema.siteConnections).values({

@@ -49,7 +49,7 @@ async function main() {
       `${report.startedAt} → ${report.completedAt}.`,
   );
 
-  const onboarding = await processPlatformJobs((siteSlug) => syncDomain(siteSlug, ALL_TIERS));
+  const onboarding = await processPlatformJobs((siteSlug, selectedTiers) => syncDomain(siteSlug, selectedTiers ?? ALL_TIERS));
   console.log(
     `[orwell-jobs] Onboarding: ${onboarding.due} due, ${onboarding.completed} completed, ${onboarding.failed} failed.`,
   );

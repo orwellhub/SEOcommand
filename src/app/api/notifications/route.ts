@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { canWrite } from "@/lib/auth";
 import { db, schema } from "@/db";
 import { hasDatabase } from "@/sync/store";
 import { notificationInbox, unreadNotificationCount } from "@/platform/notifications";
-import { accessibleSiteSlugs } from "@/platform/access";
+import { accessibleSiteSlugs, canAccessSite, hasPermission } from "@/platform/access";
 import { QA_SITES } from "@/data/qa-fixtures";
 
 export const runtime = "nodejs";
@@ -47,16 +46,17 @@ const PatchSchema = z.object({
 });
 
 export async function PATCH(request: Request) {
-  if (!canWrite(request.headers.get("x-orwell-user-role"))) {
-    return NextResponse.json({ error: "Write access required." }, { status: 403 });
-  }
   const parsed = PatchSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid notification update." }, { status: 400 });
   const action = parsed.data.action ?? (parsed.data.read === false ? "unread" : "read");
   if (process.env.QA_SYNTHETIC === "true") {
+    if (!await hasPermission(request, "manage_content")) return NextResponse.json({ error: "Notification workflow permission required." }, { status: 403 });
     return NextResponse.json({ item: { id: parsed.data.id, status: action, synthetic: true } });
   }
   if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
+  const [existing] = await db().select({ siteSlug: schema.portfolioNotifications.siteSlug }).from(schema.portfolioNotifications).where(eq(schema.portfolioNotifications.id, parsed.data.id)).limit(1);
+  if (!existing || (existing.siteSlug && !await canAccessSite(request, existing.siteSlug))) return NextResponse.json({ error: "Notification not found." }, { status: 404 });
+  if (!await hasPermission(request, "manage_content", existing.siteSlug)) return NextResponse.json({ error: "Notification workflow permission required for this scope." }, { status: 403 });
   const now = new Date();
   const values =
     action === "resolve"

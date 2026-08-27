@@ -9,18 +9,27 @@ export interface AuthUser {
   name: string;
   role: AppRole;
   groupIds?: string[];
+  siteIds?: string[];
+  allAccess?: boolean;
+  grants?: AccessGrantClaim[];
 }
+
+export interface AccessGrantClaim { scopeType: "portfolio" | "group" | "site"; scopeId: string | null; permissions: string[]; }
 
 export interface SessionClaims {
   email: string;
   name: string;
   role: AppRole;
   groupIds: string[];
+  siteIds: string[];
+  allAccess: boolean;
+  grants: AccessGrantClaim[];
   issuedAt: number;
   expiresAt: number;
 }
 
 const ROLES = new Set<AppRole>(["admin", "manager", "seo_analyst", "viewer"]);
+const SESSION_PERMISSIONS = ["view", "research", "run_scans", "manage_content", "manage_connectors", "approve_spend", "manage_users", "manage_reports"] as const;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
@@ -51,6 +60,32 @@ function isRole(value: unknown): value is AppRole {
   return typeof value === "string" && ROLES.has(value as AppRole);
 }
 
+function packGrant(grant: AccessGrantClaim): ["p" | "g" | "s", string | null, number] {
+  const scope = grant.scopeType === "portfolio" ? "p" : grant.scopeType === "group" ? "g" : "s";
+  const mask = SESSION_PERMISSIONS.reduce((value, permission, index) => grant.permissions.includes(permission) ? value | (1 << index) : value, 0);
+  return [scope, grant.scopeId, mask];
+}
+
+function unpackGrants(value: unknown): AccessGrantClaim[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((grant): AccessGrantClaim[] => {
+    if (Array.isArray(grant) && (grant[0] === "p" || grant[0] === "g" || grant[0] === "s") && (grant[1] === null || typeof grant[1] === "string") && typeof grant[2] === "number") {
+      return [{
+        scopeType: grant[0] === "p" ? "portfolio" : grant[0] === "g" ? "group" : "site",
+        scopeId: grant[1],
+        permissions: SESSION_PERMISSIONS.filter((_, index) => (grant[2] & (1 << index)) !== 0),
+      }];
+    }
+    if (grant && typeof grant === "object") {
+      const candidate = grant as Partial<AccessGrantClaim>;
+      if (["portfolio", "group", "site"].includes(candidate.scopeType ?? "") && (candidate.scopeId === null || typeof candidate.scopeId === "string") && Array.isArray(candidate.permissions)) {
+        return [{ scopeType: candidate.scopeType as AccessGrantClaim["scopeType"], scopeId: candidate.scopeId ?? null, permissions: candidate.permissions.filter((permission): permission is string => typeof permission === "string") }];
+      }
+    }
+    return [];
+  });
+}
+
 function isSessionClaims(value: unknown): value is SessionClaims {
   if (!value || typeof value !== "object") return false;
   const claims = value as Partial<SessionClaims>;
@@ -61,11 +96,13 @@ function isSessionClaims(value: unknown): value is SessionClaims {
     typeof claims.issuedAt === "number" &&
     typeof claims.expiresAt === "number"
     && Array.isArray(claims.groupIds)
+    && (claims.siteIds === undefined || Array.isArray(claims.siteIds))
+    && (claims.grants === undefined || Array.isArray(claims.grants))
   );
 }
 
 export async function createSessionToken(
-  user: Pick<AuthUser, "email" | "name" | "role" | "groupIds">,
+  user: Pick<AuthUser, "email" | "name" | "role" | "groupIds" | "siteIds" | "allAccess" | "grants">,
   secret: string,
   now = new Date(),
 ): Promise<string> {
@@ -75,10 +112,13 @@ export async function createSessionToken(
     name: user.name,
     role: user.role,
     groupIds: "groupIds" in user && Array.isArray(user.groupIds) ? user.groupIds : [],
+    siteIds: "siteIds" in user && Array.isArray(user.siteIds) ? user.siteIds : [],
+    allAccess: user.allAccess === true,
+    grants: Array.isArray(user.grants) ? user.grants : [],
     issuedAt,
     expiresAt: issuedAt + SESSION_MAX_AGE_SECONDS,
   };
-  const payload = toBase64Url(encoder.encode(JSON.stringify(claims)));
+  const payload = toBase64Url(encoder.encode(JSON.stringify({ ...claims, grants: claims.grants.map(packGrant) })));
   const signature = toBase64Url(await hmac(payload, secret));
   return `${payload}.${signature}`;
 }
@@ -100,14 +140,32 @@ export async function verifySessionToken(
     for (let i = 0; i < expected.length; i++) mismatch |= expected[i] ^ supplied[i];
     if (mismatch !== 0) return null;
 
-    const claims = JSON.parse(decoder.decode(fromBase64Url(payload))) as unknown;
+    const raw = JSON.parse(decoder.decode(fromBase64Url(payload))) as Record<string, unknown>;
+    const claims = { ...raw, grants: unpackGrants(raw.grants) } as unknown;
     if (!isSessionClaims(claims)) return null;
     const nowSeconds = Math.floor(now.getTime() / 1000);
     if (claims.expiresAt <= nowSeconds || claims.issuedAt > nowSeconds + 60) return null;
-    return claims;
+    return { ...claims, siteIds: claims.siteIds ?? [], allAccess: claims.allAccess === true, grants: claims.grants ?? [] };
   } catch {
     return null;
   }
+}
+
+function cookieValue(request: Request, name: string): string | undefined {
+  const cookie = request.headers.get("cookie");
+  if (!cookie) return undefined;
+  for (const part of cookie.split(";")) {
+    const separator = part.indexOf("=");
+    if (separator < 0 || part.slice(0, separator).trim() !== name) continue;
+    const value = part.slice(separator + 1).trim();
+    try { return decodeURIComponent(value); } catch { return undefined; }
+  }
+  return undefined;
+}
+
+/** Resolve authorization claims from the signed cookie, never caller headers. */
+export function sessionFromRequest(request: Request): Promise<SessionClaims | null> {
+  return verifySessionToken(cookieValue(request, SESSION_COOKIE), process.env.AUTH_SECRET);
 }
 
 function normaliseUser(value: unknown): AuthUser | null {
@@ -126,7 +184,18 @@ function normaliseUser(value: unknown): AuthUser | null {
   const groupIds = Array.isArray(candidate.groupIds)
     ? candidate.groupIds.filter((id): id is string => typeof id === "string")
     : [];
-  return { email, password: candidate.password, name: candidate.name.trim() || email, role: candidate.role, groupIds };
+  const siteIds = Array.isArray(candidate.siteIds)
+    ? candidate.siteIds.filter((id): id is string => typeof id === "string")
+    : [];
+  const grants = Array.isArray(candidate.grants)
+    ? candidate.grants.filter((grant): grant is AccessGrantClaim => Boolean(
+      grant
+      && ["portfolio", "group", "site"].includes(grant.scopeType)
+      && Array.isArray(grant.permissions)
+      && grant.permissions.every((permission) => typeof permission === "string"),
+    ))
+    : [];
+  return { email, password: candidate.password, name: candidate.name.trim() || email, role: candidate.role, groupIds, siteIds, allAccess: candidate.allAccess === true, grants };
 }
 
 export function configuredUsers(env: Record<string, string | undefined> = process.env): AuthUser[] {
@@ -147,7 +216,7 @@ export function configuredUsers(env: Record<string, string | undefined> = proces
       password: env.AUTH_PASSWORD,
       name: env.AUTH_NAME?.trim() || "Orwell Admin",
       role: isRole(env.AUTH_ROLE) ? env.AUTH_ROLE : "admin",
-      groupIds: [],
+      groupIds: [], siteIds: [], allAccess: true, grants: [],
     },
   ];
 }
@@ -169,7 +238,7 @@ export function authenticateUser(
   const normalisedEmail = email.trim().toLowerCase();
   const user = users.find((candidate) => safeStringEqual(candidate.email, normalisedEmail));
   if (!user || !safeStringEqual(user.password, password)) return null;
-  return { email: user.email, name: user.name, role: user.role, groupIds: [...(user.groupIds ?? [])] };
+  return { email: user.email, name: user.name, role: user.role, groupIds: [...(user.groupIds ?? [])], siteIds: [...(user.siteIds ?? [])], allAccess: user.allAccess === true, grants: [...(user.grants ?? [])] };
 }
 
 export function canWrite(role: AppRole | string | null): boolean {

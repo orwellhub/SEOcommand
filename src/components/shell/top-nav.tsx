@@ -7,6 +7,7 @@ import { useDomain } from "./domain-context";
 import { SITE_NAV } from "@/lib/nav";
 import { roleLabel } from "@/lib/auth";
 import { NotificationBell } from "./notification-bell";
+import { JobDrawer } from "./job-drawer";
 
 interface SessionUser {
   name: string | null;
@@ -15,7 +16,7 @@ interface SessionUser {
 }
 
 export function TopNav() {
-  const { sites, groups, setScope } = useDomain();
+  const { sites, groups, activeDomain, setScope } = useDomain();
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<SessionUser | null>(null);
@@ -91,6 +92,7 @@ export function TopNav() {
       <button onClick={toggleTheme} className="rounded-md p-2.5 text-muted hover:bg-workspace hover:text-ink" aria-label={dark ? "Use light theme" : "Use dark theme"}>
         {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
       </button>
+      <JobDrawer />
       <NotificationBell />
       <div className="hidden items-center gap-2 border-l border-border pl-3 sm:flex">
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple text-2xs font-bold text-white">{initials || "O"}</div>
@@ -118,7 +120,7 @@ export function TopNav() {
                 {matches.groups.map((group) => <SearchResult key={group.id} color={group.color} title={group.name} subtitle={`${group.siteSlugs.length} websites`} onClick={() => { setScope(`group:${group.id}`); router.push("/portfolio"); }} />)}
               </SearchSection>
               <SearchSection label="Tools">
-                {matches.modules.map((item) => <SearchResult key={item.href} title={item.label} subtitle="Open for the current website" onClick={() => router.push(`${item.href}${sites[0] ? `?site=${sites[0].id}` : ""}`)} />)}
+                {matches.modules.map((item) => <SearchResult key={item.href} title={item.label} subtitle="Open for the current website" onClick={() => router.push(`${item.href}${activeDomain ?? sites[0] ? `?site=${(activeDomain ?? sites[0])!.id}` : ""}`)} />)}
               </SearchSection>
             </div>
           </div>
