@@ -4,6 +4,28 @@ import { db, schema } from "@/db";
 import { getManagedSite } from "./site-store";
 import { fetchPublic } from "./public-network";
 
+export const LINK_QUALITY_THRESHOLDS = {
+  minimum: { relevance: 60, authority: 20, competitorMatches: 1 },
+  strong: { relevance: 70, authority: 40, competitorMatches: 2 },
+} as const;
+
+export function qualifyLinkProspect(prospect: { relevance: number; authority: number | null; competitorHosts: string[]; contacts?: Array<{ type?: string; value?: string }> | null; status?: string }) {
+  const authority = prospect.authority ?? 0;
+  const misses: string[] = [];
+  if (prospect.relevance < LINK_QUALITY_THRESHOLDS.minimum.relevance) misses.push(`Fit below ${LINK_QUALITY_THRESHOLDS.minimum.relevance}`);
+  if (authority < LINK_QUALITY_THRESHOLDS.minimum.authority) misses.push(`Authority below ${LINK_QUALITY_THRESHOLDS.minimum.authority}`);
+  if (prospect.competitorHosts.length < LINK_QUALITY_THRESHOLDS.minimum.competitorMatches) misses.push("No competitor link evidence");
+  const eligible = misses.length === 0;
+  const strong = eligible && prospect.relevance >= LINK_QUALITY_THRESHOLDS.strong.relevance && authority >= LINK_QUALITY_THRESHOLDS.strong.authority && prospect.competitorHosts.length >= LINK_QUALITY_THRESHOLDS.strong.competitorMatches;
+  const contacts = prospect.contacts ?? [];
+  return {
+    quality: { state: strong ? "strong" : eligible ? "qualified" : "review", eligible, reasons: misses },
+    contactState: contacts.some((item) => item.type === "email" && item.value) ? "email_found" : contacts.some((item) => item.type === "contact_page") ? "contact_page" : "not_researched",
+    outreachStatus: prospect.status ?? "discovered",
+    traffic: null,
+  };
+}
+
 function extractEmails(html: string): string[] {
   const found = html.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? [];
   return [...new Set(found.map((email) => email.toLowerCase()).filter((email) => !/example\.|sentry\.|wixpress|cloudflare/i.test(email)))].slice(0, 10);
@@ -54,6 +76,7 @@ export async function enrichProspectContacts(prospectId: string) {
 export async function createOutreachDraft(input: { prospectId: string; recipientEmail?: string | null; angle?: string | null }) {
   const [prospect] = await db().select().from(schema.linkProspects).where(eq(schema.linkProspects.id, input.prospectId)).limit(1);
   if (!prospect) throw new Error("Link prospect not found.");
+  if (!qualifyLinkProspect({ ...prospect, contacts: prospect.contacts as Array<{ type?: string; value?: string }> }).quality.eligible) throw new Error("This prospect does not meet the visible quality thresholds for outreach.");
   const site = await getManagedSite(prospect.siteSlug);
   if (!site) throw new Error("Website not found.");
   const angle = input.angle?.trim() || `a useful resource for readers researching ${site.industry}`;
@@ -130,14 +153,16 @@ export async function linkBuildingDashboard(siteSlug: string) {
     db().select().from(schema.linkProspects).where(eq(schema.linkProspects.siteSlug, siteSlug)).orderBy(desc(schema.linkProspects.relevance), desc(schema.linkProspects.discoveredAt)).limit(500),
     db().select().from(schema.outreachDrafts).where(eq(schema.outreachDrafts.siteSlug, siteSlug)).orderBy(desc(schema.outreachDrafts.createdAt)).limit(250),
   ]);
+  const qualifiedProspects = prospects.map((item) => ({ ...item, ...qualifyLinkProspect({ ...item, contacts: item.contacts as Array<{ type?: string; value?: string }> }) }));
   return {
     summary: {
       prospects: prospects.length,
-      strongProspects: prospects.filter((item) => item.relevance >= 70).length,
+      qualifiedProspects: qualifiedProspects.filter((item) => item.quality.eligible).length,
+      strongProspects: qualifiedProspects.filter((item) => item.quality.state === "strong").length,
       awaitingApproval: drafts.filter((item) => item.status === "draft").length,
       sent: drafts.filter((item) => item.status === "sent").length,
     },
-    prospects,
+    prospects: qualifiedProspects,
     drafts,
   };
 }

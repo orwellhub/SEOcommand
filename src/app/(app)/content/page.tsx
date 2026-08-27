@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { FileText, TrendingDown, TrendingUp, ExternalLink, BarChart3 } from "lucide-react";
+import { FileText, TrendingDown, TrendingUp, ExternalLink, BarChart3, ListTodo } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { KpiCard } from "@/components/ui/kpi-card";
 import {
@@ -20,6 +20,8 @@ import { useDomain, useResolvedDomain } from "@/components/shell/domain-context"
 import { useScopedLive } from "@/lib/use-live";
 import { getDomain } from "@/data/domains";
 import type { Ga4LandingPage, GscMover, GscRow } from "@/lib/types";
+import { ContentWorkflowBoard } from "@/components/content/content-workflow-board";
+import { SiteFindingWorkDrawer, type SiteFinding } from "@/components/workflow/site-finding-work-drawer";
 
 /* ------------------------------- helpers -------------------------------- */
 
@@ -76,6 +78,7 @@ export default function ContentIntelligencePage() {
   const { data: bundle, loading, error, isPortfolio, scopeLabel, scopeHost, scopeId } = useScopedLive();
 
   const [selected, setSelected] = useState<GscRow | null>(null);
+  const [workFinding, setWorkFinding] = useState<SiteFinding | null>(null);
 
   const datasets = bundle?.datasets;
   const pagesDs = datasets?.gsc_pages;
@@ -218,6 +221,8 @@ export default function ContentIntelligencePage() {
             <Skeleton className="h-24" />
             <Skeleton className="h-24" />
           </div>
+
+          {!isPortfolio && <ContentWorkflowBoard siteSlug={domain.id} />}
           <Skeleton className="h-80" />
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <Skeleton className="h-64" />
@@ -394,6 +399,7 @@ export default function ContentIntelligencePage() {
         title="Page detail"
         subtitle={selected ? displayPath(selected.key) : undefined}
         width="max-w-xl"
+        footer={selected && !isPortfolio ? <div className="flex justify-end"><button type="button" onClick={() => { const page = selected; const mover = selectedMover; setWorkFinding({ key: `content-page:${encodeURIComponent(page.key).slice(0, 180)}`, title: `${mover?.direction === "loss" ? "Refresh" : "Optimise"} ${displayPath(page.key)}`, module: "Content", executionType: "refresh_brief", priorityScore: mover?.direction === "loss" ? 85 : 65, pageMode: "existing_page", targetUrl: page.key, targetKeywords: [], evidenceLabel: `${fullNumber(page.clicks)} clicks · ${fullNumber(page.impressions)} impressions · position ${page.position.toFixed(1)}`, sourceUrl: `/content?site=${encodeURIComponent(domain.id)}`, sourceEvidence: { kind: "gsc_page", url: page.key, clicks: page.clicks, impressions: page.impressions, ctr: page.ctr, position: page.position, mover }, }); setSelected(null); }} className="inline-flex h-9 items-center gap-2 rounded-md bg-purple px-3 text-xs font-bold text-white"><ListTodo className="h-4 w-4" />Create refresh brief</button></div> : undefined}
       >
         {selected && (
           <div>
@@ -461,6 +467,7 @@ export default function ContentIntelligencePage() {
           </div>
         )}
       </Drawer>
+      <SiteFindingWorkDrawer finding={workFinding} siteSlug={domain.id} siteName={domain.name} onClose={() => setWorkFinding(null)} />
     </div>
   );
 }
