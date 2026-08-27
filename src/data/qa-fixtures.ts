@@ -117,8 +117,20 @@ export function qaDomainBundle(siteSlug: string): DomainLiveBundle {
       backlinks: ds(Array.from({ length: 10 }, (_, link) => ({ id: `${site.id}-bl-${link}`, domainId: site.id, sourceDomain: `publisher-${link}.example`, sourceUrl: `https://publisher-${link}.example/story`, targetUrl: `https://${site.host}/`, anchor: site.name, authority: 45 + link, follow: link % 3 !== 0, firstSeen: date, lastSeen: date, status: "active", toxicity: link }))),
       referring_domains: ds(Array.from({ length: 8 + index }, (_, ref) => ({ id: `${site.id}-rd-${ref}`, domainId: site.id, host: `publisher-${ref}.example`, authority: 40 + ref, backlinks: 1 + ref % 3, firstSeen: date, follow: ref % 3 !== 0 }))),
       recommendations: ds([{ id: `${site.id}-rec-1`, domainId: site.id, title: "Resolve high-impact indexability change", module: "Technical", priorityScore: 86 - index, estImpact: "Protect organic traffic", confidence: "high", effort: "S", evidence: "Synthetic QA recommendation", relatedMetric: "Health score" }]),
-      ga4_landing_pages: ds(Array.from({ length: 6 }, (_, page) => ({ path: `/landing-${page + 1}`, sessions: 320 - page * 28, users: 260 - page * 22, conversions: 12 - page, engagementRate: 62 - page * 1.4 }))),
-      share_of_market: ds({ domainShare: 34 + index * 0.3, competitorShares: [{ host: "competitor.example", share: 27 }, { host: "market-leader.example", share: 22 }], totalTraffic: 42000 + index * 700 }),
+      ga4_landing_pages: ds(Array.from({ length: 6 }, (_, page) => ({ landingPage: `/landing-${page + 1}`, sessions: 320 - page * 28, totalUsers: 260 - page * 22, conversions: 12 - page, engagementRate: 62 - page * 1.4 }))),
+      share_of_market: ds({
+        site: site.host,
+        windowDays: 28,
+        measuredClicks: h.clicks28d!,
+        measuredImpressions: h.impressions28d!,
+        keywordCount: 12,
+        monthlySearchVolume: 48_000 + index * 900,
+        availableMonthlyClicks: 15_000 + index * 280,
+        availableClicksInWindow: 13_800 + index * 260,
+        shareOfAvailableClicksPct: Number(((h.clicks28d! / (13_800 + index * 260)) * 100).toFixed(1)),
+        impressionShareOfDemandPct: Number(((h.impressions28d! / (48_000 + index * 900)) * 100).toFixed(1)),
+        baselined: date,
+      }),
     },
   } as unknown as DomainLiveBundle;
 }

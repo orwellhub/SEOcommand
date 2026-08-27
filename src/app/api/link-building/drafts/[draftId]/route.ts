@@ -15,14 +15,25 @@ const ActionSchema = z.discriminatedUnion("action", [
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ draftId: string }> }) {
   const { draftId } = await params;
-  if (process.env.QA_SYNTHETIC === "true") {
-    const body = await request.json().catch(() => ({})) as { action?: string };
-    return NextResponse.json({ draft: { id: draftId, status: body.action === "approve" ? "approved" : body.action === "send" ? "sent" : "draft", synthetic: true }, delivery: body.action === "send" ? "suppressed_in_qa" : undefined });
-  }
   if (!canWrite(request.headers.get("x-orwell-user-role"))) return NextResponse.json({ error: "Write access required." }, { status: 403 });
-  if (!z.string().uuid().safeParse(draftId).success) return NextResponse.json({ error: "Invalid draft." }, { status: 400 });
   const parsed = ActionSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Choose a valid draft action." }, { status: 400 });
+  if (process.env.QA_SYNTHETIC === "true") {
+    const now = new Date().toISOString();
+    const status = parsed.data.action === "approve" ? "approved" : parsed.data.action === "send" ? "sent" : "draft";
+    return NextResponse.json({
+      synthetic: true,
+      draft: {
+        id: draftId,
+        status,
+        approvedBy: status === "draft" ? null : request.headers.get("x-orwell-user-email"),
+        approvedAt: status === "draft" ? null : now,
+        sentAt: status === "sent" ? now : null,
+      },
+      delivery: parsed.data.action === "send" ? "suppressed_in_qa" : undefined,
+    });
+  }
+  if (!z.string().uuid().safeParse(draftId).success) return NextResponse.json({ error: "Invalid draft." }, { status: 400 });
   try {
     if (parsed.data.action === "approve") return NextResponse.json({ draft: await approveOutreachDraft(draftId, request.headers.get("x-orwell-user-email")) });
     if (parsed.data.action === "send") return NextResponse.json(await sendApprovedOutreach(draftId));

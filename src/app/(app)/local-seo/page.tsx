@@ -32,6 +32,7 @@ export default function LocalSeoPage() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [gridKeywords, setGridKeywords] = useState<Record<string, string>>({});
   const [draft, setDraft] = useState({ name: "", businessKeyword: "", address: "", placeId: "", latitude: "", longitude: "", gridRadiusKm: "5", gridSize: "3", keywords: "" });
 
@@ -44,7 +45,7 @@ export default function LocalSeoPage() {
   useEffect(() => { void load(); }, [load]);
 
   const add = async () => {
-    setBusy("add"); setError(null);
+    setBusy("add"); setError(null); setNotice(null);
     try {
       const response = await fetch("/api/local-seo", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
         siteSlug: domain.id,
@@ -60,29 +61,29 @@ export default function LocalSeoPage() {
       }) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Location could not be added.");
-      setOpen(false); setDraft({ name: "", businessKeyword: "", address: "", placeId: "", latitude: "", longitude: "", gridRadiusKm: "5", gridSize: "3", keywords: "" }); await load();
+      setOpen(false); setDraft({ name: "", businessKeyword: "", address: "", placeId: "", latitude: "", longitude: "", gridRadiusKm: "5", gridSize: "3", keywords: "" }); setNotice("Location added. Free monitoring starts now; paid grid scans remain approval-gated."); await load();
     } catch (err) { setError(err instanceof Error ? err.message : "Location could not be added."); }
     finally { setBusy(null); }
   };
 
   const sync = async (locationId: string) => {
-    setBusy(locationId); setError(null);
+    setBusy(locationId); setError(null); setNotice(null);
     try {
       const response = await fetch(`/api/local-seo/${locationId}/sync`, { method: "POST" });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Local scan failed.");
-      await load();
+      setNotice("Local scan queued. Stored profile and grid evidence will refresh when collection completes."); await load();
     } catch (err) { setError(err instanceof Error ? err.message : "Local scan failed."); }
     finally { setBusy(null); }
   };
 
   const approve = async (locationId: string) => {
-    setBusy(`approve:${locationId}`); setError(null);
+    setBusy(`approve:${locationId}`); setError(null); setNotice(null);
     try {
       const response = await fetch(`/api/local-seo/${locationId}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "approve" }) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Approval failed.");
-      await load();
+      setNotice("Local SEO forecast approved for this location."); await load();
     } catch (err) { setError(err instanceof Error ? err.message : "Approval failed."); }
     finally { setBusy(null); }
   };
@@ -99,6 +100,7 @@ export default function LocalSeoPage() {
 
   return <div className="animate-in space-y-5">
     <PageHeader title="Local SEO" description="Google Business Profile evidence, review movement and geographic Maps visibility." actions={<Button variant="primary" onClick={() => setOpen(true)}><Plus className="h-4 w-4" />Add location</Button>} />
+    {notice && <div role="status" className="rounded-md border border-success/20 bg-success/5 p-3 text-xs font-semibold text-success">{notice}</div>}
     {error && <div role="alert" className="rounded-md border border-critical/20 bg-critical/5 p-3 text-xs text-critical">{error}</div>}
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <KpiCard label="Locations" value={String(locations.length)} accent />

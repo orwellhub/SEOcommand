@@ -136,11 +136,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ site
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await params;
-  if (process.env.QA_SYNTHETIC === "true") {
-    return NextResponse.json({ site: qaSettings(siteId).site, saved: true, synthetic: true });
-  }
-  if (!hasDatabase()) return unavailable();
-  if (!await canAccessSite(request, siteId)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
   const role = request.headers.get("x-orwell-user-role");
   const parsed = PatchSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
@@ -152,6 +147,55 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ si
   } else if (!canWrite(role)) {
     return NextResponse.json({ error: "Admin or SEO operator access required." }, { status: 403 });
   }
+  if (process.env.QA_SYNTHETIC === "true") {
+    const settings = qaSettings(siteId);
+    const site = { ...settings.site };
+    if (input.section === "general") {
+      Object.assign(site, input);
+    } else if (input.section === "groups") {
+      settings.groupIds = input.groupIds;
+    } else if (input.section === "budget") {
+      if (input.spendApproval === "approved" && (input.approvedMonthlyUsd ?? 0) < site.forecastMonthlyUsd) {
+        return NextResponse.json({ error: "The approved ceiling cannot be below the current forecast." }, { status: 400 });
+      }
+      site.approvedMonthlyUsd = input.approvedMonthlyUsd;
+      site.budgetLimits = input.budgetLimits;
+      site.spendApproval = input.spendApproval;
+    } else if (input.section === "monitoring") {
+      site.monitoringSchedule = input.monitoringSchedule;
+      site.siteSettings = input.siteSettings;
+      site.crawlMaxPages = input.crawlMaxPages;
+      site.backlinkLimit = input.backlinkLimit;
+    } else if (input.section === "google") {
+      site.gscProperty = input.gscProperty;
+      site.ga4Property = input.ga4Property;
+    } else if (input.section === "connection") {
+      const connection = {
+        id: `qa-${input.connection.kind}`,
+        ...input.connection,
+        remoteUrl: input.connection.remoteUrl ?? "",
+        config: { ...input.connection.config, publishMode: "review_only" },
+        lastCheckedAt: input.connection.status === "connected" ? new Date().toISOString() : "",
+      };
+      settings.connections = [
+        ...settings.connections.filter((item) => item.kind !== input.connection.kind),
+        connection,
+      ];
+    } else if (input.section === "alerts") {
+      settings.notificationRule = {
+        channels: input.channels,
+        recipients: input.recipients,
+        eventTypes: input.eventTypes,
+        rankDropThreshold: input.rankDropThreshold,
+        trafficDropPct: input.trafficDropPct,
+        enabled: input.enabled,
+      };
+    }
+    settings.site = site;
+    return NextResponse.json({ site, settings, saved: true, synthetic: true });
+  }
+  if (!hasDatabase()) return unavailable();
+  if (!await canAccessSite(request, siteId)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
   const [existing] = await db().select().from(schema.siteProfiles).where(eq(schema.siteProfiles.slug, siteId)).limit(1);
   if (!existing) {
     const managed = await getManagedSite(siteId);
@@ -226,6 +270,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ si
         updatedAt,
       }).where(eq(schema.siteProfiles.slug, siteId));
     } else if (input.section === "budget") {
+      const [current] = await db().select({ forecastMonthlyUsd: schema.siteProfiles.forecastMonthlyUsd })
+        .from(schema.siteProfiles).where(eq(schema.siteProfiles.slug, siteId)).limit(1);
+      if (input.spendApproval === "approved" && (input.approvedMonthlyUsd ?? 0) < (current?.forecastMonthlyUsd ?? 0)) {
+        return NextResponse.json({ error: "The approved ceiling cannot be below the current forecast." }, { status: 400 });
+      }
       await db().update(schema.siteProfiles).set({
         approvedMonthlyUsd: input.approvedMonthlyUsd,
         budgetLimits: input.budgetLimits,

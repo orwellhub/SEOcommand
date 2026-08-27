@@ -258,7 +258,7 @@ export default function DomainOverviewPage() {
         />
         <KpiCard
           label="Avg position"
-          value={gscTotals ? gscTotals.position.toFixed(1) : "—"}
+          value={Number.isFinite(gscTotals?.position) ? gscTotals!.position.toFixed(1) : "—"}
           hint="Search Console average"
         />
       </div>
@@ -386,7 +386,9 @@ export default function DomainOverviewPage() {
                   <div className="flex shrink-0 items-center gap-4 whitespace-nowrap text-xs">
                     <span className="text-ink tnum">{fullNumber(p.clicks)}</span>
                     <span className="text-muted tnum">{compactNumber(p.impressions)} imp</span>
-                    <span className="w-10 text-right text-muted tnum">#{p.position.toFixed(1)}</span>
+                    <span className="w-10 text-right text-muted tnum">
+                      {Number.isFinite(p.position) ? `#${p.position.toFixed(1)}` : "—"}
+                    </span>
                   </div>
                 </div>
               ))}

@@ -7,7 +7,7 @@ const Schema = z.object({
   crawlMaxPages: z.number().int().min(100).max(100000),
   backlinkLimit: z.number().int().min(1000).max(100000),
   aiPrompts: z.number().int().min(0).max(100),
-  aiPlatforms: z.number().int().min(1).max(4),
+  aiPlatforms: z.number().int().min(1).max(7),
   devices: z.array(z.enum(["desktop", "mobile"])).min(1),
 });
 

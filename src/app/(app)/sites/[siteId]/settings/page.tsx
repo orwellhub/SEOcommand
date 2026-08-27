@@ -85,15 +85,24 @@ export default function SiteSettingsPage() {
   const canEdit = role === "admin" || role === "seo_analyst";
   const canBudget = role === "admin" || role === "manager";
   const monthlyLimit = draft?.approvedMonthlyUsd ?? 0;
+  const proposedMonthlyLimit = draft?.approvedMonthlyUsd ?? draft?.forecastMonthlyUsd ?? 0;
+  const budgetValid = Boolean(draft && proposedMonthlyLimit >= draft.forecastMonthlyUsd);
   const usedPct = monthlyLimit > 0 ? Math.min(100, ((data?.spend.totalUsd ?? 0) / monthlyLimit) * 100) : 0;
 
   async function save(body: Record<string, unknown>) {
     setSaving(true); setNotice(null);
     const response = await fetch(`/api/sites/${siteId}/settings`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const result = await response.json().catch(() => ({})) as { error?: string };
+    const result = await response.json().catch(() => ({})) as { error?: string; synthetic?: boolean; settings?: SettingsData };
     setSaving(false);
     if (!response.ok) return setNotice({ tone: "error", text: result.error ?? "Settings could not be saved." });
     setNotice({ tone: "success", text: "Saved. The change is recorded in the audit history." });
+    if (result.synthetic && result.settings) {
+      setData(result.settings);
+      setDraft(result.settings.site);
+      setGroupIds(result.settings.groupIds);
+      setRule(result.settings.notificationRule ?? rule);
+      return;
+    }
     load();
   }
 
@@ -176,11 +185,11 @@ export default function SiteSettingsPage() {
               <Metric label={`Used · ${data.spend.month}`} value={`$${data.spend.totalUsd.toFixed(2)}`} color={usedPct >= 90 ? "#FF5C62" : "#16A879"} />
             </div>
             <div className="mb-6"><div className="mb-2 flex justify-between text-2xs font-semibold text-muted"><span>Monthly usage</span><span>{usedPct.toFixed(0)}%</span></div><div className="h-3 overflow-hidden rounded-full bg-workspace"><div className="h-full rounded-full" style={{ width: `${usedPct}%`, background: usedPct >= 90 ? "#FF5C62" : usedPct >= 70 ? "#F2B544" : "#16A879" }} /></div></div>
-            <Field label="Website monthly ceiling (USD)"><NumberInput disabled={!canBudget} value={draft.approvedMonthlyUsd ?? 0} step={0.01} onChange={(value) => setDraft({ ...draft, approvedMonthlyUsd: value })} /></Field>
+            <Field label="Website monthly ceiling (USD)"><NumberInput disabled={!canBudget} value={proposedMonthlyLimit} step={0.01} onChange={(value) => setDraft({ ...draft, approvedMonthlyUsd: value })} /></Field>
             <h3 className="mb-3 mt-6 text-sm font-bold text-ink">Optional category limits</h3>
             <div className="grid gap-3 sm:grid-cols-2">{BUDGET_CATEGORIES.map(([key, label]) => <Field key={key} label={label}><NumberInput disabled={!canBudget} value={draft.budgetLimits[key] ?? 0} step={0.01} onChange={(value) => setDraft({ ...draft, budgetLimits: { ...draft.budgetLimits, [key]: value || null } })} /></Field>)}</div>
-            <div className="mt-6 rounded-md border border-warning/30 bg-warning/10 p-4 text-xs leading-5 text-ink"><strong>Forecast before approval:</strong> changing cadence or volume updates the forecast first. Paid jobs only run after an Admin or Owner approves the ceiling.</div>
-            <SaveBar canSave={canBudget} saving={saving} role={role} onSave={() => save({ section: "budget", approvedMonthlyUsd: draft.approvedMonthlyUsd, budgetLimits: draft.budgetLimits, spendApproval: "approved" })} label="Approve budget" />
+            <div className={cn("mt-6 rounded-md border p-4 text-xs leading-5 text-ink", budgetValid ? "border-warning/30 bg-warning/10" : "border-critical/30 bg-critical/10")}><strong>Forecast before approval:</strong> {budgetValid ? "changing cadence or volume updates the forecast first. Paid jobs only run after an Admin or Owner approves the ceiling." : `set a ceiling of at least $${draft.forecastMonthlyUsd.toFixed(2)} before approval.`}</div>
+            <SaveBar canSave={canBudget && budgetValid} saving={saving} role={role} onSave={() => save({ section: "budget", approvedMonthlyUsd: proposedMonthlyLimit, budgetLimits: draft.budgetLimits, spendApproval: "approved" })} label="Approve budget" />
           </SettingsPanel>}
 
           {tab === "connections" && <SettingsPanel title="Connections" description={data.credentialPolicy} icon={<PlugZap className="h-5 w-5" />}>

@@ -99,7 +99,13 @@ export default function KeywordResearchPage() {
           }),
         });
         const data = await res.json().catch(() => ({}));
-        if (data?.ok && data.scan?.id) setActiveScanId(data.scan.id as string);
+        if (data?.ok && data.scan?.id) {
+          setActiveScanId(data.scan.id as string);
+          if (data.synthetic) {
+            setScans((current) => [data.scan as SavedScan, ...current.filter((item) => item.id !== data.scan.id)]);
+            return;
+          }
+        }
         await loadScans();
       } catch {
         // History is a convenience — a save failure must not lose the results
@@ -316,10 +322,11 @@ export default function KeywordResearchPage() {
       <Card className="mb-5 p-4">
         <form className="flex flex-wrap items-end gap-3" onSubmit={runScan}>
           <div className="min-w-[240px] flex-1">
-            <label className="mb-1 block text-2xs font-medium uppercase tracking-wide text-muted">
+            <label htmlFor="keyword-seed" className="mb-1 block text-2xs font-medium uppercase tracking-wide text-muted">
               Seed keyword
             </label>
             <input
+              id="keyword-seed"
               value={seed}
               onChange={(e) => setSeed(e.target.value)}
               placeholder="e.g. solar panels"
@@ -327,10 +334,11 @@ export default function KeywordResearchPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-2xs font-medium uppercase tracking-wide text-muted">
+            <label htmlFor="keyword-market" className="mb-1 block text-2xs font-medium uppercase tracking-wide text-muted">
               Market
             </label>
             <select
+              id="keyword-market"
               value={locationCode}
               onChange={(e) => setLocationCode(Number(e.target.value))}
               className="h-9 rounded-md border border-border bg-card px-3 text-sm text-ink focus:outline-none focus-visible:outline-2"
@@ -343,10 +351,11 @@ export default function KeywordResearchPage() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-2xs font-medium uppercase tracking-wide text-muted">
+            <label htmlFor="keyword-depth" className="mb-1 block text-2xs font-medium uppercase tracking-wide text-muted">
               Depth
             </label>
             <select
+              id="keyword-depth"
               value={depth}
               onChange={(e) => setDepth(Number(e.target.value))}
               className="h-9 rounded-md border border-border bg-card px-3 text-sm text-ink focus:outline-none focus-visible:outline-2"
