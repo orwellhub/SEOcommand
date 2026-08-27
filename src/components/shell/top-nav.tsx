@@ -8,6 +8,7 @@ import { SITE_NAV } from "@/lib/nav";
 import { roleLabel } from "@/lib/auth";
 import { NotificationBell } from "./notification-bell";
 import { JobDrawer } from "./job-drawer";
+import { ProviderBalance } from "./provider-balance";
 
 interface SessionUser {
   name: string | null;
@@ -89,6 +90,7 @@ export function TopNav() {
         <span className="truncate">Search websites, groups or tools…</span>
         <span className="ml-auto hidden items-center gap-1 rounded border border-border bg-card px-1.5 py-0.5 text-2xs sm:flex"><Command className="h-3 w-3" /> K</span>
       </button>
+      <ProviderBalance />
       <button onClick={toggleTheme} className="rounded-md p-2.5 text-muted hover:bg-workspace hover:text-ink" aria-label={dark ? "Use light theme" : "Use dark theme"}>
         {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
       </button>

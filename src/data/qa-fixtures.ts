@@ -32,7 +32,10 @@ export const QA_SITES: ManagedSite[] = Array.from({ length: QA_SITE_COUNT }, (_,
     budgetLimits: { rankings: 2, crawling: 2, backlinks: 2, competitors: 1, ai: 2, local_seo: 1 },
     forecast: null, crawlMaxPages: 10000, backlinkLimit: 10000,
     monitoringSchedule: { rankings: "daily", crawling: "monthly", backlinks: "weekly", competitors: "weekly", ai: "weekly", localSeo: "weekly", reliability: "hourly" },
-    siteSettings: { trackedKeywords: ["best service", "compare providers"], competitors: ["example-competitor.com"], priorityTopics: ["Comparison"], localGridSize: "3x3", localRadiusKm: 5 },
+    siteSettings: {
+      trackedKeywords: ["best service", "compare providers"], competitors: ["example-competitor.com"], priorityTopics: ["Comparison"], localGridSize: "3x3", localRadiusKm: 5,
+      reportBranding: mortgage ? { brandName: "MortgageCompare", logoUrl: "", preparedBy: "Orwell Lab SEO", contactEmail: "reports@orwelllab.com", accent: "#7137F5", secondaryColor: "#12B8C4", footerText: "Confidential monthly performance report for MortgageCompare.ae.", showPoweredBy: false } : undefined,
+    },
     archivedAt: null, source: "database", createdAt: "2026-08-01T08:00:00.000Z", updatedAt: "2026-08-26T08:00:00.000Z",
   };
 });

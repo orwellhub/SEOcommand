@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CalendarClock, Download, FileDown, FileText, Send, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { CalendarClock, Download, FileDown, FileText, Send, Trash2, ArrowRight, Palette } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { KpiCard } from "@/components/ui/kpi-card";
 import {
@@ -136,6 +137,7 @@ function renderSection(template: ReportTemplate, section: string, pm: PortfolioL
   if (template.id === "tpl-exec") {
     switch (section) {
       case "Portfolio KPIs":
+      case "Performance KPIs":
         if (!synced) return <SectionNoData />;
         return (
           <div className="grid grid-cols-2 gap-2">
@@ -158,6 +160,7 @@ function renderSection(template: ReportTemplate, section: string, pm: PortfolioL
           </div>
         );
       case "Visibility trend":
+      case "Search trend":
         if (pm.totals.avgVisibility == null) return <SectionNoData />;
         return (
           <PreviewStat
@@ -167,6 +170,7 @@ function renderSection(template: ReportTemplate, section: string, pm: PortfolioL
           />
         );
       case "Winners & losers":
+      case "Executive summary":
         return <LeaderboardPreview pm={pm} />;
       case "Priority actions":
         return (
@@ -233,9 +237,10 @@ function renderSection(template: ReportTemplate, section: string, pm: PortfolioL
 
 const PAGE_TITLE = "Reports";
 const PAGE_DESCRIPTION =
-  "Live report previews, downloadable exports and persistent delivery schedules.";
+  "Branded client reports, downloadable evidence and persistent delivery schedules.";
 
 export default function ReportsPage() {
+  const router = useRouter();
   const { data: pm, loading, error } = useLivePortfolio();
   const { sites, groups, activeDomain } = useDomain();
   const [scopeType, setScopeType] = useState<"portfolio" | "group" | "site" | "campaign">(activeDomain ? "site" : "portfolio");
@@ -316,7 +321,7 @@ export default function ReportsPage() {
       const response = await fetch("/api/reports/schedules", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ templateId: draftTemplateId, cadence: draftCadence, recipients, format: "PDF", scopeType, scopeId: scopeType === "portfolio" ? null : scopeId, definition: { sections: REPORT_TEMPLATES.find((template) => template.id === draftTemplateId)?.sections ?? [] } }),
+        body: JSON.stringify({ templateId: draftTemplateId, cadence: draftCadence, recipients, format: "PDF", scopeType, scopeId: scopeType === "portfolio" ? null : scopeId, definition: { documentVersion: "client-report-v2", branding: scopeType === "site" ? "website" : "portfolio", sections: REPORT_TEMPLATES.find((template) => template.id === draftTemplateId)?.sections ?? [] } }),
       });
       const body = (await response.json()) as { schedule?: PersistedSchedule; error?: string };
       if (!response.ok || !body.schedule) throw new Error(body.error || "Could not save the schedule.");
@@ -428,6 +433,7 @@ export default function ReportsPage() {
 
   const reportData = scopedPm ?? pm;
   const scopeLabel = scopeType === "portfolio" ? "Portfolio" : scopeType === "group" ? groups.find((group) => group.id === scopeId)?.name ?? "Folder" : scopeType === "site" ? sites.find((site) => site.id === scopeId)?.name ?? "Website" : campaignOptions.find((campaign) => campaign.id === scopeId)?.name ?? "Campaign";
+  const reportSite = scopeType === "site" ? sites.find((site) => site.id === scopeId) : null;
 
   return (
     <div className="animate-in space-y-5">
@@ -438,6 +444,14 @@ export default function ReportsPage() {
         loading={loading}
         actions={<div className="flex items-center gap-2"><select value={scopeType} onChange={(event) => { const next = event.target.value as typeof scopeType; setScopeType(next); setScopeId(next === "site" ? activeDomain?.id ?? sites[0]?.id ?? "" : next === "group" ? groups[0]?.id ?? "" : next === "campaign" ? campaignOptions[0]?.id ?? "" : ""); }} className="h-9 rounded-md border border-border bg-card px-3 text-xs font-bold text-ink"><option value="portfolio">Portfolio</option><option value="group">Folder</option><option value="site">Website</option><option value="campaign" disabled={!activeDomain}>Campaign</option></select>{scopeType !== "portfolio" && <select value={scopeId} onChange={(event) => setScopeId(event.target.value)} className="h-9 max-w-56 rounded-md border border-border bg-card px-3 text-xs font-bold text-ink">{(scopeType === "group" ? groups : scopeType === "site" ? sites : campaignOptions).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>}</div>}
       />
+
+      <Card className="relative overflow-hidden border-0 bg-[#11182B] text-white">
+        <div className="absolute inset-y-0 left-0 w-1.5" style={{ background: `linear-gradient(180deg, ${reportSite?.accent ?? "#335CFF"}, #12B8C4)` }} />
+        <div className="grid gap-7 p-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-center lg:p-8">
+          <div><div className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-white/45">Client reporting studio</div><h2 className="mt-3 max-w-2xl font-serif text-3xl font-bold leading-tight tracking-tight">Turn live SEO evidence into a report a client can understand and act on.</h2><p className="mt-3 max-w-2xl text-xs leading-5 text-white/60">Every website can carry its own logo, colours, prepared-by identity and footer. Reports combine narrative, period comparisons, trend charts, ranking movement, crawl risk, links, AI visibility and next actions.</p><div className="mt-5 flex flex-wrap gap-2">{reportSite ? <><Button variant="primary" onClick={() => router.push(`/reports/client?site=${reportSite.id}&template=tpl-domain`)}>Open full client report <ArrowRight className="h-4 w-4" /></Button><Button onClick={() => router.push(`/sites/${reportSite.id}/settings?tab=reporting`)}><Palette className="h-4 w-4" />Customise branding</Button></> : <div className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70">Choose <span className="font-bold text-white">Website</span> above to create a white-label client report.</div>}</div></div>
+          <div className="relative hidden min-h-44 overflow-hidden rounded-md bg-[#F7F8FB] p-5 text-[#11182B] shadow-2xl lg:block"><div className="h-1 w-16" style={{ background: reportSite?.accent ?? "#335CFF" }} /><div className="mt-8 text-[9px] font-extrabold uppercase tracking-[0.18em] text-[#7B8498]">Monthly performance</div><div className="mt-2 font-serif text-2xl font-bold">{reportSite?.name ?? "Client website"}</div><div className="mt-7 grid grid-cols-3 gap-2">{["Search", "Technical", "Actions"].map((label, index) => <div key={label} className="border-t-2 bg-white p-2 text-[9px] font-bold" style={{ borderColor: index === 1 ? "#12B8C4" : reportSite?.accent ?? "#335CFF" }}>{label}<div className="mt-2 h-1.5 rounded bg-[#E6E9F0]" /></div>)}</div></div>
+        </div>
+      </Card>
 
       {/* KPI row */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -492,8 +506,8 @@ export default function ReportsPage() {
                 ))}
               </div>
               <div className="mt-3 flex justify-end">
-                <Button variant="secondary" size="sm" onClick={() => setPreviewTemplate(t)}>
-                  <FileDown className="h-3.5 w-3.5" /> Generate
+                <Button variant="secondary" size="sm" onClick={() => reportSite ? router.push(`/reports/client?site=${reportSite.id}&template=${t.id}`) : setPreviewTemplate(t)}>
+                  <FileDown className="h-3.5 w-3.5" /> {reportSite ? "Generate report" : "Preview"}
                 </Button>
               </div>
             </div>
