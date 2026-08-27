@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Circle, ExternalLink, Plus, ServerCog, Settings2 } from "lucide-react";
+import { CheckCircle2, Circle, ExternalLink, Plus, ServerCog, Settings2 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, EmptyState, Skeleton, StatusBadge } from "@/components/ui/primitives";
 import { DataTable, type Column } from "@/components/ui/data-table";
@@ -32,6 +32,11 @@ export default function SitesPage() {
   const [groups, setGroups] = useState<PortfolioGroup[]>([]);
   const [reload, setReload] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [syntheticOnboardingComplete, setSyntheticOnboardingComplete] = useState(false);
+
+  useEffect(() => {
+    setSyntheticOnboardingComplete(new URLSearchParams(window.location.search).get("onboarded") === "synthetic");
+  }, []);
 
   useEffect(() => {
     fetch("/api/sites")
@@ -136,6 +141,13 @@ export default function SitesPage() {
         description="Onboard, approve and connect the websites in the portfolio. Designed to remain usable beyond 300 sites."
         actions={<div className="flex flex-wrap gap-2"><GroupManager sites={sites ?? []} groups={groups} onChanged={() => setReload((value) => value + 1)} /><Link href="/sites/new" className="inline-flex h-9 items-center gap-1.5 rounded-md bg-purple px-3.5 text-sm font-medium text-white hover:bg-purple-deep"><Plus className="h-4 w-4" /> Add website</Link></div>}
       />
+
+      {syntheticOnboardingComplete && (
+        <div role="status" className="flex items-start gap-2 rounded-md border border-success/25 bg-success/5 px-4 py-3 text-xs text-ink">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+          <div><strong>Synthetic onboarding completed.</strong> The free-monitoring handoff and paid-spend gate passed; the fixed 20-site staging dataset remains unchanged.</div>
+        </div>
+      )}
 
       {error ? (
         <EmptyState title="Could not load websites" description={error} icon={<ServerCog className="h-6 w-6" />} />

@@ -6,6 +6,7 @@ import { Check, ChevronLeft, ChevronRight, CircleDollarSign, GitPullRequest, Glo
 import { PageHeader } from "@/components/ui/page-header";
 import { Button, Card, StatusBadge } from "@/components/ui/primitives";
 import { MARKETS } from "@/lib/markets";
+import { postOnboardingPath } from "@/lib/onboarding";
 import type { GooglePropertyDiscovery, PortfolioGroup, SiteCostForecast } from "@/platform/types";
 import { DEFAULT_ALERT_CHANNELS } from "@/platform/notification-defaults";
 import { cn } from "@/lib/cn";
@@ -75,6 +76,7 @@ export default function NewSitePage() {
   const [discovery, setDiscovery] = useState<GooglePropertyDiscovery | null>(null);
   const [forecast, setForecast] = useState<SiteCostForecast | null>(null);
   const [siteSlug, setSiteSlug] = useState<string | null>(null);
+  const [syntheticSite, setSyntheticSite] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [groups, setGroups] = useState<PortfolioGroup[]>([]);
@@ -185,6 +187,7 @@ export default function NewSitePage() {
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Site could not be created.");
       setSiteSlug(body.site.slug);
+      setSyntheticSite(Boolean(body.site.synthetic));
       setForecast(body.forecast);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
@@ -318,7 +321,7 @@ export default function NewSitePage() {
                     ) : (
                       <div className="rounded-md border border-success/25 bg-success/5 p-4">
                         <div className="flex items-start gap-3"><ShieldCheck className="mt-0.5 h-5 w-5 text-success" /><div><div className="text-sm font-semibold text-ink">Website active · free monitoring started</div><p className="mt-1 text-xs text-muted">Connected GSC, GA4 and free reliability checks can run now. Approving a ${forecast.highUsd.toFixed(2)} monthly ceiling also queues paid crawl, keyword, competitor, backlink and AI work.</p></div></div>
-                        <div className="mt-4 flex flex-wrap gap-2"><Button variant="primary" onClick={approve} disabled={busy}>{busy && <Loader2 className="h-4 w-4 animate-spin" />} Approve and queue paid scan</Button><Button onClick={() => router.push(`/sites/${siteSlug}`)}>Open website without paid scan</Button></div>
+                        <div className="mt-4 flex flex-wrap gap-2"><Button variant="primary" onClick={approve} disabled={busy}>{busy && <Loader2 className="h-4 w-4 animate-spin" />} Approve and queue paid scan</Button><Button onClick={() => router.push(postOnboardingPath(siteSlug, syntheticSite))}>Open website without paid scan</Button></div>
                       </div>
                     )}
                   </>
