@@ -26,7 +26,7 @@ export function ContextBar() {
   const websiteMode = isWebsiteWorkspace(pathname, siteQuery);
   const siteId = activeDomain?.id;
 
-  if (!websiteMode && (pathname === "/research" || pathname.startsWith("/keyword-research"))) {
+  if (!websiteMode && (pathname === "/research" || pathname.startsWith("/domain-research") || pathname.startsWith("/keyword-research"))) {
     return (
       <div className="border-b border-border bg-card">
         <div className="flex min-h-11 items-center gap-3 px-4 sm:px-6">

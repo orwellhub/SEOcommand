@@ -1,4 +1,4 @@
-import { desc, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db, schema } from "@/db";
 import { hasDatabase } from "@/sync/store";
@@ -33,6 +33,12 @@ export async function GET(request: Request) {
         detail: "Content · M effort", status: index % 4 === 0 ? "in_progress" : "approved", severity: "high",
         score: 78 - index, actionUrl: `/recommendations?site=${site.id}&item=30000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`, createdAt: new Date(Date.UTC(2026, 7, 25, 8, index)),
       },
+      ...(index === 0 ? [{
+        id: "72000000-0000-4000-8000-000000000001", kind: "research" as const,
+        siteSlug: site.id, siteName: site.name, title: "Investigate competitor.example opportunity",
+        detail: "Mapped domain evidence · awaiting approval", status: "mapped", severity: "medium" as const,
+        score: 70, actionUrl: "/domain-research?evidence=71000000-0000-4000-8000-000000000001&mapping=72000000-0000-4000-8000-000000000001", createdAt: new Date(Date.UTC(2026, 7, 27, 9, 0)),
+      }] : []),
       ];
     }).sort((a, b) => b.score - a.score);
     const items = allItems.slice(0, limit);
@@ -46,13 +52,18 @@ export async function GET(request: Request) {
     return NextResponse.json({ items: [], counts: { urgent: 0, open: 0, paused: 0 }, meta: { returned: 0, total: 0, hasMore: false } });
   }
   const slugs = sites.map((site) => site.id);
-  const [notices, tasks] = await Promise.all([
+  const [notices, tasks, mappedResearch] = await Promise.all([
     db().select().from(schema.portfolioNotifications)
       .where(inArray(schema.portfolioNotifications.siteSlug, slugs))
       .orderBy(desc(schema.portfolioNotifications.createdAt)).limit(150),
     db().select().from(schema.workflowItems)
       .where(inArray(schema.workflowItems.domainSlug, slugs))
       .orderBy(desc(schema.workflowItems.priorityScore), desc(schema.workflowItems.updatedAt)).limit(150),
+    db().select({ mapping: schema.researchMappings, evidence: schema.researchEvidence })
+      .from(schema.researchMappings)
+      .innerJoin(schema.researchEvidence, eq(schema.researchEvidence.id, schema.researchMappings.evidenceId))
+      .where(and(inArray(schema.researchMappings.siteSlug, slugs), eq(schema.researchMappings.status, "mapped")))
+      .orderBy(desc(schema.researchMappings.priorityScore), desc(schema.researchMappings.updatedAt)).limit(150),
   ]);
   const siteName = new Map(sites.map((site) => [site.id, site.name]));
   const severityScore = { critical: 100, high: 75, medium: 45, low: 20 };
@@ -84,9 +95,22 @@ export async function GET(request: Request) {
         status: task.status ?? "approved",
         severity: task.priorityScore >= 80 ? "high" : task.priorityScore >= 50 ? "medium" : "low",
         score: task.priorityScore,
-        actionUrl: `/recommendations?site=${encodeURIComponent(task.domainSlug)}&item=${encodeURIComponent(task.id)}`,
+        actionUrl: task.sourceUrl ?? `/recommendations?site=${encodeURIComponent(task.domainSlug)}&item=${encodeURIComponent(task.id)}`,
         createdAt: task.updatedAt,
       })),
+    ...mappedResearch.map(({ mapping, evidence }) => ({
+      id: mapping.id,
+      kind: "research" as const,
+      siteSlug: mapping.siteSlug,
+      siteName: siteName.get(mapping.siteSlug) ?? mapping.siteSlug,
+      title: mapping.title,
+      detail: `Mapped ${evidence.kind} evidence · ${evidence.sourceValue} · awaiting approval`,
+      status: mapping.status,
+      severity: mapping.priorityScore >= 80 ? "high" as const : mapping.priorityScore >= 50 ? "medium" as const : "low" as const,
+      score: mapping.priorityScore,
+      actionUrl: `/domain-research?evidence=${encodeURIComponent(evidence.id)}&mapping=${encodeURIComponent(mapping.id)}`,
+      createdAt: mapping.updatedAt,
+    })),
   ].sort((a, b) => b.score - a.score || +new Date(b.createdAt) - +new Date(a.createdAt));
   const items = allItems.slice(0, limit);
   return NextResponse.json({

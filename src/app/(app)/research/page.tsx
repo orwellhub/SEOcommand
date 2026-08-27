@@ -107,7 +107,7 @@ export default function ResearchPage() {
 
 const RESEARCH_AREAS = [
   { title: "Keyword research", description: "Discover worldwide demand, questions, intent and commercial signals.", href: "/keyword-research", icon: Search, color: "#335CFF", available: true },
-  { title: "Domain research", description: "Explore any domain, its organic footprint, strongest pages and competitors.", icon: Globe2, color: "#12B8C4", available: false },
+  { title: "Domain research", description: "Explore any domain, preserve the evidence and map qualified opportunities to a website.", href: "/domain-research", icon: Globe2, color: "#12B8C4", available: true },
   { title: "Topic opportunities", description: "Turn clusters, gaps and existing-page evidence into ranked opportunities.", icon: Sparkles, color: "#7137F5", available: false },
   { title: "Competitive research", description: "Compare domains, keyword coverage, content gaps and market movement.", icon: Users, color: "#FF6B5E", available: false },
   { title: "Backlink research", description: "Investigate referring domains, link intersections and earned mentions.", icon: Link2, color: "#F2B544", available: false },

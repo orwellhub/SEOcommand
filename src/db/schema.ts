@@ -1252,6 +1252,8 @@ export const workflowItems = pgTable(
     effort: text("effort").notNull(),
     priorityScore: integer("priority_score").notNull(),
     status: text("status"), // approved | in_progress | done (null when dismissed)
+    sourceUrl: text("source_url"),
+    sourceEvidence: jsonb("source_evidence").$type<Record<string, unknown>>().notNull().default({}),
     createdBy: text("created_by"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -1373,6 +1375,57 @@ export const keywordProjects = pgTable(
   },
   (t) => ({
     siteIdx: index("keyword_project_site_idx").on(t.siteSlug, t.updatedAt),
+  }),
+);
+
+/** Provider-backed evidence gathered in the global Research workspace. It has
+ * no website context until a separate mapping row is created. */
+export const researchEvidence = pgTable(
+  "research_evidence",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    projectId: uuid("project_id"),
+    kind: text("kind").notNull(),
+    title: text("title").notNull(),
+    sourceValue: text("source_value").notNull(),
+    locationCode: integer("location_code").notNull(),
+    languageCode: text("language_code").notNull(),
+    locationLabel: text("location_label").notNull(),
+    provider: text("provider").notNull().default("dataforseo"),
+    providerCostUsd: real("provider_cost_usd").notNull().default(0),
+    summary: jsonb("summary").$type<Record<string, unknown>>().notNull().default({}),
+    evidence: jsonb("evidence").$type<Record<string, unknown>>().notNull().default({}),
+    createdBy: text("created_by"),
+    capturedAt: timestamp("captured_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    recentIdx: index("research_evidence_recent_idx").on(t.kind, t.capturedAt),
+    projectIdx: index("research_evidence_project_idx").on(t.projectId, t.capturedAt),
+  }),
+);
+
+/** Explicit bridge between global evidence and one operational website. A
+ * mapped item still requires approval before it becomes executable work. */
+export const researchMappings = pgTable(
+  "research_mappings",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    evidenceId: uuid("evidence_id").references(() => researchEvidence.id, { onDelete: "cascade" }).notNull(),
+    siteSlug: text("site_slug").notNull(),
+    title: text("title").notNull(),
+    notes: text("notes"),
+    priorityScore: integer("priority_score").notNull().default(60),
+    status: text("status").notNull().default("mapped"),
+    createdBy: text("created_by"),
+    reviewedBy: text("reviewed_by"),
+    reviewedAt: timestamp("reviewed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    uniqEvidenceSite: uniqueIndex("uniq_research_mapping_evidence_site").on(t.evidenceId, t.siteSlug),
+    siteStatusIdx: index("research_mapping_site_status_idx").on(t.siteSlug, t.status, t.updatedAt),
   }),
 );
 

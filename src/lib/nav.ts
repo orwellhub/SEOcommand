@@ -1,6 +1,6 @@
 import {
   Activity, Bell, Bot, Building2, FileText, FolderKanban, Gauge, GitCompareArrows,
-  Home, LayoutDashboard, Link2, ListChecks, MapPinned, Radar, Search, Settings,
+  Globe2, Home, LayoutDashboard, Link2, ListChecks, MapPinned, Radar, Search, Settings,
   ScanLine, ShieldCheck, Sparkles, Swords, TrendingUp, Waypoints, type LucideIcon,
 } from "lucide-react";
 
@@ -24,6 +24,7 @@ export const GLOBAL_NAV: NavItem[] = [
 
 export const RESEARCH_NAV: NavItem[] = [
   { href: "/research", label: "Research home", icon: Search, group: "research" },
+  { href: "/domain-research", label: "Domain research", icon: Globe2, group: "research" },
   { href: "/keyword-research", label: "Keyword research", icon: Waypoints, group: "research" },
   { href: "/keyword-research?view=projects", label: "Research projects", icon: FolderKanban, group: "research" },
 ];

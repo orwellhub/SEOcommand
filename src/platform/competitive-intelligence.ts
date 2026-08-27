@@ -48,19 +48,28 @@ export interface CompetitorExplorerResult {
   backlinks: { rank: number | null; backlinks: number | null; referringDomains: number | null; spamScore: number | null };
 }
 
-export async function exploreCompetitor(siteSlug: string, targetInput: string): Promise<CompetitorExplorerResult> {
-  const site = await getManagedSite(siteSlug);
-  if (!site) throw new Error("Website not found.");
-  const targetHost = cleanCompetitorHost(targetInput);
-  const location = locationForSite(site);
+export interface CollectedDomainResearch extends CompetitorExplorerResult {
+  costUsd: number;
+}
+
+/** Collect domain evidence without attaching it to a managed website. The
+ * global SpendGuard still preflights every call and records actual cost. */
+export async function collectDomainResearch(opts: {
+  targetHost: string;
+  locationCode: number;
+  languageCode: string;
+  domainSlug?: string | null;
+}): Promise<CollectedDomainResearch> {
+  const targetHost = cleanCompetitorHost(opts.targetHost);
   const client = getDataForSeoClient();
-  const base = { target: targetHost, ...location };
-  const [overviewResponse, keywordResponse, pageResponse, backlinkResponse] = await Promise.all([
-    client.post<Row>("labsDomainRankOverview", ENDPOINTS.labsDomainRankOverview, [{ ...base }], { domainSlug: siteSlug }),
-    client.post<Row>("labsRankedKeywords", ENDPOINTS.labsRankedKeywords, [{ ...base, limit: 250, order_by: ["keyword_data.keyword_info.search_volume,desc"] }], { domainSlug: siteSlug }),
-    client.post<Row>("labsRelevantPages", ENDPOINTS.labsRelevantPages, [{ ...base, limit: 100, order_by: ["metrics.organic.etv,desc"] }], { domainSlug: siteSlug }),
-    client.post<Row>("backlinksSummary", ENDPOINTS.backlinksSummary, [{ target: targetHost, include_subdomains: true }], { domainSlug: siteSlug }),
-  ]);
+  const base = { target: targetHost, location_code: opts.locationCode, language_code: opts.languageCode };
+  const providerOptions = { domainSlug: opts.domainSlug ?? null };
+  // Run sequentially so each actual cost is recorded before the next
+  // preflight. Parallel calls could all observe the same near-limit balance.
+  const overviewResponse = await client.post<Row>("labsDomainRankOverview", ENDPOINTS.labsDomainRankOverview, [{ ...base }], providerOptions);
+  const keywordResponse = await client.post<Row>("labsRankedKeywords", ENDPOINTS.labsRankedKeywords, [{ ...base, limit: 250, order_by: ["keyword_data.keyword_info.search_volume,desc"] }], providerOptions);
+  const pageResponse = await client.post<Row>("labsRelevantPages", ENDPOINTS.labsRelevantPages, [{ ...base, limit: 100, order_by: ["metrics.organic.etv,desc"] }], providerOptions);
+  const backlinkResponse = await client.post<Row>("backlinksSummary", ENDPOINTS.backlinksSummary, [{ target: targetHost, include_subdomains: true }], providerOptions);
   const overviewRaw = items(overviewResponse.result)[0] ?? overviewResponse.result[0] ?? {};
   const metrics = record(overviewRaw.metrics);
   const organic = record(metrics.organic);
@@ -70,51 +79,34 @@ export async function exploreCompetitor(siteSlug: string, targetInput: string): 
     const keywordInfo = record(keywordData.keyword_info);
     const properties = record(keywordData.keyword_properties);
     const intentInfo = record(keywordData.search_intent_info);
-    const serpElement = record(item.ranked_serp_element);
-    const serpItem = record(serpElement.serp_item);
-    return {
-      keyword: string(keywordData.keyword) ?? "",
-      position: number(serpItem.rank_absolute),
-      volume: number(keywordInfo.search_volume),
-      difficulty: number(properties.keyword_difficulty),
-      intent: string(intentInfo.main_intent),
-      url: string(serpItem.url),
-      traffic: number(serpItem.etv),
-    };
+    const serpItem = record(record(item.ranked_serp_element).serp_item);
+    return { keyword: string(keywordData.keyword) ?? "", position: number(serpItem.rank_absolute), volume: number(keywordInfo.search_volume), difficulty: number(properties.keyword_difficulty), intent: string(intentInfo.main_intent), url: string(serpItem.url), traffic: number(serpItem.etv) };
   }).filter((item) => item.keyword);
   const pages = items(pageResponse.result).map((item) => {
-    const pageMetrics = record(item.metrics);
-    const pageOrganic = record(pageMetrics.organic);
-    return {
-      url: string(item.page_address) ?? string(item.url) ?? "",
-      keywords: number(pageOrganic.count),
-      traffic: number(pageOrganic.etv),
-      trafficCost: number(pageOrganic.estimated_paid_traffic_cost),
-    };
+    const pageOrganic = record(record(item.metrics).organic);
+    return { url: string(item.page_address) ?? string(item.url) ?? "", keywords: number(pageOrganic.count), traffic: number(pageOrganic.etv), trafficCost: number(pageOrganic.estimated_paid_traffic_cost) };
   }).filter((item) => item.url);
   const backlinkRaw = backlinkResponse.result[0] ?? {};
-  const result: CompetitorExplorerResult = {
+  return {
     targetHost,
     capturedAt: new Date().toISOString(),
-    overview: {
-      organicKeywords: number(organic.count),
-      organicTraffic: number(organic.etv),
-      paidKeywords: number(paid.count),
-      paidTraffic: number(paid.etv),
-      estimatedTrafficCost: number(organic.estimated_paid_traffic_cost),
-    },
+    costUsd: overviewResponse.costUsd + keywordResponse.costUsd + pageResponse.costUsd + backlinkResponse.costUsd,
+    overview: { organicKeywords: number(organic.count), organicTraffic: number(organic.etv), paidKeywords: number(paid.count), paidTraffic: number(paid.etv), estimatedTrafficCost: number(organic.estimated_paid_traffic_cost) },
     keywords,
     pages,
-    backlinks: {
-      rank: number(backlinkRaw.rank),
-      backlinks: number(backlinkRaw.backlinks),
-      referringDomains: number(backlinkRaw.referring_domains),
-      spamScore: number(backlinkRaw.backlinks_spam_score),
-    },
+    backlinks: { rank: number(backlinkRaw.rank), backlinks: number(backlinkRaw.backlinks), referringDomains: number(backlinkRaw.referring_domains), spamScore: number(backlinkRaw.backlinks_spam_score) },
   };
+}
+
+export async function exploreCompetitor(siteSlug: string, targetInput: string): Promise<CompetitorExplorerResult> {
+  const site = await getManagedSite(siteSlug);
+  if (!site) throw new Error("Website not found.");
+  const location = locationForSite(site);
+  const collected = await collectDomainResearch({ targetHost: targetInput, locationCode: location.location_code, languageCode: location.language_code, domainSlug: siteSlug });
+  const { costUsd: _costUsd, ...result } = collected;
   await db().insert(schema.competitorResearchRuns).values({
     siteSlug,
-    targetHost,
+    targetHost: result.targetHost,
     overview: result.overview,
     keywords: result.keywords,
     pages: result.pages,

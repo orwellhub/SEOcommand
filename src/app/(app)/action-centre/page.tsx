@@ -2,14 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BellRing, CheckCircle2, CirclePause, ListChecks, Sparkles, Zap } from "lucide-react";
+import { ArrowRight, BellRing, CheckCircle2, CirclePause, ListChecks, Loader2, Sparkles, Zap } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button, Card, EmptyState, SeverityBadge, Skeleton, StatusBadge } from "@/components/ui/primitives";
 import { cn } from "@/lib/cn";
 
 interface ActionItem {
   id: string;
-  kind: "alert" | "recommendation";
+  kind: "alert" | "recommendation" | "research";
   siteSlug: string | null;
   siteName: string;
   title: string;
@@ -29,8 +29,10 @@ interface ActionData {
 
 export default function ActionCentrePage() {
   const [data, setData] = useState<ActionData | null>(null);
-  const [filter, setFilter] = useState<"all" | "urgent" | "alerts" | "recommendations">("all");
+  const [filter, setFilter] = useState<"all" | "urgent" | "alerts" | "recommendations" | "research">("all");
   const [loading, setLoading] = useState(true);
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   function load() {
     setLoading(true);
@@ -42,6 +44,7 @@ export default function ActionCentrePage() {
     if (filter === "urgent") return item.score >= 75;
     if (filter === "alerts") return item.kind === "alert";
     if (filter === "recommendations") return item.kind === "recommendation";
+    if (filter === "research") return item.kind === "research";
     return true;
   }), [data, filter]);
 
@@ -54,34 +57,47 @@ export default function ActionCentrePage() {
     if (response.ok) setData((current) => current ? { ...current, items: current.items.filter((value) => value.id !== item.id) } : current);
   }
 
+  async function reviewResearch(item: ActionItem, action: "approve" | "reject") {
+    setReviewingId(item.id); setActionError(null);
+    try {
+      const response = await fetch("/api/research-mappings", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: item.id, action }) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error ?? "The research decision could not be saved.");
+      setData((current) => current ? { ...current, items: current.items.filter((value) => value.id !== item.id) } : current);
+    } catch (reason) { setActionError(reason instanceof Error ? reason.message : "The research decision could not be saved."); }
+    finally { setReviewingId(null); }
+  }
+
   return (
     <div className="animate-in space-y-6">
       <PageHeader title="Action centre" description="One prioritised queue for portfolio risks, opportunities and approvals. Start here, then follow the evidence into the affected website." actions={<Button onClick={load}>Refresh signals</Button>} />
 
       <section className="grid gap-3 md:grid-cols-3">
         <SignalCard icon={<Zap className="h-5 w-5" />} label="Needs attention now" value={data?.counts.urgent ?? 0} note="Critical and high-priority signals" color="#FF6B5E" />
-        <SignalCard icon={<ListChecks className="h-5 w-5" />} label="Open work" value={data?.counts.open ?? 0} note="Alerts and approved recommendations" color="#335CFF" />
+        <SignalCard icon={<ListChecks className="h-5 w-5" />} label="Open work" value={data?.counts.open ?? 0} note="Alerts, approvals and approved work" color="#335CFF" />
         <SignalCard icon={<CirclePause className="h-5 w-5" />} label="Paused websites" value={data?.counts.paused ?? 0} note="Free checks continue where possible" color="#F2B544" />
       </section>
+      {actionError && <div role="alert" className="rounded-md border border-critical/25 bg-critical/5 px-4 py-3 text-xs font-semibold text-critical">{actionError}</div>}
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
         <Card className="overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
             <div><h2 className="text-base font-extrabold tracking-tight text-ink">Prioritised queue</h2><p className="text-2xs text-muted">Ordered by severity and impact—not arrival time alone.{data?.meta?.hasMore ? ` Showing the top ${data.meta.returned} of ${data.meta.total}.` : ""}</p></div>
             <div className="flex rounded-md border border-border bg-workspace p-0.5">
-              {(["all", "urgent", "alerts", "recommendations"] as const).map((value) => <button key={value} onClick={() => setFilter(value)} className={cn("rounded px-2.5 py-1.5 text-2xs font-semibold capitalize", filter === value ? "bg-card text-ink shadow-sm" : "text-muted hover:text-ink")}>{value}</button>)}
+              {(["all", "urgent", "alerts", "research", "recommendations"] as const).map((value) => <button key={value} onClick={() => setFilter(value)} className={cn("rounded px-2.5 py-1.5 text-2xs font-semibold capitalize", filter === value ? "bg-card text-ink shadow-sm" : "text-muted hover:text-ink")}>{value}</button>)}
             </div>
           </div>
-          {loading ? <div className="space-y-3 p-5">{Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-24" />)}</div> : items.length === 0 ? <div className="p-5"><EmptyState title="Queue is clear" description="New risks and approved recommendations will appear here automatically." icon={<CheckCircle2 className="h-7 w-7 text-success" />} /></div> : <div className="divide-y divide-border">{items.map((item) => <article key={`${item.kind}-${item.id}`} className="group grid gap-4 px-5 py-4 hover:bg-workspace/60 sm:grid-cols-[8px_minmax(0,1fr)_auto]">
+          {loading ? <div className="space-y-3 p-5">{Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-24" />)}</div> : items.length === 0 ? <div className="p-5"><EmptyState title="Queue is clear" description="New risks, mapped research and approved recommendations will appear here automatically." icon={<CheckCircle2 className="h-7 w-7 text-success" />} /></div> : <div className="divide-y divide-border">{items.map((item) => <article key={`${item.kind}-${item.id}`} className="group grid gap-4 px-5 py-4 hover:bg-workspace/60 sm:grid-cols-[8px_minmax(0,1fr)_auto]">
             <span className="hidden rounded-full sm:block" style={{ background: item.severity === "critical" ? "#FF5C62" : item.severity === "high" ? "#FF6B5E" : item.severity === "medium" ? "#F2B544" : "#12B8C4" }} />
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2"><SeverityBadge severity={item.severity} /><StatusBadge label={item.kind} tone={item.kind === "alert" ? "warning" : "info"} /><span className="text-2xs font-semibold text-muted">Priority {item.score}</span></div>
+              <div className="flex flex-wrap items-center gap-2"><SeverityBadge severity={item.severity} /><StatusBadge label={item.kind} tone={item.kind === "alert" ? "warning" : "info"} />{item.kind === "research" && <StatusBadge label="awaiting approval" tone="warning" />}<span className="text-2xs font-semibold text-muted">Priority {item.score}</span></div>
               <h3 className="mt-2 text-sm font-bold text-ink">{item.title}</h3>
               {item.detail && <p className="mt-1 text-xs leading-5 text-muted">{item.detail}</p>}
               <div className="mt-2 flex items-center gap-2 text-2xs text-muted"><span>{item.siteName}</span><span>•</span><time>{new Date(item.createdAt).toLocaleDateString()}</time></div>
             </div>
             <div className="flex items-center gap-1 self-center">
               {item.kind === "alert" && <><Button variant="ghost" size="sm" onClick={() => updateNotice(item, "snooze")}>Snooze</Button><Button variant="ghost" size="sm" onClick={() => updateNotice(item, "resolve")}>Resolve</Button></>}
+              {item.kind === "research" && <><Button variant="ghost" size="sm" onClick={() => reviewResearch(item, "reject")} disabled={reviewingId === item.id}>Reject</Button><Button variant="primary" size="sm" onClick={() => reviewResearch(item, "approve")} disabled={reviewingId === item.id}>{reviewingId === item.id && <Loader2 className="h-3.5 w-3.5 animate-spin" />}Approve</Button></>}
               <Link href={item.actionUrl || (item.siteSlug ? `/sites/${item.siteSlug}` : "/portfolio")} className="inline-flex h-8 items-center gap-1 rounded-md bg-ink px-2.5 text-xs font-semibold text-card">Open <ArrowRight className="h-3.5 w-3.5" /></Link>
             </div>
           </article>)}</div>}
