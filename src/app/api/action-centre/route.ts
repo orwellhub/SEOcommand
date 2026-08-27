@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db, schema } from "@/db";
+import { applyLearningAdjustment, buildLearningSignals } from "@/platform/outcome-ledger";
 import { hasDatabase } from "@/sync/store";
 import { listManagedSites } from "@/platform/site-store";
 import { QA_SITES } from "@/data/qa-fixtures";
@@ -67,6 +68,8 @@ export async function GET(request: Request) {
       .orderBy(desc(schema.researchMappings.priorityScore), desc(schema.researchMappings.updatedAt)).limit(150),
   ]);
   const siteName = new Map(sites.map((site) => [site.id, site.name]));
+  const learning = buildLearningSignals(tasks);
+  const learningByWork = new Map(learning.map((signal) => [`${signal.domainSlug}:${signal.executionType}`, signal]));
   const severityScore = { critical: 100, high: 75, medium: 45, low: 20 };
   const allItems = [
     ...notices
@@ -86,19 +89,19 @@ export async function GET(request: Request) {
       })),
     ...tasks
       .filter((task) => task.decision === "approved" && task.status !== "done")
-      .map((task) => ({
+      .map((task) => { const signal = learningByWork.get(`${task.domainSlug}:${task.executionType ?? "general"}`); const learnedScore = applyLearningAdjustment(task.priorityScore, signal); return ({
         id: task.id,
         kind: "recommendation" as const,
         siteSlug: task.domainSlug,
         siteName: siteName.get(task.domainSlug) ?? task.domainSlug,
         title: task.title,
-        detail: `${task.module} · ${task.effort} effort`,
+        detail: `${task.module} · ${task.effort} effort${signal?.adjustment ? ` · outcome learning ${signal.adjustment > 0 ? "+" : ""}${signal.adjustment}` : ""}`,
         status: task.status ?? "approved",
-        severity: task.priorityScore >= 80 ? "high" : task.priorityScore >= 50 ? "medium" : "low",
-        score: task.priorityScore,
+        severity: learnedScore >= 80 ? "high" : learnedScore >= 50 ? "medium" : "low",
+        score: learnedScore,
         actionUrl: task.executionType ? `/work?item=${encodeURIComponent(task.id)}` : task.sourceUrl ?? `/recommendations?site=${encodeURIComponent(task.domainSlug)}&item=${encodeURIComponent(task.id)}`,
         createdAt: task.updatedAt,
-      })),
+      }); }),
     ...mappedResearch.map(({ mapping, evidence }) => ({
       id: mapping.id,
       kind: "research" as const,

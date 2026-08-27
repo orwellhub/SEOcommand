@@ -14,7 +14,7 @@ const MetricSchema = z.object({ key: z.string().trim().min(1).max(80), label: z.
 const ActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("capture_baseline") }),
   z.object({ action: z.literal("record_shipment"), note: z.string().trim().max(1000).nullable().optional(), url: z.string().trim().max(1000).nullable().optional() }),
-  z.object({ action: z.literal("record_checkpoint"), day: z.union([z.literal(7), z.literal(14), z.literal(28)]), metrics: z.array(MetricSchema).max(30), note: z.string().trim().max(1000).nullable().optional(), outcome: z.enum(["awaiting_data", "won", "lost", "inconclusive"]).optional() }),
+  z.object({ action: z.literal("record_checkpoint"), day: z.union([z.literal(7), z.literal(14), z.literal(28)]), metrics: z.array(MetricSchema).max(30), note: z.string().trim().max(1000).nullable().optional(), outcome: z.enum(["awaiting_data", "won", "lost", "inconclusive"]).optional(), confidence: z.enum(["low", "medium", "high"]).optional(), alternativeExplanations: z.array(z.string().trim().min(1).max(500)).max(10).optional(), valueCreated: z.object({ amount: z.number().nonnegative(), currency: z.string().trim().min(3).max(3).transform((value) => value.toUpperCase()), method: z.enum(["recorded", "estimated"]), assumption: z.string().trim().max(500).nullable().optional() }).nullable().optional() }),
 ]);
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {

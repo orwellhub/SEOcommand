@@ -1,7 +1,7 @@
 import {
   Activity, Bell, Bot, Building2, FileText, FolderKanban, Gauge, GitCompareArrows,
   Globe2, Home, LayoutDashboard, Link2, ListChecks, ListTodo, MapPinned, Radar, Search, Settings,
-  ScanLine, ShieldCheck, Sparkles, Swords, TrendingUp, Waypoints, type LucideIcon,
+  ScanLine, ShieldCheck, Sparkles, Swords, TrendingUp, Trophy, Waypoints, type LucideIcon,
 } from "lucide-react";
 
 export interface NavItem {
@@ -18,6 +18,7 @@ export const GLOBAL_NAV: NavItem[] = [
   { href: "/sites", label: "Sites", icon: Building2, group: "global" },
   { href: "/action-centre", label: "Action centre", icon: ListChecks, group: "global" },
   { href: "/work", label: "Continue work", icon: ListTodo, group: "global" },
+  { href: "/outcomes", label: "Outcomes", icon: Trophy, group: "global" },
   { href: "/reports", label: "Reports", icon: FileText, group: "global" },
   { href: "/notifications", label: "Notifications", icon: Bell, group: "global" },
   { href: "/settings", label: "Admin", icon: Settings, group: "global" },
@@ -65,5 +66,5 @@ export const NAV_SECTIONS = [
   { label: "Local", icon: MapPinned, items: [SITE_NAV[9]!] },
   { label: "AI visibility", icon: Sparkles, items: [SITE_NAV[8]!] },
   { label: "Actions", icon: ListChecks, items: [SITE_NAV[6]!, { href: "/recommendations", label: "Recommendations", icon: ListChecks }] },
-  { label: "Reports", icon: FileText, items: [GLOBAL_NAV[6]!] },
+  { label: "Reports", icon: FileText, items: [GLOBAL_NAV[7]!] },
 ];

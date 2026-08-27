@@ -8,6 +8,9 @@ export type VerificationState = {
   checkpoints?: Array<{ day: number; dueAt: string; status: "scheduled" | "recorded"; recordedAt?: string; metrics?: Metric[]; note?: string | null }>;
   outcome?: Outcome;
   outcomeNote?: string | null;
+  confidence?: "low" | "medium" | "high";
+  alternativeExplanations?: string[];
+  valueCreated?: { amount: number; currency: string; method: "recorded" | "estimated"; assumption?: string | null } | null;
 };
 
 const METRICS: Array<[string, string, string]> = [
@@ -40,7 +43,7 @@ export function recordShipment(current: VerificationState, input: { note?: strin
   };
 }
 
-export function recordCheckpoint(current: VerificationState, input: { day: number; metrics: Metric[]; note?: string | null; outcome?: Outcome }, now = new Date()): VerificationState {
+export function recordCheckpoint(current: VerificationState, input: { day: number; metrics: Metric[]; note?: string | null; outcome?: Outcome; confidence?: "low" | "medium" | "high"; alternativeExplanations?: string[]; valueCreated?: VerificationState["valueCreated"] }, now = new Date()): VerificationState {
   const checkpoints = (current.checkpoints ?? []).map((checkpoint) => checkpoint.day === input.day ? { ...checkpoint, status: "recorded" as const, recordedAt: now.toISOString(), metrics: input.metrics, note: input.note?.trim() || null } : checkpoint);
-  return { ...current, checkpoints, outcome: input.outcome ?? current.outcome ?? "awaiting_data", outcomeNote: input.note?.trim() || current.outcomeNote || null };
+  return { ...current, checkpoints, outcome: input.outcome ?? current.outcome ?? "awaiting_data", outcomeNote: input.note?.trim() || current.outcomeNote || null, confidence: input.confidence ?? current.confidence, alternativeExplanations: input.alternativeExplanations ?? current.alternativeExplanations, valueCreated: input.valueCreated === undefined ? current.valueCreated : input.valueCreated };
 }

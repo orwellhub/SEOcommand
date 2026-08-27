@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Download, Palette, RefreshCw } from "lucide-react";
 import { Button, EmptyState, Skeleton } from "@/components/ui/primitives";
-import { ClientReport } from "@/components/reports/client-report";
+import { ClientReport, type ReportOutcome } from "@/components/reports/client-report";
 import { useDomain } from "@/components/shell/domain-context";
 import { useLiveDomain } from "@/lib/use-live";
 import { REPORT_TEMPLATES } from "@/data/report-templates";
@@ -20,6 +20,7 @@ export default function ClientReportPage() {
   const live = useLiveDomain(siteId);
   const [branding, setBranding] = useState<ReportBranding | null>(site ? resolveReportBranding(site) : null);
   const [brandError, setBrandError] = useState<string | null>(null);
+  const [outcomes, setOutcomes] = useState<ReportOutcome[]>([]);
 
   useEffect(() => { if (siteId) setScope(siteId); }, [setScope, siteId]);
   useEffect(() => {
@@ -36,6 +37,7 @@ export default function ClientReportPage() {
       .catch((error: Error) => { if (active) setBrandError(error.message); });
     return () => { active = false; };
   }, [site]);
+  useEffect(() => { if (!siteId) return; const controller = new AbortController(); fetch(`/api/outcomes?site=${encodeURIComponent(siteId)}`, { signal: controller.signal }).then((response) => response.ok ? response.json() : null).then((body) => setOutcomes(body?.rows ?? [])).catch(() => undefined); return () => controller.abort(); }, [siteId]);
 
   const title = useMemo(() => `${site?.name ?? "Website"} · ${template.name}`, [site, template.name]);
   useEffect(() => {
@@ -55,6 +57,6 @@ export default function ClientReportPage() {
       <div className="flex items-center gap-2"><Button size="sm" onClick={live.refresh}><RefreshCw className="h-3.5 w-3.5" />Refresh data</Button><Link href={`/sites/${site.id}/settings?tab=reporting`} className="inline-flex h-7 items-center justify-center gap-1.5 rounded-md border border-border bg-card px-2.5 text-xs font-medium text-ink transition-colors hover:bg-workspace"><Palette className="h-3.5 w-3.5" />Branding</Link><Button variant="primary" size="sm" onClick={() => window.print()}><Download className="h-3.5 w-3.5" />Save PDF</Button></div>
     </div>
     {brandError && <div className="report-toolbar rounded-md border border-warning/25 bg-warning/10 px-4 py-3 text-xs text-[#9A6B08]">{brandError} The website’s default identity is being used.</div>}
-    <ClientReport site={site} template={template} branding={branding} bundle={live.data} />
+    <ClientReport site={site} template={template} branding={branding} bundle={live.data} outcomes={outcomes} />
   </div>;
 }
