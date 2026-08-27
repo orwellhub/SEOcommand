@@ -3,12 +3,14 @@ import { and, desc, eq, ilike, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { hasDatabase } from "@/sync/store";
 import { isManagedSite } from "@/platform/site-store";
+import { canAccessSite } from "@/platform/access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request, { params }: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await params;
+  if (!await canAccessSite(request, siteId)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
   if (!hasDatabase()) return NextResponse.json({ run: null, pages: [], total: 0 });
   if (!(await isManagedSite(siteId))) return NextResponse.json({ error: "Site not found." }, { status: 404 });
   const search = new URL(request.url).searchParams;

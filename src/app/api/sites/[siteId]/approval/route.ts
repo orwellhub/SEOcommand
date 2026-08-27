@@ -5,6 +5,7 @@ import { canApproveBudget } from "@/lib/auth";
 import { db, schema } from "@/db";
 import { hasDatabase } from "@/sync/store";
 import { canAccessSite } from "@/platform/access";
+import { getManagedSite } from "@/platform/site-store";
 
 const Schema = z.object({ action: z.enum(["approve", "reject"]), approvedMonthlyUsd: z.number().positive().optional() });
 
@@ -13,15 +14,26 @@ export async function POST(
   { params }: { params: Promise<{ siteId: string }> },
 ) {
   const { siteId } = await params;
-  if (process.env.QA_SYNTHETIC === "true") {
-    return NextResponse.json({ site: { slug: siteId, lifecycleStatus: "active", spendApproval: "approved", synthetic: true }, initialScanQueued: true });
-  }
-  if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
+  if (!(await getManagedSite(siteId))) return NextResponse.json({ error: "Site not found." }, { status: 404 });
   if (!await canAccessSite(request, siteId) || !canApproveBudget(request.headers.get("x-orwell-user-role"))) {
     return NextResponse.json({ error: "Admin or Owner approval required." }, { status: 403 });
   }
   const parsed = Schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid approval decision." }, { status: 400 });
+  if (process.env.QA_SYNTHETIC === "true") {
+    const approved = parsed.data.action === "approve";
+    return NextResponse.json({
+      site: {
+        slug: siteId,
+        lifecycleStatus: "active",
+        spendApproval: approved ? "approved" : "rejected",
+        approvedMonthlyUsd: approved ? parsed.data.approvedMonthlyUsd ?? null : null,
+        synthetic: true,
+      },
+      initialScanQueued: approved,
+    });
+  }
+  if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
 
   const [current] = await db()
     .select()

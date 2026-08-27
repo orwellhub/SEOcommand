@@ -169,7 +169,7 @@ export function authenticateUser(
   const normalisedEmail = email.trim().toLowerCase();
   const user = users.find((candidate) => safeStringEqual(candidate.email, normalisedEmail));
   if (!user || !safeStringEqual(user.password, password)) return null;
-  return { email: user.email, name: user.name, role: user.role };
+  return { email: user.email, name: user.name, role: user.role, groupIds: [...(user.groupIds ?? [])] };
 }
 
 export function canWrite(role: AppRole | string | null): boolean {

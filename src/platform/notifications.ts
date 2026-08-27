@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { hasDatabase } from "@/sync/store";
 import type { Severity } from "@/lib/types";
@@ -57,23 +57,32 @@ export async function createNotification(input: {
   return item;
 }
 
-export async function notificationInbox(limit = 100) {
+function siteVisibility(siteSlugs?: string[] | null) {
+  if (siteSlugs === undefined || siteSlugs === null) return undefined;
+  return siteSlugs.length
+    ? or(isNull(schema.portfolioNotifications.siteSlug), inArray(schema.portfolioNotifications.siteSlug, siteSlugs))
+    : isNull(schema.portfolioNotifications.siteSlug);
+}
+
+export async function notificationInbox(limit = 100, siteSlugs?: string[] | null) {
   if (!hasDatabase()) return [];
-  return db()
-    .select()
-    .from(schema.portfolioNotifications)
+  const query = db().select().from(schema.portfolioNotifications);
+  const visible = siteVisibility(siteSlugs);
+  return (visible ? query.where(visible) : query)
     .orderBy(desc(schema.portfolioNotifications.createdAt))
     .limit(Math.min(Math.max(limit, 1), 250));
 }
 
-export async function unreadNotificationCount(): Promise<number> {
+export async function unreadNotificationCount(siteSlugs?: string[] | null): Promise<number> {
   if (!hasDatabase()) return 0;
+  const visible = siteVisibility(siteSlugs);
   const [row] = await db()
     .select({ count: sql<number>`count(*)::int` })
     .from(schema.portfolioNotifications)
     .where(and(
       isNull(schema.portfolioNotifications.readAt),
       eq(schema.portfolioNotifications.status, "open"),
+      visible,
     ));
   return row?.count ?? 0;
 }

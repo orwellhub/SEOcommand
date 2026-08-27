@@ -20,9 +20,9 @@ function writable(request: Request) {
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ groupId: string }> }) {
   const { groupId } = await params;
+  if (!writable(request)) return NextResponse.json({ error: "Write access required." }, { status: 403 });
   if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ group: { id: groupId, ...(await request.json().catch(() => ({}))), synthetic: true } });
   if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
-  if (!writable(request)) return NextResponse.json({ error: "Write access required." }, { status: 403 });
   const parsed = UpdateSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Review the group details." }, { status: 400 });
   const groups = await listPortfolioGroups();
@@ -48,9 +48,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ gr
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ groupId: string }> }) {
   const { groupId } = await params;
+  if (!writable(request)) return NextResponse.json({ error: "Write access required." }, { status: 403 });
   if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ deleted: true, groupId, synthetic: true });
   if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
-  if (!writable(request)) return NextResponse.json({ error: "Write access required." }, { status: 403 });
   await db().transaction(async (tx) => {
     await tx.update(schema.portfolioGroups).set({ parentId: null, updatedAt: new Date() }).where(eq(schema.portfolioGroups.parentId, groupId));
     await tx.delete(schema.siteGroupMemberships).where(eq(schema.siteGroupMemberships.groupId, groupId));

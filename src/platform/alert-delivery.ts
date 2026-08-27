@@ -15,6 +15,51 @@ function webhookFor(channel: string): string | undefined {
   return undefined;
 }
 
+export interface AlertWebhookRequest {
+  url: URL;
+  headers: Record<string, string>;
+  body: string;
+}
+
+export function buildAlertWebhookRequest(input: {
+  webhook: string;
+  secret?: string;
+  production?: boolean;
+  eventType: string;
+  channel: string;
+  recipient: string | null;
+  notification: Record<string, unknown>;
+}): AlertWebhookRequest {
+  const url = new URL(input.webhook);
+  if (input.production && url.protocol !== "https:") {
+    throw new Error("Alert webhook must use HTTPS in production.");
+  }
+  const body = JSON.stringify({
+    event: `seo.alert.${input.eventType}`,
+    channel: input.channel,
+    recipient: input.recipient,
+    notification: input.notification,
+  });
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (input.secret) {
+    headers["x-orwell-signature"] = `sha256=${createHmac("sha256", input.secret).update(body).digest("hex")}`;
+  }
+  return { url, headers, body };
+}
+
+export async function postAlertWebhook(
+  request: AlertWebhookRequest,
+  fetcher: typeof fetch = fetch,
+): Promise<void> {
+  const response = await fetcher(request.url, {
+    method: "POST",
+    headers: request.headers,
+    body: request.body,
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!response.ok) throw new Error(`Webhook returned HTTP ${response.status}.`);
+}
+
 /** Deliver queued email/WhatsApp alerts through operator-owned signed webhooks. */
 export async function deliverQueuedAlerts(limit = 200): Promise<AlertDeliverySummary> {
   const queued = await db()
@@ -37,22 +82,16 @@ export async function deliverQueuedAlerts(limit = 200): Promise<AlertDeliverySum
       continue;
     }
     try {
-      const url = new URL(webhook);
-      if (process.env.NODE_ENV === "production" && url.protocol !== "https:") {
-        throw new Error("Alert webhook must use HTTPS in production.");
-      }
-      const payload = JSON.stringify({
-        event: `seo.alert.${item.notification.eventType}`,
+      const request = buildAlertWebhookRequest({
+        webhook,
+        secret: process.env.ALERT_WEBHOOK_SECRET,
+        production: process.env.NODE_ENV === "production",
+        eventType: item.notification.eventType,
         channel: item.delivery.channel,
         recipient: item.delivery.recipient,
-        notification: item.notification,
+        notification: item.notification as unknown as Record<string, unknown>,
       });
-      const headers: Record<string, string> = { "content-type": "application/json" };
-      if (process.env.ALERT_WEBHOOK_SECRET) {
-        headers["x-orwell-signature"] = `sha256=${createHmac("sha256", process.env.ALERT_WEBHOOK_SECRET).update(payload).digest("hex")}`;
-      }
-      const response = await fetch(url, { method: "POST", headers, body: payload, signal: AbortSignal.timeout(15_000) });
-      if (!response.ok) throw new Error(`Webhook returned HTTP ${response.status}.`);
+      await postAlertWebhook(request);
       await db().update(schema.notificationDeliveries).set({ status: "delivered", deliveredAt: new Date(), attempts: item.delivery.attempts + 1, lastError: null }).where(eq(schema.notificationDeliveries.id, item.delivery.id));
       delivered++;
     } catch (error) {

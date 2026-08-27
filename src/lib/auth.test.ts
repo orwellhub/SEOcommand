@@ -26,8 +26,11 @@ describe("internal authentication", () => {
   });
 
   it("loads JSON users and validates credentials", () => {
-    const users = configuredUsers({ AUTH_USERS_JSON: JSON.stringify([user]) });
-    expect(authenticateUser("admin@example.com", "correct horse", users)?.role).toBe("admin");
+    const users = configuredUsers({ AUTH_USERS_JSON: JSON.stringify([{ ...user, groupIds: ["group-a"] }]) });
+    expect(authenticateUser("admin@example.com", "correct horse", users)).toMatchObject({
+      role: "admin",
+      groupIds: ["group-a"],
+    });
     expect(authenticateUser("admin@example.com", "wrong", users)).toBeNull();
   });
 

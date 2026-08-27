@@ -24,6 +24,7 @@ interface ActionItem {
 interface ActionData {
   items: ActionItem[];
   counts: { urgent: number; open: number; paused: number };
+  meta?: { returned: number; total: number; hasMore: boolean };
 }
 
 export default function ActionCentrePage() {
@@ -66,7 +67,7 @@ export default function ActionCentrePage() {
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
         <Card className="overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
-            <div><h2 className="text-base font-extrabold tracking-tight text-ink">Prioritised queue</h2><p className="text-2xs text-muted">Ordered by severity and impact—not arrival time alone.</p></div>
+            <div><h2 className="text-base font-extrabold tracking-tight text-ink">Prioritised queue</h2><p className="text-2xs text-muted">Ordered by severity and impact—not arrival time alone.{data?.meta?.hasMore ? ` Showing the top ${data.meta.returned} of ${data.meta.total}.` : ""}</p></div>
             <div className="flex rounded-md border border-border bg-workspace p-0.5">
               {(["all", "urgent", "alerts", "recommendations"] as const).map((value) => <button key={value} onClick={() => setFilter(value)} className={cn("rounded px-2.5 py-1.5 text-2xs font-semibold capitalize", filter === value ? "bg-card text-ink shadow-sm" : "text-muted hover:text-ink")}>{value}</button>)}
             </div>

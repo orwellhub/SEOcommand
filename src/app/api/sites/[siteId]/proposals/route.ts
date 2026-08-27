@@ -5,6 +5,7 @@ import { canWrite } from "@/lib/auth";
 import { db, schema } from "@/db";
 import { hasDatabase } from "@/sync/store";
 import { isManagedSite } from "@/platform/site-store";
+import { canAccessSite } from "@/platform/access";
 
 const Schema = z.object({
   connectionId: z.string().uuid(),
@@ -13,8 +14,9 @@ const Schema = z.object({
   changes: z.record(z.unknown()).default({}),
 });
 
-export async function GET(_request: Request, { params }: { params: Promise<{ siteId: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await params;
+  if (!await canAccessSite(request, siteId)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
   if (!hasDatabase()) return NextResponse.json({ items: [] });
   if (!(await isManagedSite(siteId))) return NextResponse.json({ error: "Site not found." }, { status: 404 });
   const items = await db().select().from(schema.siteChangeProposals).where(eq(schema.siteChangeProposals.siteSlug, siteId)).orderBy(desc(schema.siteChangeProposals.createdAt));
@@ -23,8 +25,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ sit
 
 export async function POST(request: Request, { params }: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await params;
-  if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
   if (!canWrite(request.headers.get("x-orwell-user-role"))) return NextResponse.json({ error: "Write access required." }, { status: 403 });
+  if (!await canAccessSite(request, siteId)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
+  if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
   if (!(await isManagedSite(siteId))) return NextResponse.json({ error: "Site not found." }, { status: 404 });
   const parsed = Schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid change proposal." }, { status: 400 });

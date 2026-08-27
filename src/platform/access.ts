@@ -21,3 +21,12 @@ export async function accessibleSiteSlugs(request: Request): Promise<string[] | 
   const groupIds = grantedGroupIds(request);
   return [...new Set((await Promise.all(groupIds.map(resolveGroupSiteSlugs))).flat())];
 }
+
+/** Restrict a requested site set to the caller's portfolio grants. */
+export async function filterAccessibleSiteSlugs(request: Request, siteSlugs: string[]): Promise<string[]> {
+  const requested = [...new Set(siteSlugs)];
+  const granted = await accessibleSiteSlugs(request);
+  if (granted === null) return requested;
+  const allowed = new Set(granted);
+  return requested.filter((siteSlug) => allowed.has(siteSlug));
+}

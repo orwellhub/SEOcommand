@@ -7,8 +7,8 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request, { params }: { params: Promise<{ prospectId: string }> }) {
   const { prospectId } = await params;
-  if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ contacts: [{ type: "email", value: "editor@publisher.example", source: "synthetic_qa" }], prospectId, synthetic: true });
   if (!canWrite(request.headers.get("x-orwell-user-role"))) return NextResponse.json({ error: "Write access required." }, { status: 403 });
+  if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ contacts: [{ type: "email", value: "editor@publisher.example", source: "synthetic_qa" }], prospectId, synthetic: true });
   if (!z.string().uuid().safeParse(prospectId).success) return NextResponse.json({ error: "Invalid prospect." }, { status: 400 });
   try {
     return NextResponse.json({ contacts: await enrichProspectContacts(prospectId) });

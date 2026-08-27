@@ -89,9 +89,10 @@ async function audit(request: Request, siteSlug: string, action: string, area: s
 
 export async function GET(request: Request, { params }: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await params;
+  if (!(await getManagedSite(siteId))) return NextResponse.json({ error: "Website not found." }, { status: 404 });
+  if (!await canAccessSite(request, siteId)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
   if (process.env.QA_SYNTHETIC === "true") return NextResponse.json(qaSettings(siteId));
   if (!hasDatabase()) return unavailable();
-  if (!await canAccessSite(request, siteId)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
   const [storedSite] = await db().select().from(schema.siteProfiles).where(eq(schema.siteProfiles.slug, siteId)).limit(1);
   const managed = storedSite ? null : await getManagedSite(siteId);
   if (!storedSite && !managed) return NextResponse.json({ error: "Website not found." }, { status: 404 });
@@ -137,6 +138,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ site
 export async function PATCH(request: Request, { params }: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await params;
   const role = request.headers.get("x-orwell-user-role");
+  if (!(await getManagedSite(siteId))) return NextResponse.json({ error: "Website not found." }, { status: 404 });
+  if (!await canAccessSite(request, siteId)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
   const parsed = PatchSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "Review the settings fields.", fields: parsed.error.flatten() }, { status: 400 });
@@ -195,7 +198,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ si
     return NextResponse.json({ site, settings, saved: true, synthetic: true });
   }
   if (!hasDatabase()) return unavailable();
-  if (!await canAccessSite(request, siteId)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
   const [existing] = await db().select().from(schema.siteProfiles).where(eq(schema.siteProfiles.slug, siteId)).limit(1);
   if (!existing) {
     const managed = await getManagedSite(siteId);

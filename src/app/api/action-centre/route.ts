@@ -9,6 +9,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
+  const requestedLimit = Number(new URL(request.url).searchParams.get("limit") ?? "150");
+  const limit = Math.min(Math.max(Number.isFinite(requestedLimit) ? Math.trunc(requestedLimit) : 150, 25), 250);
   const allSites = await listManagedSites();
   const role = request.headers.get("x-orwell-user-role");
   const groupIds = request.headers.get("x-orwell-user-groups")?.split(",").filter(Boolean) ?? [];
@@ -18,7 +20,9 @@ export async function GET(request: Request) {
     : new Set(allSites.map((site) => site.id));
   const sites = allSites.filter((site) => allowed.has(site.id));
   if (process.env.QA_SYNTHETIC === "true") {
-    const items = QA_SITES.flatMap((site, index) => [
+    const allItems = sites.flatMap((site) => {
+      const index = QA_SITES.findIndex((item) => item.id === site.id);
+      return [
       {
         id: `20000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`, kind: "alert" as const,
         siteSlug: site.id, siteName: site.name, title: index % 4 === 0 ? "Technical health needs attention" : "Tracked rankings moved",
@@ -32,11 +36,17 @@ export async function GET(request: Request) {
         detail: "Content · M effort", status: index % 4 === 0 ? "in_progress" : "approved", severity: "high",
         score: 78 - index, actionUrl: "/recommendations", createdAt: new Date(Date.UTC(2026, 7, 25, 8, index)),
       },
-    ]).sort((a, b) => b.score - a.score);
-    return NextResponse.json({ items, counts: { urgent: items.filter((item) => item.score >= 75).length, open: items.length, paused: 1 }, sites });
+      ];
+    }).sort((a, b) => b.score - a.score);
+    const items = allItems.slice(0, limit);
+    return NextResponse.json({
+      items,
+      counts: { urgent: allItems.filter((item) => item.score >= 75).length, open: allItems.length, paused: sites.filter((site) => site.lifecycleStatus === "paused").length },
+      meta: { returned: items.length, total: allItems.length, hasMore: allItems.length > items.length },
+    });
   }
   if (!hasDatabase() || sites.length === 0) {
-    return NextResponse.json({ items: [], counts: { urgent: 0, open: 0, paused: 0 }, sites });
+    return NextResponse.json({ items: [], counts: { urgent: 0, open: 0, paused: 0 }, meta: { returned: 0, total: 0, hasMore: false } });
   }
   const slugs = sites.map((site) => site.id);
   const [notices, tasks] = await Promise.all([
@@ -49,7 +59,7 @@ export async function GET(request: Request) {
   ]);
   const siteName = new Map(sites.map((site) => [site.id, site.name]));
   const severityScore = { critical: 100, high: 75, medium: 45, low: 20 };
-  const items = [
+  const allItems = [
     ...notices
       .filter((notice) => notice.status === "open" || (notice.status === "snoozed" && notice.snoozedUntil && notice.snoozedUntil <= new Date()))
       .map((notice) => ({
@@ -81,13 +91,14 @@ export async function GET(request: Request) {
         createdAt: task.updatedAt,
       })),
   ].sort((a, b) => b.score - a.score || +new Date(b.createdAt) - +new Date(a.createdAt));
+  const items = allItems.slice(0, limit);
   return NextResponse.json({
     items,
     counts: {
-      urgent: items.filter((item) => item.score >= 75).length,
-      open: items.length,
+      urgent: allItems.filter((item) => item.score >= 75).length,
+      open: allItems.length,
       paused: sites.filter((site) => site.lifecycleStatus === "paused").length,
     },
-    sites,
+    meta: { returned: items.length, total: allItems.length, hasMore: allItems.length > items.length },
   });
 }

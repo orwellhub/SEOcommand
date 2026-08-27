@@ -15,6 +15,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx scripts/seed.ts",
     "qa:seed": "tsx scripts/seed-qa.ts",
+    "qa:load": "node --import tsx scripts/qa-load.ts",
+    "qa:migrate": "node --import tsx scripts/qa-migrate.ts",
     "jobs": "tsx scripts/jobs.ts",
     "jobs:operations": "tsx scripts/crawler-jobs.ts"
   },
@@ -32,6 +34,7 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "@types/node": "22.20.1",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.5",

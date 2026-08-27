@@ -3,6 +3,10 @@ import type { ManagedSite, PortfolioGroup } from "@/platform/types";
 import { DEFAULT_ALERT_CHANNELS } from "@/platform/notification-defaults";
 
 const COLORS = ["#335CFF", "#12B8C4", "#FF6B5E", "#F2B544", "#16A879"];
+const requestedSiteCount = Number(process.env.QA_SITE_COUNT ?? "20");
+const QA_SITE_COUNT = Number.isFinite(requestedSiteCount)
+  ? Math.min(Math.max(Math.trunc(requestedSiteCount), 1), 500)
+  : 20;
 export const QA_GROUPS: PortfolioGroup[] = [
   { id: "10000000-0000-4000-8000-000000000001", slug: "finance", name: "Finance", description: "Synthetic staging group", color: "#335CFF", parentId: null, sortOrder: 0, siteSlugs: [] },
   { id: "10000000-0000-4000-8000-000000000002", slug: "uae", name: "UAE", description: "Nested market group", color: "#12B8C4", parentId: "10000000-0000-4000-8000-000000000001", sortOrder: 0, siteSlugs: [] },
@@ -10,7 +14,7 @@ export const QA_GROUPS: PortfolioGroup[] = [
   { id: "10000000-0000-4000-8000-000000000004", slug: "launches", name: "Launches", description: "Pre-launch and recently launched sites", color: "#F2B544", parentId: "10000000-0000-4000-8000-000000000003", sortOrder: 0, siteSlugs: [] },
 ];
 
-export const QA_SITES: ManagedSite[] = Array.from({ length: 20 }, (_, index) => {
+export const QA_SITES: ManagedSite[] = Array.from({ length: QA_SITE_COUNT }, (_, index) => {
   const mortgage = index === 0;
   const id = mortgage ? "mortgagecompare" : `qa-site-${String(index + 1).padStart(2, "0")}`;
   const host = mortgage ? "mortgagecompare.ae" : `site-${index + 1}.example.test`;
@@ -189,17 +193,22 @@ export function qaBrowserCrawl(siteSlug: string) {
   };
 }
 
-function qaScopedSites(scope: string) {
-  if (scope === "portfolio") return QA_SITES;
-  if (scope.startsWith("group:")) {
+function qaScopedSites(scope: string, allowedSiteSlugs?: string[] | null) {
+  const allowed = allowedSiteSlugs ? new Set(allowedSiteSlugs) : null;
+  let sites: ManagedSite[];
+  if (scope === "portfolio") {
+    sites = QA_SITES;
+  } else if (scope.startsWith("group:")) {
     const group = QA_GROUPS.find((item) => item.id === scope.slice(6));
-    return QA_SITES.filter((site) => group?.siteSlugs.includes(site.id));
+    sites = QA_SITES.filter((site) => group?.siteSlugs.includes(site.id));
+  } else {
+    sites = QA_SITES.filter((site) => site.id === scope);
   }
-  return QA_SITES.filter((site) => site.id === scope);
+  return allowed ? sites.filter((site) => allowed.has(site.id)) : sites;
 }
 
-export function qaReliability(scope: string) {
-  const sites = qaScopedSites(scope);
+export function qaReliability(scope: string, allowedSiteSlugs?: string[] | null) {
+  const sites = qaScopedSites(scope, allowedSiteSlugs);
   const latest = sites.map((site, index) => ({ id: `qa-check-${site.id}`, siteSlug: site.id, checkedAt: `2026-08-26T08:${String(index).padStart(2, "0")}:00.000Z`, available: index !== 7, statusCode: index === 7 ? 503 : 200, responseTimeMs: 182 + index * 23, tlsValid: index !== 12, tlsExpiresAt: "2026-12-15T00:00:00.000Z", domainExpiresAt: "2027-05-20T00:00:00.000Z", robotsStatus: 200, sitemapStatus: index === 9 ? 404 : 200 }));
   const checks = latest.flatMap((row, index) => Array.from({ length: 12 }, (_, sample) => ({ ...row, id: `${row.id}-${sample}`, checkedAt: `2026-08-${String(26 - Math.floor(sample / 3)).padStart(2, "0")}T${String(8 - sample % 3).padStart(2, "0")}:00:00.000Z`, responseTimeMs: (row.responseTimeMs ?? 200) + sample * 4 - index })));
   return { summary: { monitored: sites.length, available: latest.filter((item) => item.available).length, incidents: latest.filter((item) => !item.available || item.tlsValid === false).length, avgResponseMs: latest.length ? Math.round(latest.reduce((sum, item) => sum + (item.responseTimeMs ?? 0), 0) / latest.length) : null, uptimePct: 99.82 }, latest, checks };
@@ -215,31 +224,31 @@ export function qaCompetitorExplorer(targetHost = "competitor.example") {
   return { targetHost, capturedAt: "2026-08-26T08:00:00.000Z", overview: { organicKeywords: 18420, organicTraffic: 72100, paidKeywords: 212, paidTraffic: 4100, estimatedTrafficCost: 88600 }, keywords: Array.from({ length: 12 }, (_, index) => ({ keyword: `competitor keyword ${index + 1}`, position: 1 + index, volume: 6200 - index * 310, difficulty: 43 + index, intent: index % 2 ? "commercial" : "informational", url: `https://${targetHost}/page-${index + 1}`, traffic: 940 - index * 52 })), pages: Array.from({ length: 7 }, (_, index) => ({ url: `https://${targetHost}/top-page-${index + 1}`, keywords: 960 - index * 90, traffic: 8400 - index * 680, trafficCost: 11200 - index * 800 })), backlinks: { rank: 67, backlinks: 28400, referringDomains: 2140, spamScore: 3 } };
 }
 
-export function qaLocalSeo(scope: string) {
-  const sites = qaScopedSites(scope);
+export function qaLocalSeo(scope: string, allowedSiteSlugs?: string[] | null) {
+  const sites = qaScopedSites(scope, allowedSiteSlugs);
   const locations = sites.slice(0, Math.min(3, sites.length)).map((site, index) => ({ id: `40000000-0000-4000-8000-00000000000${index + 1}`, siteSlug: site.id, name: index ? `${site.name} local profile` : "MortgageCompare Dubai", businessKeyword: index ? "local comparison service" : "mortgage broker comparison dubai", address: index ? "Central business district" : "Dubai, United Arab Emirates", gridSize: index === 1 ? 5 : 3, gridRadiusKm: 5, keywords: index ? ["comparison service near me"] : ["mortgage broker dubai", "compare mortgages dubai"], active: true, approval: "approved", estimatedMonthlyUsd: index === 1 ? 1.42 : 0.64 }));
   const snapshots = locations.map((location, index) => ({ id: `qa-local-snapshot-${index}`, locationId: location.id, capturedOn: "2026-08-26", rating: 4.7 - index * 0.1, reviewCount: 186 + index * 41, profileCompleteness: 92 - index * 4, matched: true }));
   const grid = locations.flatMap((location, locationIndex) => location.keywords.flatMap((keyword) => Array.from({ length: location.gridSize ** 2 }, (_, point) => ({ id: `qa-grid-${locationIndex}-${keyword}-${point}`, locationId: location.id, keyword, capturedOn: "2026-08-26", latitude: 25.2048 + (Math.floor(point / location.gridSize) - 1) * 0.006, longitude: 55.2708 + (point % location.gridSize - 1) * 0.006, position: 2 + (point + locationIndex) % 9, matched: true }))));
   return { locations, snapshots, grid };
 }
 
-export function qaAiVisibility(scope: string) {
-  const sites = qaScopedSites(scope);
-  const measuredSites = sites.length ? sites : [QA_SITES[0]!];
+export function qaAiVisibility(scope: string, allowedSiteSlugs?: string[] | null) {
+  const measuredSites = qaScopedSites(scope, allowedSiteSlugs);
   const platforms = ["chatgpt", "claude", "gemini", "perplexity", "google_ai_overview", "google_ai_mode", "copilot"];
   const observations = platforms.flatMap((platform, index) => measuredSites.slice(0, Math.min(2, measuredSites.length)).map((site, siteIndex) => ({ id: `qa-ai-${platform}-${site.id}`, siteSlug: site.id, siteName: site.name, promptId: null, prompt: siteIndex ? "Which comparison sites provide transparent costs?" : "What is the best way to compare UAE mortgage rates?", topic: "Mortgage comparison", platform, responseText: `${site.name} is included in this synthetic QA response with transparent comparison guidance.`, rawResponse: {}, mentioned: index !== 5, cited: index % 3 !== 1, recommendationPosition: index % 3 + 1, sentiment: index === 4 ? "neutral" : "positive", confidence: 0.91, responseHash: `qa-${index}-${siteIndex}`, fanOutQueries: ["mortgage comparison fees", "UAE mortgage eligibility"], costUsd: 0, providerMetadata: { synthetic: true }, capturedOn: `2026-08-${String(26 - index).padStart(2, "0")}`, capturedAt: `2026-08-${String(26 - index).padStart(2, "0")}T08:00:00.000Z`, createdAt: `2026-08-${String(26 - index).padStart(2, "0")}T08:00:00.000Z`, citations: index % 3 !== 1 ? [{ id: `qa-citation-${index}-${siteIndex}`, observationId: `qa-ai-${platform}-${site.id}`, url: `https://${site.host}/mortgages`, domain: site.host, title: `${site.name} mortgage comparison`, owned: true, position: 1, createdAt: "2026-08-26T08:00:00.000Z" }] : [], entities: [] })));
+  const primary = measuredSites[0];
   return {
-    scope: { id: scope, label: scope === "portfolio" ? "Portfolio" : measuredSites[0]!.name, siteSlugs: measuredSites.map((item) => item.id), days: 90 },
-    summary: { checks: observations.length, sitesMeasured: measuredSites.length, mentionRate: 86, citationRate: 71, avgRecommendationPosition: 2.1, positiveSentimentRate: 83, shareOfVoice: 54 },
+    scope: { id: scope, label: scope === "portfolio" ? "Portfolio" : primary?.name ?? "Restricted scope", siteSlugs: measuredSites.map((item) => item.id), days: 90 },
+    summary: { checks: observations.length, sitesMeasured: measuredSites.length, mentionRate: primary ? 86 : 0, citationRate: primary ? 71 : 0, avgRecommendationPosition: primary ? 2.1 : null, positiveSentimentRate: primary ? 83 : 0, shareOfVoice: primary ? 54 : 0 },
     trend: Array.from({ length: 14 }, (_, day) => ({ date: `2026-08-${String(day + 13).padStart(2, "0")}`, mentionRate: 62 + day * 1.8, citationRate: 48 + day * 1.6, shareOfVoice: 39 + day * 1.2 })),
     platforms: platforms.map((platform, index) => ({ platform, checks: Math.max(1, measuredSites.length), mentionRate: 92 - index * 4, citationRate: 78 - index * 5, avgPosition: 1.5 + index * 0.25 })),
     observations,
-    sources: [{ domain: measuredSites[0]!.host, citations: 9, owned: true, urls: [`https://${measuredSites[0]!.host}/mortgages`], platforms: ["chatgpt", "perplexity", "google_ai_overview"], prompts: ["What is the best way to compare UAE mortgage rates?"] }, { domain: "centralbank.ae", citations: 7, owned: false, urls: ["https://centralbank.ae/consumer-guidance"], platforms: ["gemini", "google_ai_overview"], prompts: ["What is the best way to compare UAE mortgage rates?"] }],
-    competitors: [{ name: measuredSites[0]!.name, host: measuredSites[0]!.host, mentions: 18, owned: true, positive: 15, positions: [], shareOfVoice: 54, positiveRate: 83, avgPosition: 2.1 }, { name: "Competitor", host: "competitor.example", mentions: 10, owned: false, positive: 7, positions: [], shareOfVoice: 30, positiveRate: 70, avgPosition: 2.8 }],
-    opportunities: [{ id: "50000000-0000-4000-8000-000000000001", siteSlug: measuredSites[0]!.id, prompt: "Which mortgage comparison site offers the clearest fee breakdown?", topic: "Fees", source: "gsc_question", priorityScore: 84, searchVolume: 880, aiSearchVolume: 340, intent: "commercial", status: "suggested", createdAt: "2026-08-26T08:00:00.000Z", updatedAt: "2026-08-26T08:00:00.000Z" }],
-    crawlerAudit: platforms.slice(0, 6).map((platform, index) => ({ id: `qa-crawler-${index}`, siteSlug: measuredSites[0]!.id, siteName: measuredSites[0]!.name, bot: platform === "chatgpt" ? "GPTBot" : `${platform}-bot`, category: index < 4 ? "assistant" : "search", access: index === 5 ? "blocked" : "allowed", evidence: index === 5 ? "robots.txt contains a specific disallow rule." : "Root access is allowed by robots.txt.", robotsStatus: 200, capturedOn: "2026-08-26", createdAt: "2026-08-26T08:00:00.000Z" })),
-    trackedPrompts: [{ id: "51000000-0000-4000-8000-000000000001", siteSlug: measuredSites[0]!.id, prompt: "What is the best way to compare UAE mortgage rates?", topic: "Mortgage comparison", platforms: ["chatgpt", "gemini", "google_ai_overview"], cadence: "weekly", priority: 90, sampleCount: 2, source: "manual", active: true, nextRunAt: "2026-08-27T08:00:00.000Z", createdAt: "2026-08-20T08:00:00.000Z", updatedAt: "2026-08-20T08:00:00.000Z", locationCode: 2784, languageCode: "en" }],
-    recommendations: [{ kind: "source_gap", title: "Strengthen evidence from authoritative UAE sources", detail: "Central Bank guidance appears repeatedly in measured answers. Add a reviewed citation and clearer factual sourcing.", priority: 88, reviewOnly: true }],
+    sources: primary ? [{ domain: primary.host, citations: 9, owned: true, urls: [`https://${primary.host}/mortgages`], platforms: ["chatgpt", "perplexity", "google_ai_overview"], prompts: ["What is the best way to compare UAE mortgage rates?"] }, { domain: "centralbank.ae", citations: 7, owned: false, urls: ["https://centralbank.ae/consumer-guidance"], platforms: ["gemini", "google_ai_overview"], prompts: ["What is the best way to compare UAE mortgage rates?"] }] : [],
+    competitors: primary ? [{ name: primary.name, host: primary.host, mentions: 18, owned: true, positive: 15, positions: [], shareOfVoice: 54, positiveRate: 83, avgPosition: 2.1 }, { name: "Competitor", host: "competitor.example", mentions: 10, owned: false, positive: 7, positions: [], shareOfVoice: 30, positiveRate: 70, avgPosition: 2.8 }] : [],
+    opportunities: primary ? [{ id: "50000000-0000-4000-8000-000000000001", siteSlug: primary.id, prompt: "Which mortgage comparison site offers the clearest fee breakdown?", topic: "Fees", source: "gsc_question", priorityScore: 84, searchVolume: 880, aiSearchVolume: 340, intent: "commercial", status: "suggested", createdAt: "2026-08-26T08:00:00.000Z", updatedAt: "2026-08-26T08:00:00.000Z" }] : [],
+    crawlerAudit: primary ? platforms.slice(0, 6).map((platform, index) => ({ id: `qa-crawler-${index}`, siteSlug: primary.id, siteName: primary.name, bot: platform === "chatgpt" ? "GPTBot" : `${platform}-bot`, category: index < 4 ? "assistant" : "search", access: index === 5 ? "blocked" : "allowed", evidence: index === 5 ? "robots.txt contains a specific disallow rule." : "Root access is allowed by robots.txt.", robotsStatus: 200, capturedOn: "2026-08-26", createdAt: "2026-08-26T08:00:00.000Z" })) : [],
+    trackedPrompts: primary ? [{ id: "51000000-0000-4000-8000-000000000001", siteSlug: primary.id, prompt: "What is the best way to compare UAE mortgage rates?", topic: "Mortgage comparison", platforms: ["chatgpt", "gemini", "google_ai_overview"], cadence: "weekly", priority: 90, sampleCount: 2, source: "manual", active: true, nextRunAt: "2026-08-27T08:00:00.000Z", createdAt: "2026-08-20T08:00:00.000Z", updatedAt: "2026-08-20T08:00:00.000Z", locationCode: 2784, languageCode: "en" }] : [],
+    recommendations: primary ? [{ kind: "source_gap", title: "Strengthen evidence from authoritative UAE sources", detail: "Central Bank guidance appears repeatedly in measured answers. Add a reviewed citation and clearer factual sourcing.", priority: 88, reviewOnly: true }] : [],
   };
 }
 
