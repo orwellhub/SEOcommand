@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Activity, CheckCircle2, FileWarning, Gauge, Hourglass } from "lucide-react";
+import { Activity, CheckCircle2, FileWarning, Gauge, Hourglass, ListTodo } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { KpiCard } from "@/components/ui/kpi-card";
 import {
@@ -11,6 +11,7 @@ import {
   StatusBadge,
   EmptyState,
   Skeleton,
+  Button,
 } from "@/components/ui/primitives";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { ScopeNote } from "@/components/ui/scope-note";
@@ -21,6 +22,7 @@ import { formatDate } from "@/lib/dates";
 import { fullNumber } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import type { CrawlRun, Severity, TechnicalIssue } from "@/lib/types";
+import { SiteFindingWorkDrawer, type SiteFinding } from "@/components/workflow/site-finding-work-drawer";
 
 interface CrawlPageRow {
   id: string;
@@ -55,6 +57,7 @@ export default function SiteAuditPage() {
 
   const [severityFilter, setSeverityFilter] = useState<"all" | Severity>("all");
   const [selected, setSelected] = useState<TechnicalIssue | null>(null);
+  const [workFinding, setWorkFinding] = useState<SiteFinding | null>(null);
   const [crawlPages, setCrawlPages] = useState<CrawlPageRow[]>([]);
   const [crawlPageTotal, setCrawlPageTotal] = useState(0);
 
@@ -137,6 +140,22 @@ export default function SiteAuditPage() {
     { key: "load", header: "Load", align: "right", sortValue: (row) => row.loadTimeMs ?? 0, render: (row) => row.loadTimeMs == null ? "—" : `${row.loadTimeMs} ms` },
     { key: "checks", header: "Failed checks", align: "right", sortValue: (row) => Object.values(row.checks).filter(Boolean).length, render: (row) => Object.values(row.checks).filter(Boolean).length },
   ], []);
+
+  function technicalFinding(issue: TechnicalIssue): SiteFinding {
+    const priorityScore = issue.severity === "critical" ? 95 : issue.severity === "high" ? 82 : issue.severity === "medium" ? 65 : 45;
+    return {
+      key: `technical:${issue.id}`,
+      title: issue.title,
+      module: "Technical",
+      executionType: "technical_task",
+      priorityScore,
+      pageMode: issue.samplePages.length ? "existing_page" : "site_wide",
+      targetUrl: issue.samplePages[0],
+      evidenceLabel: `${fullNumber(issue.affectedPages)} affected page${issue.affectedPages === 1 ? "" : "s"} · ${issue.severity} severity`,
+      sourceUrl: `/site-audit?site=${encodeURIComponent(domain.id)}`,
+      sourceEvidence: { kind: "technical_issue", issueId: issue.id, category: issue.category, severity: issue.severity, explanation: issue.explanation, evidence: issue.evidence, recommendedFix: issue.recommendedFix, potentialImpact: issue.potentialImpact, affectedPages: issue.affectedPages, samplePages: issue.samplePages, firstSeen: issue.firstSeen, lastSeen: issue.lastSeen },
+    };
+  }
 
   if (loading && !bundle) {
     return (
@@ -391,6 +410,7 @@ export default function SiteAuditPage() {
               } affected`
             : undefined
         }
+        footer={!isPortfolio && selected ? <div className="flex items-center justify-between gap-3"><span className="text-[10px] text-muted">Carry this issue and its affected URL into the website workflow.</span><Button variant="primary" onClick={() => { setWorkFinding(technicalFinding(selected)); setSelected(null); }}><ListTodo className="h-4 w-4" />Create work</Button></div> : undefined}
       >
         {selected && (
           <div className="space-y-1">
@@ -411,6 +431,7 @@ export default function SiteAuditPage() {
           </div>
         )}
       </Drawer>
+      <SiteFindingWorkDrawer finding={workFinding} siteSlug={domain.id} siteName={domain.name} onClose={() => setWorkFinding(null)} />
     </div>
   );
 }

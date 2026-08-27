@@ -6,7 +6,7 @@ import { hasDatabase } from "@/sync/store";
 import { isManagedSite } from "@/platform/site-store";
 import { accessibleSiteSlugs, canAccessSite, hasPermission } from "@/platform/access";
 import { sessionFromRequest } from "@/lib/auth";
-import { WORKFLOW_STATUSES } from "@/platform/opportunity-bridge";
+import { EXECUTION_TYPES, PAGE_MODES, WORKFLOW_STATUSES } from "@/platform/opportunity-bridge";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,6 +23,26 @@ const DecisionSchema = z.object({
   domainId: z.string(),
   action: z.enum(["approve", "dismiss"]),
   recommendation: RecommendationSchema,
+});
+
+const DirectWorkSchema = z.object({
+  siteSlug: z.string().min(1).max(120),
+  findingKey: z.string().min(1).max(240),
+  title: z.string().trim().min(3).max(500),
+  module: z.string().trim().min(1).max(100),
+  executionType: z.enum(EXECUTION_TYPES),
+  priorityScore: z.number().int().min(0).max(100),
+  pageMode: z.enum(PAGE_MODES),
+  targetUrl: z.string().trim().max(1000).nullable().optional(),
+  plannedUrl: z.string().trim().max(1000).nullable().optional(),
+  targetKeywords: z.array(z.string().trim().min(1).max(160)).max(50).default([]),
+  ownerEmail: z.string().trim().email().max(320),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  sourceUrl: z.string().trim().startsWith("/").max(1000),
+  sourceEvidence: z.record(z.string(), z.unknown()),
+}).superRefine((input, context) => {
+  if (input.pageMode === "existing_page" && !input.targetUrl) context.addIssue({ code: "custom", path: ["targetUrl"], message: "Choose the affected page." });
+  if (input.pageMode === "new_page" && !input.plannedUrl) context.addIssue({ code: "custom", path: ["plannedUrl"], message: "Add the planned URL or path." });
 });
 
 const StatusSchema = z.object({
@@ -91,9 +111,54 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const parsed = DecisionSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: "Invalid workflow decision." }, { status: 400 });
-  const { domainId, action, recommendation } = parsed.data;
+  const input = await request.json().catch(() => null);
+  const direct = DirectWorkSchema.safeParse(input);
+  const parsed = DecisionSchema.safeParse(input);
+  if (!parsed.success && !direct.success) return NextResponse.json({ error: "Complete the execution details." }, { status: 400 });
+
+  if (direct.success) {
+    const work = direct.data;
+    if (!await isManagedSite(work.siteSlug)) return NextResponse.json({ error: "Unknown domain." }, { status: 404 });
+    if (!await canAccessSite(request, work.siteSlug)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
+    if (!await hasPermission(request, "manage_content", work.siteSlug)) return NextResponse.json({ error: "Workflow permission required for this website." }, { status: 403 });
+    const actor = request.headers.get("x-orwell-user-email");
+    if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ item: { id: "60000000-0000-4000-8000-000000000088", domainSlug: work.siteSlug, recommendationKey: `finding:${work.findingKey}`, decision: "approved", status: "approved", effort: "M", ...work, createdBy: actor, updatedAt: new Date().toISOString() }, synthetic: true }, { status: 201 });
+    if (!hasDatabase()) return unavailable();
+    const now = new Date();
+    const result = await db().transaction(async (tx) => {
+      const [created] = await tx.insert(schema.workflowItems).values({
+        domainSlug: work.siteSlug,
+        recommendationKey: `finding:${work.findingKey}`,
+        decision: "approved",
+        title: work.title,
+        module: work.module,
+        effort: "M",
+        priorityScore: work.priorityScore,
+        status: "approved",
+        sourceUrl: work.sourceUrl,
+        sourceEvidence: work.sourceEvidence,
+        executionType: work.executionType,
+        ownerEmail: work.ownerEmail.toLowerCase(),
+        dueDate: work.dueDate,
+        pageMode: work.pageMode,
+        targetUrl: work.pageMode === "existing_page" ? work.targetUrl : null,
+        plannedUrl: work.pageMode === "new_page" ? work.plannedUrl : null,
+        executionData: { targetKeywords: work.targetKeywords },
+        createdBy: actor,
+        updatedAt: now,
+      }).onConflictDoNothing().returning();
+      if (created) {
+        await tx.insert(schema.workflowStatusHistory).values({ workflowItemId: created.id, fromStatus: null, toStatus: "approved", changedBy: actor, note: `Created from a ${work.module.toLowerCase()} finding.` });
+        await tx.insert(schema.accessAuditEvents).values({ siteSlug: work.siteSlug, actorEmail: actor, actorRole: request.headers.get("x-orwell-user-role"), action: "workflow.finding_created", area: "workflow", summary: `Created approved work: ${work.title}`, metadata: { findingKey: work.findingKey, executionType: work.executionType, sourceUrl: work.sourceUrl } });
+        return { item: created, existing: false };
+      }
+      const [existing] = await tx.select().from(schema.workflowItems).where(and(eq(schema.workflowItems.domainSlug, work.siteSlug), eq(schema.workflowItems.recommendationKey, `finding:${work.findingKey}`))).limit(1);
+      return { item: existing, existing: true };
+    });
+    return NextResponse.json(result, { status: result.existing ? 200 : 201 });
+  }
+
+  const { domainId, action, recommendation } = parsed.data!;
   if (!await isManagedSite(domainId)) return NextResponse.json({ error: "Unknown domain." }, { status: 404 });
   if (!await canAccessSite(request, domainId)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
   if (!await hasPermission(request, "manage_content", domainId)) return NextResponse.json({ error: "Workflow permission required for this website." }, { status: 403 });

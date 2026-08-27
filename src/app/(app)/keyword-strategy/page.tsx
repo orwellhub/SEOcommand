@@ -8,11 +8,13 @@ import { KpiCard } from "@/components/ui/kpi-card";
 import { Button, Card, CardHeader, EmptyState, StatusBadge } from "@/components/ui/primitives";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { fullNumber } from "@/lib/format";
+import { SiteFindingWorkDrawer, type SiteFinding } from "@/components/workflow/site-finding-work-drawer";
 
 interface Cluster { id: string; label: string; intent: string; keywords: string[]; totalVolume: number; avgDifficulty: number; bestPosition: number | null; targetUrl: string | null; opportunityScore: number }
 interface PageMap { page: string; primaryQuery: string; queries: string[]; clicks: number; impressions: number; averagePosition: number }
 interface Cannibalisation { query: string; pages: Array<{ page: string; clicks: number; impressions: number; position: number }>; totalImpressions: number; severity: "high" | "medium" | "low" }
 interface Strategy { capturedOn?: string; clusters: Cluster[]; pageMap: PageMap[]; cannibalisation: Cannibalisation[]; summary: { clusters: number; mappedPages: number; unmappedClusters: number; cannibalisationIssues: number; highOpportunityClusters: number } }
+function stableFindingKey(prefix: string, value: string) { let hash = 2166136261; for (let index = 0; index < value.length; index += 1) hash = Math.imul(hash ^ value.charCodeAt(index), 16777619); return `${prefix}:${(hash >>> 0).toString(36)}`; }
 
 export default function KeywordStrategyPage() {
   const domain = useResolvedDomain();
@@ -20,6 +22,7 @@ export default function KeywordStrategyPage() {
   const [tab, setTab] = useState<"clusters" | "mapping" | "cannibalisation">("clusters");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedFinding, setSelectedFinding] = useState<SiteFinding | null>(null);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     const response = await fetch(`/api/keyword-strategy?site=${encodeURIComponent(domain.id)}`, { signal });
@@ -72,6 +75,16 @@ export default function KeywordStrategyPage() {
     { key: "impressions", header: "Impressions", align: "right", sortValue: (row) => row.totalImpressions, render: (row) => fullNumber(row.totalImpressions) },
   ], []);
 
+  function clusterFinding(row: Cluster): SiteFinding {
+    return { key: `keyword-cluster:${row.id}`, title: `${row.targetUrl ? "Improve" : "Create"} coverage for ${row.label}`, module: "Keywords", executionType: row.targetUrl ? "refresh_brief" : "content_brief", priorityScore: row.opportunityScore, pageMode: row.targetUrl ? "existing_page" : "new_page", targetUrl: row.targetUrl, targetKeywords: row.keywords, evidenceLabel: `${fullNumber(row.totalVolume)} monthly searches · ${row.intent} intent · difficulty ${row.avgDifficulty}`, sourceUrl: `/keyword-strategy?site=${encodeURIComponent(domain.id)}&view=clusters`, sourceEvidence: { kind: "keyword_cluster", capturedOn: strategy?.capturedOn, cluster: row } };
+  }
+  function pageFinding(row: PageMap): SiteFinding {
+    return { key: stableFindingKey("page-map", row.page), title: `Improve ${row.primaryQuery || "organic coverage"} on the mapped page`, module: "Keywords", executionType: "refresh_brief", priorityScore: Math.min(95, Math.max(45, Math.round(55 + Math.log10(Math.max(row.impressions, 1)) * 8))), pageMode: "existing_page", targetUrl: row.page, targetKeywords: row.queries, evidenceLabel: `${fullNumber(row.impressions)} impressions · ${fullNumber(row.clicks)} clicks · position ${row.averagePosition.toFixed(1)}`, sourceUrl: `/keyword-strategy?site=${encodeURIComponent(domain.id)}&view=mapping`, sourceEvidence: { kind: "keyword_page_map", capturedOn: strategy?.capturedOn, page: row } };
+  }
+  function cannibalisationFinding(row: Cannibalisation): SiteFinding {
+    return { key: `cannibalisation:${row.query}`, title: `Resolve cannibalisation for ${row.query}`, module: "Keywords", executionType: "keyword_page_map", priorityScore: row.severity === "high" ? 90 : row.severity === "medium" ? 72 : 55, pageMode: "existing_page", targetUrl: row.pages[0]?.page, targetKeywords: [row.query], evidenceLabel: `${row.pages.length} competing pages · ${fullNumber(row.totalImpressions)} impressions`, sourceUrl: `/keyword-strategy?site=${encodeURIComponent(domain.id)}&view=cannibalisation`, sourceEvidence: { kind: "cannibalisation", capturedOn: strategy?.capturedOn, issue: row } };
+  }
+
   return <div className="animate-in space-y-5">
     <PageHeader title="Keyword strategy" description={`Turn ${domain.name}'s keyword and Search Console evidence into intent clusters, page ownership and cannibalisation decisions.`} actions={<Button onClick={refresh} disabled={busy}><RefreshCw className={busy ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Rebuild strategy</Button>} />
     {error && <div role="alert" className="rounded-md border border-critical/20 bg-critical/5 p-3 text-xs text-critical">{error}</div>}
@@ -83,11 +96,12 @@ export default function KeywordStrategyPage() {
         <KpiCard label="Unmapped clusters" value={String(strategy.summary.unmappedClusters)} />
         <KpiCard label="Cannibalisation risks" value={String(strategy.summary.cannibalisationIssues)} />
       </div>
-      <Card><CardHeader title="Search architecture" subtitle="One workspace for topic coverage, page responsibility and competing URLs" action={<GitMerge className="h-4 w-4 text-purple" />} /><div className="flex gap-1 border-b border-border px-4 py-2">{[{ key: "clusters", label: "Topic clusters", icon: Layers3 }, { key: "mapping", label: "Page map", icon: Route }, { key: "cannibalisation", label: "Cannibalisation", icon: TriangleAlert }].map(({ key, label, icon: Icon }) => <button key={key} onClick={() => setTab(key as typeof tab)} className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium ${tab === key ? "bg-purple text-white" : "text-muted hover:bg-workspace"}`}><Icon className="h-3.5 w-3.5" />{label}</button>)}</div>
-        {tab === "clusters" && <DataTable<Cluster> rows={strategy.clusters} columns={clusterColumns} searchPlaceholder="Search clusters…" rowKey={(row) => row.id} />}
-        {tab === "mapping" && <DataTable<PageMap> rows={strategy.pageMap} columns={mapColumns} searchPlaceholder="Search pages or queries…" rowKey={(row) => row.page} />}
-        {tab === "cannibalisation" && (strategy.cannibalisation.length ? <DataTable<Cannibalisation> rows={strategy.cannibalisation} columns={cannibalColumns} searchPlaceholder="Search competing queries…" rowKey={(row) => row.query} /> : <div className="p-4"><EmptyState title="No meaningful cannibalisation detected" description="SEOcommand only flags queries with multiple URLs and measurable impressions." /></div>)}
+      <Card><CardHeader title="Search architecture" subtitle="Select a finding to carry its evidence and page destination directly into approved work" action={<GitMerge className="h-4 w-4 text-purple" />} /><div className="flex gap-1 border-b border-border px-4 py-2">{[{ key: "clusters", label: "Topic clusters", icon: Layers3 }, { key: "mapping", label: "Page map", icon: Route }, { key: "cannibalisation", label: "Cannibalisation", icon: TriangleAlert }].map(({ key, label, icon: Icon }) => <button key={key} onClick={() => setTab(key as typeof tab)} className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium ${tab === key ? "bg-purple text-white" : "text-muted hover:bg-workspace"}`}><Icon className="h-3.5 w-3.5" />{label}</button>)}</div>
+        {tab === "clusters" && <DataTable<Cluster> rows={strategy.clusters} columns={clusterColumns} searchPlaceholder="Search clusters…" rowKey={(row) => row.id} onRowClick={(row) => setSelectedFinding(clusterFinding(row))} />}
+        {tab === "mapping" && <DataTable<PageMap> rows={strategy.pageMap} columns={mapColumns} searchPlaceholder="Search pages or queries…" rowKey={(row) => row.page} onRowClick={(row) => setSelectedFinding(pageFinding(row))} />}
+        {tab === "cannibalisation" && (strategy.cannibalisation.length ? <DataTable<Cannibalisation> rows={strategy.cannibalisation} columns={cannibalColumns} searchPlaceholder="Search competing queries…" rowKey={(row) => row.query} onRowClick={(row) => setSelectedFinding(cannibalisationFinding(row))} /> : <div className="p-4"><EmptyState title="No meaningful cannibalisation detected" description="SEOcommand only flags queries with multiple URLs and measurable impressions." /></div>)}
       </Card>
     </> : <EmptyState icon={<Layers3 className="h-6 w-6" />} title="Strategy evidence is not ready" description="Run the Search Console and keyword sync, then rebuild the strategy." />}
+    <SiteFindingWorkDrawer finding={selectedFinding} siteSlug={domain.id} siteName={domain.name} onClose={() => setSelectedFinding(null)} />
   </div>;
 }
