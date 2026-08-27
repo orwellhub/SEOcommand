@@ -45,7 +45,7 @@ export function ContextBar() {
   const overview = SITE_NAV[0]!;
   const navItems = pathname.startsWith("/site-audit") || pathname.startsWith("/technical-crawler") || pathname.startsWith("/monitoring")
     ? [overview, SCAN_CENTRE, SITE_NAV[5]!, ...TECHNICAL_SECONDARY]
-    : pathname.startsWith("/keyword")
+    : pathname.startsWith("/keyword") || pathname.startsWith("/serp-intelligence")
       ? [overview, SCAN_CENTRE, SITE_NAV[3]!, ...KEYWORD_SECONDARY]
       : pathname.startsWith("/backlink") || pathname.startsWith("/link-building")
         ? [overview, SCAN_CENTRE, SITE_NAV[7]!, ...BACKLINK_SECONDARY]
@@ -56,7 +56,7 @@ export function ContextBar() {
     .find((item) => pathname.startsWith(item.href) && !(item.label === "Overview" && pathname !== `/sites/${siteId}`))?.label
     ?? (pathname.includes("/settings") ? "Settings" : "Overview");
   const scanModule = pathname.startsWith("/research") ? "google"
-    : pathname.startsWith("/rankings") ? "rankings"
+    : pathname.startsWith("/rankings") || pathname.startsWith("/serp-intelligence") ? "rankings"
       : pathname.startsWith("/keyword") ? "keywords"
         : pathname.startsWith("/competitor") ? "competitors"
           : pathname.startsWith("/site-audit") || pathname.startsWith("/technical-crawler") ? "technical"

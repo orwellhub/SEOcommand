@@ -46,11 +46,15 @@ export async function persistDailyRankings(site: ManagedSite, rows: TrackedRanki
     .selectDistinctOn([schema.dailyRankHistory.trackedKeywordId], {
       trackedKeywordId: schema.dailyRankHistory.trackedKeywordId,
       position: schema.dailyRankHistory.position,
+      intent: schema.dailyRankHistory.intent,
+      ownedFeatures: schema.dailyRankHistory.ownedFeatures,
+      competitors: schema.dailyRankHistory.competitors,
     })
     .from(schema.dailyRankHistory)
     .where(inArray(schema.dailyRankHistory.trackedKeywordId, ids))
     .orderBy(schema.dailyRankHistory.trackedKeywordId, desc(schema.dailyRankHistory.capturedOn));
   const prior = new Map(previous.map((row) => [row.trackedKeywordId, row.position]));
+  const priorDetail = new Map(previous.map((row) => [row.trackedKeywordId, row]));
   const today = isoDate(new Date());
   await db().insert(schema.dailyRankHistory).values(rows.map((row) => ({
     trackedKeywordId: row.trackedKeywordId,
@@ -60,6 +64,9 @@ export async function persistDailyRankings(site: ManagedSite, rows: TrackedRanki
     previousPosition: prior.get(row.trackedKeywordId) ?? null,
     url: row.url,
     serpFeatures: row.serpFeatures,
+    ownedFeatures: row.ownedFeatures,
+    intent: row.intent,
+    competitors: row.competitors,
   }))).onConflictDoUpdate({
     target: [schema.dailyRankHistory.trackedKeywordId, schema.dailyRankHistory.capturedOn],
     set: {
@@ -67,10 +74,14 @@ export async function persistDailyRankings(site: ManagedSite, rows: TrackedRanki
       previousPosition: sql`excluded.previous_position`,
       url: sql`excluded.url`,
       serpFeatures: sql`excluded.serp_features`,
+      ownedFeatures: sql`excluded.owned_features`,
+      intent: sql`excluded.intent`,
+      competitors: sql`excluded.competitors`,
     },
   });
   for (const row of rows) {
     const before = prior.get(row.trackedKeywordId);
+    const detail = priorDetail.get(row.trackedKeywordId);
     if (before != null && row.position != null && row.position - before >= 5) {
       await createNotification({
         siteSlug: site.id,
@@ -82,6 +93,11 @@ export async function persistDailyRankings(site: ManagedSite, rows: TrackedRanki
         fingerprint: `rank-drop:${site.id}:${row.trackedKeywordId}:${today}`,
       });
     }
+    if (detail?.intent && row.intent && detail.intent !== row.intent) await createNotification({ siteSlug: site.id, eventType: "serp_intent_change", severity: "high", title: `Search intent changed for “${row.keyword}”`, detail: `${detail.intent} → ${row.intent} on ${row.device}. Review the mapped page before rankings drift.`, actionUrl: "/serp-intelligence", fingerprint: `serp-intent:${site.id}:${row.trackedKeywordId}:${today}` });
+    const lostFeatures = (detail?.ownedFeatures ?? []).filter((feature) => !row.ownedFeatures.includes(feature));
+    if (lostFeatures.length) await createNotification({ siteSlug: site.id, eventType: "serp_feature_lost", severity: "high", title: `SERP feature lost for “${row.keyword}”`, detail: `Lost ${lostFeatures.join(", ")} on ${row.device}.`, actionUrl: "/serp-intelligence", fingerprint: `serp-feature:${site.id}:${row.trackedKeywordId}:${today}` });
+    const previousLeader = detail?.competitors?.[0]?.host; const currentLeader = row.competitors[0]?.host;
+    if (previousLeader && currentLeader && previousLeader !== currentLeader) await createNotification({ siteSlug: site.id, eventType: "serp_competitor_takeover", severity: "medium", title: `New SERP leader for “${row.keyword}”`, detail: `${currentLeader} replaced ${previousLeader} at the top of the tracked competitor set.`, actionUrl: "/serp-intelligence", fingerprint: `serp-leader:${site.id}:${row.trackedKeywordId}:${today}` });
   }
 }
 

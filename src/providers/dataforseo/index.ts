@@ -491,6 +491,12 @@ export async function fetchDailyTrackedRankings(domainId: DomainId): Promise<Tra
         const candidate = String(item?.domain ?? item?.url ?? "").toLowerCase();
         return candidate.includes(site.host.toLowerCase());
       });
+      const organic = items.filter((item) => item?.type === "organic" && item?.rank_absolute).slice(0, 10);
+      const hosts = organic.map((item) => { try { return new URL(String(item?.url ?? "")).hostname.replace(/^www\./, ""); } catch { return String(item?.domain ?? "").replace(/^www\./, ""); } });
+      const topCompetitors = organic.map((item, index) => ({ host: hosts[index]!, position: Number(item.rank_absolute), url: item?.url ? String(item.url) : null })).filter((item) => item.host && item.host !== site.host.replace(/^www\./, "")).slice(0, 5);
+      const keywordText = keyword.keyword.toLowerCase();
+      const featureTypes = new Set(items.map((item) => String(item?.type ?? "")));
+      const inferredIntent = [...featureTypes].some((type) => /shopping|local_pack|maps|paid/.test(type)) ? "transactional" : [...featureTypes].some((type) => /knowledge|people_also_ask|featured_snippet/.test(type)) && !/\b(buy|price|quote|book|hire|near me)\b/.test(keywordText) ? "informational" : /\b(buy|price|quote|book|hire|near me)\b/.test(keywordText) ? "transactional" : /\b(best|compare|review|vs|top)\b/.test(keywordText) ? "commercial" : /\b(how|what|why|guide|can|does)\b/.test(keywordText) ? "informational" : "mixed";
       return {
         trackedKeywordId: keyword.id,
         keyword: keyword.keyword,
@@ -500,6 +506,9 @@ export async function fetchDailyTrackedRankings(domainId: DomainId): Promise<Tra
         previousPosition: null,
         url: owned?.url ?? null,
         serpFeatures: [...new Set(items.map((item) => String(item?.type ?? "")).filter(Boolean))],
+        ownedFeatures: owned?.type && owned?.type !== "organic" ? [String(owned.type)] : [],
+        intent: inferredIntent,
+        competitors: topCompetitors,
       } satisfies TrackedRankingResult;
     }));
     results.push(...pulled);

@@ -200,6 +200,9 @@ export interface TrackedRankingResult {
   previousPosition: number | null;
   url: string | null;
   serpFeatures: string[];
+  ownedFeatures: string[];
+  intent: string | null;
+  competitors: Array<{ host: string; position: number; url: string | null }>;
 }
 
 export interface AiCitationEvidence {

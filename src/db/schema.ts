@@ -269,6 +269,9 @@ export const dailyRankHistory = pgTable(
     previousPosition: integer("previous_position"),
     url: text("url"),
     serpFeatures: jsonb("serp_features").$type<string[]>().notNull().default([]),
+    ownedFeatures: jsonb("owned_features").$type<string[]>().notNull().default([]),
+    intent: text("intent"),
+    competitors: jsonb("competitors").$type<Array<{ host: string; position: number; url: string | null }>>().notNull().default([]),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => ({
