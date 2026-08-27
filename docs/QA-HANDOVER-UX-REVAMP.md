@@ -2,15 +2,15 @@
 
 Date: 27 August 2026  
 Review branch: `codex/full-ux-revamp`  
-Staging application commit: `9307a8c68ab4615f8fbe9b12cc2f10adaf520ac3`  
+Staging application commit: `452f28ce4ee68fc4989fe5d724f1a8d9aafb7d93`
 Staging service: `orwell-qa-web`  
 Production status: unchanged
 
 ## Executive result
 
-The product-wide UX revamp is complete on the isolated review branch and has passed the available automated and Chrome desktop staging checks. The application now follows a portfolio signal → group/site → evidence → action flow, with a global Action Centre, nested portfolio groups, consistent website workspaces, guided onboarding, per-site spend controls, and connector management.
+The product-wide UX revamp is complete on the isolated review branch and has passed the available automated, migration, scale and Chrome desktop staging checks. The application now follows a portfolio signal → group/site → evidence → action flow, with a global Action Centre, nested portfolio groups, consistent website workspaces, guided onboarding, per-site spend controls, and connector management.
 
-The current release candidate is suitable for product-owner review in staging. Production release should remain gated on a real database migration rehearsal, live connector/provider smoke tests, and the outstanding cross-browser/mobile device matrix described below.
+The current release candidate is suitable for product-owner review in staging. Production release should remain gated on a disposable hosted-database rehearsal, live connector/provider smoke tests, and the outstanding cross-browser/mobile device matrix described below.
 
 ## Product and interaction model
 
@@ -27,13 +27,15 @@ The current release candidate is suitable for product-owner review in staging. P
 
 | Check | Result |
 |---|---:|
-| Vitest files | 22 passed |
-| Automated tests | 106 passed |
+| Vitest files | 25 passed |
+| Automated tests | 117 passed |
 | TypeScript | Passed, zero errors |
 | ESLint | Passed, zero warnings |
 | Next.js production build | Passed, 33 static/dynamic route entries generated |
-| Primary live route sweep | 22/22 passed |
-| Post-deploy application console errors | 0 |
+| PostgreSQL migration rehearsal | 10/10 migrations; 71 tables; transactional rollback passed |
+| Primary live route sweep | 23/23 passed |
+| Live website overview regression | Passed after closing the synthetic workflow 503 |
+| Post-fix 5xx/error log sweep | 0 |
 | Production dependency audit | 0 vulnerabilities |
 | Full dependency audit | 4 moderate, development-only, inherited through Drizzle CLI's legacy esbuild |
 | Provider spend during QA | $0 |
@@ -60,11 +62,29 @@ The current release candidate is suitable for product-owner review in staging. P
 | AI visibility v2 | Pass | Seven platforms, trends, citations, entities, sentiment, rank position, share of voice and crawler access |
 | Reports | Pass | Route, fields, cadence and recipient accessibility |
 | Notifications | Pass | Inbox lifecycle surfaces and Action Centre integration |
-| Roles and access | Pass / automated | Admin/operator/Owner-viewer rules and group scope covered by tests; full browser role matrix remains a release gate |
+| Roles and access | Pass / integration | Admin/operator/Owner-viewer permissions, inherited subgroup scope and endpoint isolation covered by signed-session/API integration tests; full multi-account browser matrix remains a release gate |
+
+## Scale and migration evidence
+
+The production read model was exercised locally against the compiled application with no provider calls. Each route received 80 requests at concurrency 12.
+
+| Portfolio size / route | p50 | p95 | Failures |
+|---|---:|---:|---:|
+| 20 sites · portfolio API | 21.9 ms | 69.1 ms | 0 |
+| 20 sites · Action Centre | 30.3 ms | 68.5 ms | 0 |
+| 20 sites · portfolio HTML | 19.1 ms | 51.8 ms | 0 |
+| 300 sites · portfolio API | 52.4 ms | 110.5 ms | 0 |
+| 300 sites · Action Centre | 68.7 ms | 140.1 ms | 0 |
+| 300 sites · sites API | 79.4 ms | 173.1 ms | 0 |
+| 300 sites · portfolio HTML | 31.1 ms | 57.7 ms | 0 |
+
+The first 300-site run exposed a 514 KB Action Centre payload. The endpoint now returns a bounded priority queue (150 items by default, 250 maximum), preserves counts across the full queue, and reports `returned`, `total` and `hasMore`. The resulting payload is approximately 51 KB.
+
+The migration harness applies the complete Drizzle migration journal to PGlite PostgreSQL 16. The rehearsal created 71 tables and confirmed that transactional DDL rollback leaves no partial schema. A second rehearsal on Render's empty disposable PostgreSQL service is blocked by the Render connector returning `FATAL: SSL/TLS required`; no production database was contacted.
 
 ## Accessibility and responsive checks
 
-The 22-route audit returned:
+The route/accessibility audit returned:
 
 - one level-one heading on every route;
 - `lang="en"` on every document;
@@ -89,6 +109,13 @@ Responsive layouts were reviewed in source and use mobile-first breakpoints, scr
 11. Changed new-site alert delivery to email only by default.
 12. Replaced the synthetic onboarding dead end with an explicit completion handoff to Website Operations.
 13. Reworked the portfolio constellation into a tested 20-node grid to prevent overlaps.
+14. Preserved `groupIds` through credential authentication and signed-session creation, closing a group-scope loss after login.
+15. Moved role, schema, site-existence and access checks ahead of every synthetic success path.
+16. Scoped Action Centre, notifications, AI visibility, monitoring, Local SEO, reports, settings and operational APIs to each user's allowed groups and descendant groups.
+17. Made report schedules use the managed-site registry instead of the obsolete static domain list.
+18. Bounded the Action Centre read model at scale, reducing the 300-site response by approximately 90%.
+19. Added signed email webhook contract tests for headers, HTTPS enforcement and failure handling without sending an email.
+20. Added a synthetic workflow-task read model after the live browser pass exposed a website-overview `503`; the overview now loads its recommendation evidence and the post-fix Render log sweep is clean.
 
 ## Runtime and security observations
 
@@ -98,17 +125,19 @@ Responsive layouts were reviewed in source and use mobile-first breakpoints, scr
 - Render returned no HTTP request-count or latency series for the free staging service, so p50/p95 latency could not be asserted from provider telemetry.
 - `npm audit --omit=dev` reports zero vulnerabilities.
 - The four moderate full-tree findings are development-only transitive packages inside Drizzle Kit's legacy loader/esbuild chain; there are no high or critical findings.
+- The live QA service is running commit `452f28ce4ee68fc4989fe5d724f1a8d9aafb7d93` from `codex/full-ux-revamp` with auto-deploy disabled.
+- Chrome desktop exercised every feature route plus global search, nested group selection, five-step onboarding, per-site Budget & usage, per-site Connections, and the MortgageCompare overview.
+- Synthetic credential injection for the browser role matrix was rejected by the external-write safeguard. The role matrix is covered by integration tests, but a true multi-account browser pass remains outstanding rather than being represented as completed.
 - No GSC, GA4, DataForSEO, AI provider, Copilot, email, WhatsApp, GitHub publishing, Hostinger deployment, webhook delivery, or outreach-send call was made from staging.
 
 ## Remaining release gates
 
-1. Rehearse the included database migrations against a disposable clone of production data and verify rollback.
+1. Rehearse the included migrations against the empty Render QA PostgreSQL service when the Render connector's TLS issue is resolved, then use a disposable production-data clone before release.
 2. Run OAuth/credential smoke tests for GSC, GA4, GitHub and Hostinger using test accounts.
 3. Exercise one tightly capped DataForSEO/AI collection per module and reconcile the cost ledger.
-4. Test Admin, SEO operator and Owner/viewer browser journeys with real accounts and group grants.
+4. Test Admin, SEO operator, Owner and Viewer browser journeys with explicit staging accounts and group grants.
 5. Complete Chrome mobile, Safari desktop/mobile and Firefox desktop checks, including screenshots and keyboard/focus-order testing.
-6. Measure p50/p95 response times under a representative 20-site and 300-site read load.
-7. Verify email delivery in a sandbox mailbox; WhatsApp remains intentionally disabled for this release.
+6. Verify email delivery in a sandbox mailbox once an approved HTTPS webhook endpoint is configured; WhatsApp remains intentionally disabled for this release.
 
 ## Release and rollback
 
