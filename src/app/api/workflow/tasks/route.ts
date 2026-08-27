@@ -7,6 +7,7 @@ import { isManagedSite } from "@/platform/site-store";
 import { accessibleSiteSlugs, canAccessSite, hasPermission } from "@/platform/access";
 import { sessionFromRequest } from "@/lib/auth";
 import { EXECUTION_TYPES, PAGE_MODES, WORKFLOW_STATUSES } from "@/platform/opportunity-bridge";
+import { captureBaseline, recordShipment, type VerificationState } from "@/platform/workflow-verification";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -218,7 +219,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ item: { ...(statusParsed.success ? statusParsed.data : assignment!), synthetic: true } });
   }
   if (!hasDatabase()) return unavailable();
-  const [current] = await db().select({ domainSlug: schema.workflowItems.domainSlug, status: schema.workflowItems.status, executionType: schema.workflowItems.executionType })
+  const [current] = await db().select({ domainSlug: schema.workflowItems.domainSlug, status: schema.workflowItems.status, executionType: schema.workflowItems.executionType, sourceEvidence: schema.workflowItems.sourceEvidence, verification: schema.workflowItems.verification, targetUrl: schema.workflowItems.targetUrl })
     .from(schema.workflowItems).where(eq(schema.workflowItems.id, id)).limit(1);
   if (!current || !await canAccessSite(request, current.domainSlug)) {
     return NextResponse.json({ error: "Task access required." }, { status: 403 });
@@ -234,8 +235,12 @@ export async function PATCH(request: Request) {
       const fromIndex = order.indexOf(current.status ?? "approved");
       const toIndex = order.indexOf(next);
       if (current.executionType && toIndex !== fromIndex && toIndex !== fromIndex + 1) throw new Error("Move execution work through each lifecycle stage in order.");
+      let verification = current.verification as VerificationState;
+      if (next === "in_progress" && !verification.baseline) verification = captureBaseline(current.sourceEvidence, now);
+      if (next === "shipped" && !verification.shipment) verification = recordShipment(verification, { note: statusParsed.data.note, url: current.targetUrl }, now);
       const [updated] = await tx.update(schema.workflowItems).set({
         status: next,
+        verification,
         shippedAt: next === "shipped" ? now : undefined,
         verifiedAt: next === "done" ? now : undefined,
         updatedAt: now,

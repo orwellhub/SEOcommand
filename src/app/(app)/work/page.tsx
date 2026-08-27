@@ -9,6 +9,8 @@ import { Drawer } from "@/components/ui/drawer";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button, Card, EmptyState, Skeleton, StatusBadge } from "@/components/ui/primitives";
 import { cn } from "@/lib/cn";
+import { VerificationPanel } from "@/components/workflow/verification-panel";
+import type { VerificationState } from "@/platform/workflow-verification";
 
 const STAGES = ["approved", "in_progress", "shipped", "verifying", "done"] as const;
 type Stage = typeof STAGES[number];
@@ -17,6 +19,7 @@ type WorkflowItem = {
   sourceUrl: string | null; sourceEvidence: Record<string, unknown>; executionType: string | null; ownerEmail: string | null;
   dueDate: string | null; pageMode: string | null; targetUrl: string | null; plannedUrl: string | null;
   executionData: { targetKeywords?: string[]; qualificationNotes?: string | null; duplicateWarning?: { severity?: string; summary?: string; matches?: unknown[] } };
+  verification?: VerificationState;
   updatedAt: string;
 };
 type Comment = { id: string; actorEmail: string | null; body: string; createdAt: string };
@@ -101,6 +104,7 @@ export default function WorkPage() {
   const currentStage = (selected?.status ?? "approved") as Stage;
   const nextStage = STAGES[STAGES.indexOf(currentStage) + 1];
   const duplicateWarning = selected?.executionData?.duplicateWarning;
+  const applyVerificationUpdate = (patch: Partial<WorkflowItem> & { id: string }) => { setItems((current) => current.map((item) => item.id === patch.id ? { ...item, ...patch } : item)); setSelected((current) => current?.id === patch.id ? { ...current, ...patch } : current); };
 
   return <div className="animate-in space-y-6">
     <PageHeader title="Continue work" description="Resume approved SEO execution with the research evidence, destination and ownership still attached." actions={<Button onClick={() => void load()}>Refresh work</Button>} />
@@ -119,6 +123,8 @@ export default function WorkPage() {
         {duplicateWarning?.severity === "warning" && <div className="rounded-lg border border-warning/30 bg-warning/5 p-3"><div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" /><div><div className="text-xs font-bold text-ink">Overlap requires attention</div><p className="mt-1 text-xs leading-5 text-muted">{duplicateWarning.summary}</p></div></div></div>}
 
         <section><div className="mb-3 text-2xs font-bold uppercase tracking-[0.12em] text-muted">Assignment</div><div className="grid gap-3 sm:grid-cols-[1fr_150px_auto]"><input type="email" value={ownerEmail} onChange={(event) => setOwnerEmail(event.target.value)} aria-label="Owner email" className="h-10 rounded-md border border-border bg-card px-3 text-sm text-ink outline-none focus:border-purple" /><input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} aria-label="Due date" className="h-10 rounded-md border border-border bg-card px-3 text-sm text-ink outline-none focus:border-purple" /><Button onClick={() => void updateItem({ ownerEmail, dueDate: dueDate || null }, "assign")} disabled={!ownerEmail.trim() || busy === "assign"}>{busy === "assign" && <Loader2 className="h-4 w-4 animate-spin" />}Save</Button></div></section>
+
+        <VerificationPanel item={selected} onUpdate={applyVerificationUpdate} />
 
         <section><div className="mb-3 flex items-center gap-2 text-2xs font-bold uppercase tracking-[0.12em] text-muted"><MessageSquare className="h-3.5 w-3.5" />Discussion</div><div className="space-y-2">{comments.map((entry) => <div key={entry.id} className="rounded-md bg-workspace p-3"><div className="flex justify-between gap-2 text-[10px] text-muted"><span className="font-bold text-ink">{entry.actorEmail ?? "Team member"}</span><time>{new Date(entry.createdAt).toLocaleString()}</time></div><p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-ink">{entry.body}</p></div>)}{comments.length === 0 && <p className="text-xs text-muted">No comments yet.</p>}<div className="flex gap-2"><textarea value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Add context, a decision or a hand-off note" rows={2} className="min-w-0 flex-1 resize-none rounded-md border border-border bg-card px-3 py-2 text-sm text-ink outline-none focus:border-purple" /><Button onClick={() => void addComment()} disabled={!comment.trim() || busy === "comment"}>{busy === "comment" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}</Button></div></div></section>
 
