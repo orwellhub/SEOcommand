@@ -7,6 +7,7 @@ import type { Domain } from "@/lib/types";
 import type { PortfolioGroup } from "@/platform/types";
 import { useDomain } from "@/components/shell/domain-context";
 import { cn } from "@/lib/cn";
+import { siteConstellationPosition } from "./portfolio-layout";
 
 interface Headline {
   domainId: string;
@@ -47,14 +48,14 @@ export function PortfolioConstellation({ sites, groups, headlines }: { sites: Do
     const siteNodes = sites.slice(0, 20).map((site, index) => {
       const group = visibleGroups.find((item) => item.siteSlugs.includes(site.id));
       const headline = headlines.find((item) => item.domainId === site.id);
+      const position = siteConstellationPosition(index);
       return {
         id: site.id,
         kind: "site" as const,
         label: site.name,
         subtitle: headline?.health == null ? "Awaiting sync" : `Health ${headline.health}`,
         color: headline?.criticalIssues ? "#FF5C62" : headline?.health != null && headline.health < 75 ? "#F2B544" : site.accent || "#16A879",
-        x: 67 + (index % 3) * 11,
-        y: 7 + (index * 31 % 87),
+        ...position,
         parent: group?.id ?? "portfolio",
         health: headline?.health,
         issues: headline?.criticalIssues,
@@ -79,7 +80,7 @@ export function PortfolioConstellation({ sites, groups, headlines }: { sites: Do
 
   return (
     <div className="overflow-x-auto rounded-lg border border-border bg-card">
-      <div className="signal-grid relative h-[430px] min-w-[820px] overflow-hidden">
+      <div className="signal-grid relative h-[430px] min-w-[1080px] overflow-hidden">
         <div className="absolute left-5 top-5 z-10 max-w-sm">
           <div className="flex items-center gap-2"><Layers3 className="h-4 w-4 text-purple" /><h2 className="text-sm font-extrabold text-ink">Portfolio constellation</h2></div>
           <p className="mt-1 text-2xs text-muted">Select a group or website to focus every tool. Node colour reflects current health.</p>
