@@ -13,23 +13,25 @@ const Schema = z.object({
   changes: z.record(z.unknown()).default({}),
 });
 
-export async function GET(_request: Request, { params }: { params: { siteId: string } }) {
+export async function GET(_request: Request, { params }: { params: Promise<{ siteId: string }> }) {
+  const { siteId } = await params;
   if (!hasDatabase()) return NextResponse.json({ items: [] });
-  if (!(await isManagedSite(params.siteId))) return NextResponse.json({ error: "Site not found." }, { status: 404 });
-  const items = await db().select().from(schema.siteChangeProposals).where(eq(schema.siteChangeProposals.siteSlug, params.siteId)).orderBy(desc(schema.siteChangeProposals.createdAt));
+  if (!(await isManagedSite(siteId))) return NextResponse.json({ error: "Site not found." }, { status: 404 });
+  const items = await db().select().from(schema.siteChangeProposals).where(eq(schema.siteChangeProposals.siteSlug, siteId)).orderBy(desc(schema.siteChangeProposals.createdAt));
   return NextResponse.json({ items });
 }
 
-export async function POST(request: Request, { params }: { params: { siteId: string } }) {
+export async function POST(request: Request, { params }: { params: Promise<{ siteId: string }> }) {
+  const { siteId } = await params;
   if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
   if (!canWrite(request.headers.get("x-orwell-user-role"))) return NextResponse.json({ error: "Write access required." }, { status: 403 });
-  if (!(await isManagedSite(params.siteId))) return NextResponse.json({ error: "Site not found." }, { status: 404 });
+  if (!(await isManagedSite(siteId))) return NextResponse.json({ error: "Site not found." }, { status: 404 });
   const parsed = Schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid change proposal." }, { status: 400 });
   const [connection] = await db().select().from(schema.siteConnections).where(eq(schema.siteConnections.id, parsed.data.connectionId)).limit(1);
-  if (!connection || connection.siteSlug !== params.siteId) return NextResponse.json({ error: "Connection not found for this site." }, { status: 404 });
+  if (!connection || connection.siteSlug !== siteId) return NextResponse.json({ error: "Connection not found for this site." }, { status: 404 });
   const [item] = await db().insert(schema.siteChangeProposals).values({
-    siteSlug: params.siteId,
+    siteSlug: siteId,
     connectionId: connection.id,
     title: parsed.data.title,
     summary: parsed.data.summary,

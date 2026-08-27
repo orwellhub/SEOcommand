@@ -9,7 +9,7 @@ const PUBLIC_PATHS = new Set([
   "/api/sync",
 ]);
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   const session = await verifySessionToken(token, process.env.AUTH_SECRET);

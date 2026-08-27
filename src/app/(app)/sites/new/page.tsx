@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronLeft, ChevronRight, CircleDollarSign, Github, Globe2, Loader2, PlugZap, Radar, ShieldCheck } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, CircleDollarSign, GitPullRequest, Globe2, Loader2, PlugZap, Radar, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button, Card, StatusBadge } from "@/components/ui/primitives";
 import { MARKETS } from "@/lib/markets";
@@ -276,7 +276,7 @@ export default function NewSitePage() {
 
             {step === 3 && (
               <div className="max-w-3xl space-y-5">
-                <StepTitle icon={<Github />} title="Connect its source or deployment" copy="SEOcommand creates reviewable change proposals. It never publishes website changes automatically." />
+                <StepTitle icon={<GitPullRequest />} title="Connect its source or deployment" copy="SEOcommand creates reviewable change proposals. It never publishes website changes automatically." />
                 <div className="grid gap-4 sm:grid-cols-3">
                   {(["github", "hostinger_git", "webhook"] as const).map((kind) => (
                     <button key={kind} type="button" onClick={() => setDraft({ ...draft, connectionKind: kind })} className={cn("rounded-md border p-4 text-left", draft.connectionKind === kind ? "border-purple bg-purple/5" : "border-border hover:bg-workspace")}>

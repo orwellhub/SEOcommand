@@ -11,14 +11,15 @@ const Schema = z.object({
   cadence: z.enum(["daily", "weekly", "monthly"]).default("weekly"),
 });
 
-export async function POST(request: Request, { params }: { params: { opportunityId: string } }) {
-  if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ prompt: { id: "51000000-0000-4000-8000-000000000098", active: true, synthetic: true }, accepted: true, opportunityId: params.opportunityId });
+export async function POST(request: Request, { params }: { params: Promise<{ opportunityId: string }> }) {
+  const { opportunityId } = await params;
+  if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ prompt: { id: "51000000-0000-4000-8000-000000000098", active: true, synthetic: true }, accepted: true, opportunityId });
   if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
   if (!canWrite(request.headers.get("x-orwell-user-role"))) return NextResponse.json({ error: "Write access required." }, { status: 403 });
   const parsed = Schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Choose platforms and cadence." }, { status: 400 });
   const [opportunity] = await db().select().from(schema.aiPromptOpportunities)
-    .where(eq(schema.aiPromptOpportunities.id, params.opportunityId)).limit(1);
+    .where(eq(schema.aiPromptOpportunities.id, opportunityId)).limit(1);
   if (!opportunity) return NextResponse.json({ error: "Opportunity not found." }, { status: 404 });
   const site = await getManagedSite(opportunity.siteSlug);
   if (!site) return NextResponse.json({ error: "Website not found." }, { status: 404 });

@@ -10,13 +10,14 @@ const Schema = z.object({ action: z.enum(["approve", "reject"]), approvedMonthly
 
 export async function POST(
   request: Request,
-  { params }: { params: { siteId: string } },
+  { params }: { params: Promise<{ siteId: string }> },
 ) {
+  const { siteId } = await params;
   if (process.env.QA_SYNTHETIC === "true") {
-    return NextResponse.json({ site: { slug: params.siteId, lifecycleStatus: "active", spendApproval: "approved", synthetic: true }, initialScanQueued: true });
+    return NextResponse.json({ site: { slug: siteId, lifecycleStatus: "active", spendApproval: "approved", synthetic: true }, initialScanQueued: true });
   }
   if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
-  if (!await canAccessSite(request, params.siteId) || !canApproveBudget(request.headers.get("x-orwell-user-role"))) {
+  if (!await canAccessSite(request, siteId) || !canApproveBudget(request.headers.get("x-orwell-user-role"))) {
     return NextResponse.json({ error: "Admin or Owner approval required." }, { status: 403 });
   }
   const parsed = Schema.safeParse(await request.json().catch(() => null));
@@ -25,7 +26,7 @@ export async function POST(
   const [current] = await db()
     .select()
     .from(schema.siteProfiles)
-    .where(eq(schema.siteProfiles.slug, params.siteId))
+    .where(eq(schema.siteProfiles.slug, siteId))
     .limit(1);
   if (!current) return NextResponse.json({ error: "Site not found." }, { status: 404 });
   const approved = parsed.data.action === "approve";
@@ -53,11 +54,11 @@ export async function POST(
           : "active",
         updatedAt: new Date(),
       })
-      .where(eq(schema.siteProfiles.slug, params.siteId))
+      .where(eq(schema.siteProfiles.slug, siteId))
       .returning();
     if (approved && !wasApproved) {
       await tx.insert(schema.platformJobs).values({
-        siteSlug: params.siteId,
+        siteSlug: siteId,
         kind: "initial_site_scan",
         progress: {
           stages: ["technical_crawl", "keyword_scan", "competitors", "backlinks", "ai_visibility"],
@@ -70,7 +71,7 @@ export async function POST(
         .set({ status: "cancelled", lastError: "Site spend approval was withdrawn." })
         .where(
           and(
-            eq(schema.platformJobs.siteSlug, params.siteId),
+            eq(schema.platformJobs.siteSlug, siteId),
             eq(schema.platformJobs.status, "queued"),
           ),
         );

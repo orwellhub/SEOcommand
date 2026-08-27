@@ -7,8 +7,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** Latest live snapshot bundle for one domain (canonical models + provenance). */
-export async function GET(request: Request, { params }: { params: { domainId: string } }) {
-  const { domainId } = params;
+export async function GET(request: Request, { params }: { params: Promise<{ domainId: string }> }) {
+  const { domainId } = await params;
   if (!(await isManagedSite(domainId))) {
     return NextResponse.json({ error: `Unknown domain "${domainId}"` }, { status: 404 });
   }

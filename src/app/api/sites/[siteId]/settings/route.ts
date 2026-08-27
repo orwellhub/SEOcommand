@@ -87,12 +87,13 @@ async function audit(request: Request, siteSlug: string, action: string, area: s
   });
 }
 
-export async function GET(request: Request, { params }: { params: { siteId: string } }) {
-  if (process.env.QA_SYNTHETIC === "true") return NextResponse.json(qaSettings(params.siteId));
+export async function GET(request: Request, { params }: { params: Promise<{ siteId: string }> }) {
+  const { siteId } = await params;
+  if (process.env.QA_SYNTHETIC === "true") return NextResponse.json(qaSettings(siteId));
   if (!hasDatabase()) return unavailable();
-  if (!await canAccessSite(request, params.siteId)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
-  const [storedSite] = await db().select().from(schema.siteProfiles).where(eq(schema.siteProfiles.slug, params.siteId)).limit(1);
-  const managed = storedSite ? null : await getManagedSite(params.siteId);
+  if (!await canAccessSite(request, siteId)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
+  const [storedSite] = await db().select().from(schema.siteProfiles).where(eq(schema.siteProfiles.slug, siteId)).limit(1);
+  const managed = storedSite ? null : await getManagedSite(siteId);
   if (!storedSite && !managed) return NextResponse.json({ error: "Website not found." }, { status: 404 });
   const site = storedSite ?? {
     slug: managed!.id, name: managed!.name, host: managed!.host, accent: managed!.accent,
@@ -106,19 +107,19 @@ export async function GET(request: Request, { params }: { params: { siteId: stri
   };
   const month = currentMonth();
   const [connections, memberships, groups, rules, spend, auditEvents] = await Promise.all([
-    db().select().from(schema.siteConnections).where(eq(schema.siteConnections.siteSlug, params.siteId)),
-    db().select().from(schema.siteGroupMemberships).where(eq(schema.siteGroupMemberships.siteSlug, params.siteId)),
+    db().select().from(schema.siteConnections).where(eq(schema.siteConnections.siteSlug, siteId)),
+    db().select().from(schema.siteGroupMemberships).where(eq(schema.siteGroupMemberships.siteSlug, siteId)),
     db().select().from(schema.portfolioGroups),
-    db().select().from(schema.notificationRules).where(eq(schema.notificationRules.siteSlug, params.siteId)),
+    db().select().from(schema.notificationRules).where(eq(schema.notificationRules.siteSlug, siteId)),
     db().select({
       endpoint: schema.providerSpend.endpoint,
       spentUsd: sql<number>`coalesce(sum(${schema.providerSpend.costUsd}), 0)::float`,
     }).from(schema.providerSpend).where(and(
-      eq(schema.providerSpend.domainSlug, params.siteId),
+      eq(schema.providerSpend.domainSlug, siteId),
       eq(schema.providerSpend.month, month),
     )).groupBy(schema.providerSpend.endpoint),
     db().select().from(schema.accessAuditEvents)
-      .where(eq(schema.accessAuditEvents.siteSlug, params.siteId))
+      .where(eq(schema.accessAuditEvents.siteSlug, siteId))
       .orderBy(desc(schema.accessAuditEvents.createdAt)).limit(50),
   ]);
   return NextResponse.json({
@@ -133,12 +134,13 @@ export async function GET(request: Request, { params }: { params: { siteId: stri
   });
 }
 
-export async function PATCH(request: Request, { params }: { params: { siteId: string } }) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ siteId: string }> }) {
+  const { siteId } = await params;
   if (process.env.QA_SYNTHETIC === "true") {
-    return NextResponse.json({ site: qaSettings(params.siteId).site, saved: true, synthetic: true });
+    return NextResponse.json({ site: qaSettings(siteId).site, saved: true, synthetic: true });
   }
   if (!hasDatabase()) return unavailable();
-  if (!await canAccessSite(request, params.siteId)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
+  if (!await canAccessSite(request, siteId)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
   const role = request.headers.get("x-orwell-user-role");
   const parsed = PatchSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
@@ -150,9 +152,9 @@ export async function PATCH(request: Request, { params }: { params: { siteId: st
   } else if (!canWrite(role)) {
     return NextResponse.json({ error: "Admin or SEO operator access required." }, { status: 403 });
   }
-  const [existing] = await db().select().from(schema.siteProfiles).where(eq(schema.siteProfiles.slug, params.siteId)).limit(1);
+  const [existing] = await db().select().from(schema.siteProfiles).where(eq(schema.siteProfiles.slug, siteId)).limit(1);
   if (!existing) {
-    const managed = await getManagedSite(params.siteId);
+    const managed = await getManagedSite(siteId);
     if (!managed) return NextResponse.json({ error: "Website not found." }, { status: 404 });
     await db().insert(schema.siteProfiles).values({
       slug: managed.id, name: managed.name, host: managed.host, accent: managed.accent,
@@ -168,12 +170,12 @@ export async function PATCH(request: Request, { params }: { params: { siteId: st
   }
 
   if (input.section === "groups") {
-    await setSiteGroups(params.siteId, input.groupIds);
-    await audit(request, params.siteId, "updated", "groups", "Updated portfolio group membership.", { groupIds: input.groupIds });
+    await setSiteGroups(siteId, input.groupIds);
+    await audit(request, siteId, "updated", "groups", "Updated portfolio group membership.", { groupIds: input.groupIds });
   } else if (input.section === "connection") {
     const connection = input.connection;
     await db().insert(schema.siteConnections).values({
-      siteSlug: params.siteId,
+      siteSlug: siteId,
       kind: connection.kind,
       displayName: connection.displayName,
       remoteUrl: connection.remoteUrl ?? null,
@@ -192,9 +194,9 @@ export async function PATCH(request: Request, { params }: { params: { siteId: st
         updatedAt: new Date(),
       },
     });
-    await audit(request, params.siteId, "updated", "connection", `Updated ${connection.displayName} connection.`, { kind: connection.kind, status: connection.status });
+    await audit(request, siteId, "updated", "connection", `Updated ${connection.displayName} connection.`, { kind: connection.kind, status: connection.status });
   } else if (input.section === "alerts") {
-    const [rule] = await db().select().from(schema.notificationRules).where(eq(schema.notificationRules.siteSlug, params.siteId)).limit(1);
+    const [rule] = await db().select().from(schema.notificationRules).where(eq(schema.notificationRules.siteSlug, siteId)).limit(1);
     const values = {
       channels: input.channels,
       recipients: input.recipients,
@@ -205,8 +207,8 @@ export async function PATCH(request: Request, { params }: { params: { siteId: st
       updatedAt: new Date(),
     };
     if (rule) await db().update(schema.notificationRules).set(values).where(eq(schema.notificationRules.id, rule.id));
-    else await db().insert(schema.notificationRules).values({ siteSlug: params.siteId, ...values });
-    await audit(request, params.siteId, "updated", "alerts", "Updated notification routing.");
+    else await db().insert(schema.notificationRules).values({ siteSlug: siteId, ...values });
+    await audit(request, siteId, "updated", "alerts", "Updated notification routing.");
   } else {
     const updatedAt = new Date();
     if (input.section === "general") {
@@ -222,7 +224,7 @@ export async function PATCH(request: Request, { params }: { params: { siteId: st
         accent: input.accent,
         archivedAt: input.lifecycleStatus === "archived" ? updatedAt : null,
         updatedAt,
-      }).where(eq(schema.siteProfiles.slug, params.siteId));
+      }).where(eq(schema.siteProfiles.slug, siteId));
     } else if (input.section === "budget") {
       await db().update(schema.siteProfiles).set({
         approvedMonthlyUsd: input.approvedMonthlyUsd,
@@ -231,7 +233,7 @@ export async function PATCH(request: Request, { params }: { params: { siteId: st
         approvedBy: request.headers.get("x-orwell-user-email"),
         approvedAt: input.spendApproval === "approved" ? updatedAt : null,
         updatedAt,
-      }).where(eq(schema.siteProfiles.slug, params.siteId));
+      }).where(eq(schema.siteProfiles.slug, siteId));
     } else if (input.section === "monitoring") {
       await db().update(schema.siteProfiles).set({
         monitoringSchedule: input.monitoringSchedule,
@@ -239,17 +241,17 @@ export async function PATCH(request: Request, { params }: { params: { siteId: st
         crawlMaxPages: input.crawlMaxPages,
         backlinkLimit: input.backlinkLimit,
         updatedAt,
-      }).where(eq(schema.siteProfiles.slug, params.siteId));
+      }).where(eq(schema.siteProfiles.slug, siteId));
     } else if (input.section === "google") {
       await db().update(schema.siteProfiles).set({
         gscProperty: input.gscProperty,
         ga4Property: input.ga4Property,
         updatedAt,
-      }).where(eq(schema.siteProfiles.slug, params.siteId));
+      }).where(eq(schema.siteProfiles.slug, siteId));
     }
-    await audit(request, params.siteId, "updated", input.section, `Updated ${input.section} settings.`);
+    await audit(request, siteId, "updated", input.section, `Updated ${input.section} settings.`);
   }
 
-  const [site] = await db().select().from(schema.siteProfiles).where(eq(schema.siteProfiles.slug, params.siteId)).limit(1);
+  const [site] = await db().select().from(schema.siteProfiles).where(eq(schema.siteProfiles.slug, siteId)).limit(1);
   return NextResponse.json({ site, saved: true });
 }

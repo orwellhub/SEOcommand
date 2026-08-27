@@ -15,20 +15,22 @@ const UpdateSchema = z.object({
   active: z.boolean().optional(),
 });
 
-export async function PATCH(request: Request, { params }: { params: { promptId: string } }) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ promptId: string }> }) {
+  const { promptId } = await params;
   if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
   if (!canWrite(request.headers.get("x-orwell-user-role"))) return NextResponse.json({ error: "Write access required." }, { status: 403 });
   const parsed = UpdateSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Review the prompt fields." }, { status: 400 });
   const [prompt] = await db().update(schema.aiTrackingPrompts).set({ ...parsed.data, updatedAt: new Date() })
-    .where(eq(schema.aiTrackingPrompts.id, params.promptId)).returning();
+    .where(eq(schema.aiTrackingPrompts.id, promptId)).returning();
   if (!prompt) return NextResponse.json({ error: "Prompt not found." }, { status: 404 });
   return NextResponse.json({ prompt });
 }
 
-export async function DELETE(request: Request, { params }: { params: { promptId: string } }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ promptId: string }> }) {
+  const { promptId } = await params;
   if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
   if (!canWrite(request.headers.get("x-orwell-user-role"))) return NextResponse.json({ error: "Write access required." }, { status: 403 });
-  await db().delete(schema.aiTrackingPrompts).where(eq(schema.aiTrackingPrompts.id, params.promptId));
+  await db().delete(schema.aiTrackingPrompts).where(eq(schema.aiTrackingPrompts.id, promptId));
   return NextResponse.json({ deleted: true });
 }
