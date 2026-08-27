@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Button, Card, StatusBadge } from "@/components/ui/primitives";
 import { MARKETS } from "@/lib/markets";
 import type { GooglePropertyDiscovery, PortfolioGroup, SiteCostForecast } from "@/platform/types";
+import { DEFAULT_ALERT_CHANNELS } from "@/platform/notification-defaults";
 import { cn } from "@/lib/cn";
 
 const STEPS = ["Website", "Tracking", "Google", "Connections", "Forecast"] as const;
@@ -49,7 +50,7 @@ const initial: Draft = {
   ga4Property: "",
   connectionKind: "github",
   connectionUrl: "",
-  alertChannels: [...ALERT_CHANNELS],
+  alertChannels: [...DEFAULT_ALERT_CHANNELS],
   emailRecipients: "",
   whatsappRecipients: "",
   groupIds: [],

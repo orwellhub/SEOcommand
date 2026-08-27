@@ -1,5 +1,6 @@
 import type { DomainLiveBundle, PortfolioLive } from "@/lib/live";
 import type { ManagedSite, PortfolioGroup } from "@/platform/types";
+import { DEFAULT_ALERT_CHANNELS } from "@/platform/notification-defaults";
 
 const COLORS = ["#335CFF", "#12B8C4", "#FF6B5E", "#F2B544", "#16A879"];
 export const QA_GROUPS: PortfolioGroup[] = [
@@ -148,7 +149,7 @@ export function qaSettings(siteSlug: string) {
     },
     connections: site.id === "mortgagecompare" ? [{ id: "qa-github", kind: "github", status: "connected", displayName: "SEOcommand", remoteUrl: "https://github.com/orwellhub/SEOcommand", config: { publishMode: "review_only" }, lastCheckedAt: "2026-08-26T08:00:00.000Z" }] : [],
     groupIds: QA_GROUPS.filter((group) => group.siteSlugs.includes(site.id)).map((group) => group.id),
-    groups: QA_GROUPS, notificationRule: { channels: ["in_app", "email"], recipients: ["email:qa@example.test"], eventTypes: ["rank_drop", "technical_regression", "site_unavailable"], rankDropThreshold: 5, trafficDropPct: 20, enabled: true },
+    groups: QA_GROUPS, notificationRule: { channels: [...DEFAULT_ALERT_CHANNELS], recipients: ["email:qa@example.test"], eventTypes: ["rank_drop", "technical_regression", "site_unavailable"], rankDropThreshold: 5, trafficDropPct: 20, enabled: true },
     spend: { month: "2026-08", totalUsd: site.id === "mortgagecompare" ? 2.46 : 0.84, lines: [] },
     auditEvents: [{ id: "qa-audit", actorEmail: "qa@orwell.local", actorRole: "admin", action: "updated", area: "budget", summary: "Approved synthetic QA budget.", createdAt: "2026-08-26T08:00:00.000Z" }],
     credentialPolicy: "Synthetic QA: central connector mappings only; no credentials or provider calls are present.",

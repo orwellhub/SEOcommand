@@ -11,6 +11,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Button, Card, EmptyState, Skeleton, StatusBadge } from "@/components/ui/primitives";
 import { useDomain } from "@/components/shell/domain-context";
 import { cn } from "@/lib/cn";
+import { DEFAULT_ALERT_CHANNELS } from "@/platform/notification-defaults";
 
 const TABS = [
   { id: "general", label: "General", icon: Settings2 },
@@ -76,7 +77,7 @@ export default function SiteSettingsPage() {
       fetch("/api/auth/session").then((response) => response.json()),
     ]).then(([settings, session]: [SettingsData, { user?: { role?: string } }]) => {
       setData(settings); setDraft(settings.site); setGroupIds(settings.groupIds);
-      setRule(settings.notificationRule ?? { channels: ["in_app", "email"], recipients: [], eventTypes: DEFAULT_EVENTS, rankDropThreshold: 5, trafficDropPct: 20, enabled: true });
+      setRule(settings.notificationRule ?? { channels: [...DEFAULT_ALERT_CHANNELS], recipients: [], eventTypes: DEFAULT_EVENTS, rankDropThreshold: 5, trafficDropPct: 20, enabled: true });
       setRole(session.user?.role ?? null); setScope(siteId);
     }).catch((error: Error) => setNotice({ tone: "error", text: error.message }));
   }
