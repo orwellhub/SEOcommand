@@ -45,7 +45,7 @@ export function ContextBar() {
   const overview = SITE_NAV[0]!;
   const navItems = pathname.startsWith("/site-audit") || pathname.startsWith("/technical-crawler") || pathname.startsWith("/monitoring")
     ? [overview, SCAN_CENTRE, SITE_NAV[5]!, ...TECHNICAL_SECONDARY]
-    : pathname.startsWith("/keyword") || pathname.startsWith("/serp-intelligence")
+    : pathname.startsWith("/keyword") || pathname.startsWith("/serp-intelligence") || pathname.startsWith("/market-intelligence")
       ? [overview, SCAN_CENTRE, SITE_NAV[3]!, ...KEYWORD_SECONDARY]
       : pathname.startsWith("/backlink") || pathname.startsWith("/link-building")
         ? [overview, SCAN_CENTRE, SITE_NAV[7]!, ...BACKLINK_SECONDARY]

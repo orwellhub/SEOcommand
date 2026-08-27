@@ -51,7 +51,7 @@ export const TECHNICAL_SECONDARY: NavItem[] = [
   { href: "/technical-crawler", label: "Rendered crawler", icon: GitCompareArrows },
   { href: "/monitoring", label: "Reliability", icon: Radar },
 ];
-export const KEYWORD_SECONDARY: NavItem[] = [{ href: "/keyword-research", label: "Keyword discovery", icon: Search }, { href: "/serp-intelligence", label: "SERP intelligence", icon: Activity }];
+export const KEYWORD_SECONDARY: NavItem[] = [{ href: "/keyword-research", label: "Keyword discovery", icon: Search }, { href: "/serp-intelligence", label: "SERP intelligence", icon: Activity }, { href: "/market-intelligence", label: "Market intelligence", icon: Radar }];
 export const BACKLINK_SECONDARY: NavItem[] = [{ href: "/link-building", label: "Link building", icon: Activity }];
 export const AI_SECONDARY: NavItem[] = [{ href: "/ai-visibility", label: "AI visibility", icon: Bot }];
 

@@ -1481,6 +1481,23 @@ export const workflowStatusHistory = pgTable(
   (t) => ({ itemDateIdx: index("workflow_status_item_date_idx").on(t.workflowItemId, t.createdAt) }),
 );
 
+/** Saved portfolio/site intelligence views. Widget definitions reference
+ * canonical read-model keys; they never embed provider payloads. */
+export const customDashboards = pgTable(
+  "custom_dashboards",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: text("name").notNull(),
+    scopeType: text("scope_type").notNull().default("site"),
+    scopeId: text("scope_id"),
+    widgets: jsonb("widgets").$type<Array<{ id: string; kind: string; title: string; metric: string; size: "small" | "medium" | "large" }>>().notNull().default([]),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({ scopeIdx: index("custom_dashboard_scope_idx").on(t.scopeType, t.scopeId, t.updatedAt) }),
+);
+
 /** Database-backed workspace accounts replace environment-only account
  * administration while keeping the original account as a safe bootstrap. */
 export const workspaceUsers = pgTable(
