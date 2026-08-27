@@ -130,6 +130,11 @@ export const siteGroupMemberships = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     groupId: uuid("group_id").references(() => portfolioGroups.id, { onDelete: "cascade" }).notNull(),
     siteSlug: text("site_slug").notNull(),
+    /** One membership is the website's navigational home. Additional
+     * memberships remain available as reporting labels without duplicating the
+     * website throughout the portfolio tree. */
+    isPrimary: boolean("is_primary").notNull().default(false),
+    sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => ({
@@ -194,6 +199,7 @@ export const platformJobs = pgTable(
     startedAt: timestamp("started_at"),
     completedAt: timestamp("completed_at"),
     lastError: text("last_error"),
+    requestedBy: text("requested_by"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => ({
@@ -213,6 +219,9 @@ export const rankTrackingKeywords = pgTable(
     device: deviceEnum("device").notNull().default("desktop"),
     targetUrl: text("target_url"),
     tags: jsonb("tags").$type<string[]>().notNull().default([]),
+    cadence: text("cadence").notNull().default("weekly"),
+    searchEngine: text("search_engine").notNull().default("google"),
+    campaignId: uuid("campaign_id"),
     active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -224,6 +233,28 @@ export const rankTrackingKeywords = pgTable(
       t.device,
     ),
     activeIdx: index("rank_tracking_active_idx").on(t.siteSlug, t.active),
+  }),
+);
+
+/** Named tracking campaigns connect research decisions to durable rank
+ * monitoring rather than leaving selected keywords in an anonymous list. */
+export const rankTrackingCampaigns = pgTable(
+  "rank_tracking_campaigns",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    siteSlug: text("site_slug").notNull(),
+    name: text("name").notNull(),
+    description: text("description"),
+    defaultCadence: text("default_cadence").notNull().default("weekly"),
+    searchEngine: text("search_engine").notNull().default("google"),
+    competitors: jsonb("competitors").$type<string[]>().notNull().default([]),
+    alertThreshold: integer("alert_threshold").notNull().default(5),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    siteIdx: index("rank_tracking_campaign_site_idx").on(t.siteSlug, t.updatedAt),
   }),
 );
 
@@ -1262,10 +1293,14 @@ export const reportDeliverySchedules = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     domainSlug: text("domain_slug"), // null = portfolio
+    scopeType: text("scope_type").notNull().default("portfolio"),
+    scopeId: text("scope_id"),
     templateId: text("template_id").notNull(),
     templateName: text("template_name").notNull(),
     cadence: text("cadence").notNull(),
     recipients: jsonb("recipients").$type<string[]>().notNull().default([]),
+    channels: jsonb("channels").$type<string[]>().notNull().default(["email"]),
+    definition: jsonb("definition").$type<Record<string, unknown>>().notNull().default({}),
     format: text("format").notNull().default("PDF"),
     enabled: boolean("enabled").notNull().default(true),
     nextRun: timestamp("next_run").notNull(),
@@ -1294,6 +1329,11 @@ export const keywordScans = pgTable(
   "keyword_scans",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    projectId: uuid("project_id"),
+    siteSlug: text("site_slug"),
+    label: text("label"),
+    sourceType: text("source_type").notNull().default("seed"),
+    sourceValue: text("source_value"),
     seed: text("seed").notNull(),
     locationCode: integer("location_code").notNull(),
     languageCode: text("language_code").notNull(),
@@ -1303,12 +1343,106 @@ export const keywordScans = pgTable(
     rowCount: integer("row_count").notNull().default(0),
     totalVolume: integer("total_volume").notNull().default(0),
     avgDifficulty: integer("avg_difficulty"),
+    settings: jsonb("settings").$type<Record<string, unknown>>().notNull().default({}),
+    notes: text("notes"),
     createdBy: text("created_by"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (t) => ({
     recentIdx: index("keyword_scans_recent_idx").on(t.createdAt),
     seedIdx: index("keyword_scans_seed_idx").on(t.seed, t.locationCode),
+  }),
+);
+
+/** Research projects group markets, runs, notes and tracking decisions into a
+ * repeatable strategy workspace. */
+export const keywordProjects = pgTable(
+  "keyword_projects",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    siteSlug: text("site_slug"),
+    name: text("name").notNull(),
+    description: text("description"),
+    status: text("status").notNull().default("active"),
+    tags: jsonb("tags").$type<string[]>().notNull().default([]),
+    settings: jsonb("settings").$type<Record<string, unknown>>().notNull().default({}),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    siteIdx: index("keyword_project_site_idx").on(t.siteSlug, t.updatedAt),
+  }),
+);
+
+/** Database-backed workspace accounts replace environment-only account
+ * administration while keeping the original account as a safe bootstrap. */
+export const workspaceUsers = pgTable(
+  "workspace_users",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    email: text("email").notNull(),
+    name: text("name").notNull(),
+    role: roleEnum("role").notNull().default("viewer"),
+    status: text("status").notNull().default("invited"),
+    passwordHash: text("password_hash"),
+    inviteTokenHash: text("invite_token_hash"),
+    inviteExpiresAt: timestamp("invite_expires_at"),
+    invitedBy: text("invited_by"),
+    invitedAt: timestamp("invited_at").defaultNow().notNull(),
+    acceptedAt: timestamp("accepted_at"),
+    lastSignedInAt: timestamp("last_signed_in_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    uniqEmail: uniqueIndex("workspace_user_email_idx").on(t.email),
+    statusIdx: index("workspace_user_status_idx").on(t.status, t.updatedAt),
+  }),
+);
+
+export const userAccessGrants = pgTable(
+  "user_access_grants",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").references(() => workspaceUsers.id, { onDelete: "cascade" }).notNull(),
+    scopeType: text("scope_type").notNull(), // portfolio | group | site
+    scopeId: text("scope_id"),
+    permissions: jsonb("permissions").$type<string[]>().notNull().default([]),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    uniqGrant: uniqueIndex("workspace_user_grant_idx").on(t.userId, t.scopeType, t.scopeId),
+    scopeIdx: index("workspace_user_scope_idx").on(t.scopeType, t.scopeId),
+  }),
+);
+
+/** Non-secret WhatsApp connection state. Tokens remain in Render secrets; this
+ * table powers guided setup, verification and delivery health in the UI. */
+export const messagingIntegrations = pgTable(
+  "messaging_integrations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    channel: text("channel").notNull(),
+    provider: text("provider").notNull().default("meta_cloud"),
+    status: text("status").notNull().default("not_configured"),
+    displayName: text("display_name"),
+    phoneNumber: text("phone_number"),
+    accountId: text("account_id"),
+    senderId: text("sender_id"),
+    secretRef: text("secret_ref"),
+    config: jsonb("config").$type<Record<string, unknown>>().notNull().default({}),
+    lastTestAt: timestamp("last_test_at"),
+    lastTestStatus: text("last_test_status"),
+    lastError: text("last_error"),
+    updatedBy: text("updated_by"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    uniqChannel: uniqueIndex("messaging_integration_channel_idx").on(t.channel),
   }),
 );
 

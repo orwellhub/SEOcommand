@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { canWrite } from "@/lib/auth";
 import { db, schema } from "@/db";
 import { hasDatabase } from "@/sync/store";
 import { getManagedSite, listManagedSites, resolveGroupSiteSlugs } from "@/platform/site-store";
 import { localSeoDashboard } from "@/platform/local-seo";
 import { qaLocalSeo } from "@/data/qa-fixtures";
-import { canAccessSite, filterAccessibleSiteSlugs } from "@/platform/access";
+import { canAccessSite, filterAccessibleSiteSlugs, hasPermission } from "@/platform/access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,10 +46,10 @@ const LocationSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  if (!canWrite(request.headers.get("x-orwell-user-role"))) return NextResponse.json({ error: "Write access required." }, { status: 403 });
   const parsed = LocationSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Review the location and grid settings.", fields: parsed.error.flatten().fieldErrors }, { status: 400 });
   if (!await canAccessSite(request, parsed.data.siteSlug)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
+  if (!await hasPermission(request, "manage_content", parsed.data.siteSlug)) return NextResponse.json({ error: "Local SEO configuration permission required for this website." }, { status: 403 });
   const checksPerRun = parsed.data.gridSize ** 2 * parsed.data.keywords.length;
   const estimatedMonthlyUsd = Math.round((4.33 * (0.02 + checksPerRun * 0.003) * 1.25) * 100) / 100;
   if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ location: { id: "40000000-0000-4000-8000-000000000099", approval: "pending", synthetic: true }, forecast: { checksPerRun, cadence: "weekly", estimatedMonthlyUsd } }, { status: 201 });

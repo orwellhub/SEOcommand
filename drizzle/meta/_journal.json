@@ -71,6 +71,13 @@
       "when": 1787784898687,
       "tag": "0009_exotic_nightcrawler",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1787835926856,
+      "tag": "0010_wild_banshee",
+      "breakpoints": true
     }
   ]
 }

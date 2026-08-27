@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Globe,
   PlugZap,
@@ -13,6 +14,11 @@ import {
   RefreshCw,
   ShieldCheck,
   Plus,
+  MessageCircleMore,
+  Send,
+  UserPlus,
+  Copy,
+  X,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import {
@@ -21,6 +27,7 @@ import {
   StatusBadge,
   EmptyState,
   Skeleton,
+  Button,
 } from "@/components/ui/primitives";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { UsageMeter } from "@/components/ui/usage-meter";
@@ -104,13 +111,14 @@ function useProbe<T>(url: string): FetchState<T> {
 /* Sub-navigation                                                         */
 /* ---------------------------------------------------------------------- */
 
-type SectionId = "domains" | "connections" | "sync" | "usage" | "users";
+type SectionId = "domains" | "connections" | "sync" | "usage" | "messaging" | "users";
 
 const SECTIONS: { id: SectionId; label: string; icon: typeof Globe; hint: string }[] = [
   { id: "domains", label: "Domains & properties", icon: Globe, hint: "Portfolio registry" },
   { id: "connections", label: "Data connections", icon: PlugZap, hint: "Live provider probes" },
   { id: "sync", label: "Sync & scheduling", icon: CalendarClock, hint: "Cadences & triggers" },
   { id: "usage", label: "Budget & usage", icon: Wallet, hint: "Real spend guardrail" },
+  { id: "messaging", label: "WhatsApp delivery", icon: MessageCircleMore, hint: "Setup & test" },
   { id: "users", label: "Users & roles", icon: Users, hint: "Access model" },
 ];
 
@@ -180,6 +188,7 @@ export default function SettingsPage() {
           {section === "connections" && <ConnectionsSection />}
           {section === "sync" && <SyncSection />}
           {section === "usage" && <UsageSection />}
+          {section === "messaging" && <WhatsAppSection />}
           {section === "users" && <UsersSection />}
         </div>
       </div>
@@ -193,6 +202,7 @@ export default function SettingsPage() {
 
 function DomainsSection() {
   const { sites } = useDomain();
+  const router = useRouter();
   const columns = useMemo<Column<Domain>[]>(
     () => [
       {
@@ -257,10 +267,11 @@ function DomainsSection() {
         searchKeys={(d) => `${d.name} ${d.host} ${d.primaryMarket}`}
         exportName="domains"
         pageSize={12}
+        rowKey={(domain) => domain.id}
+        onRowClick={(domain) => router.push(`/sites/${domain.id}/settings`)}
       />
       <p className="mt-3 text-2xs text-muted">
-        Domains without a GA4 property still sync Search Console and ranking data; sessions and
-        conversions stay “—” until a property id is mapped in the registry.
+        Select any website to manage its connectors, spending limits, prompt checks, schedules and access.
       </p>
     </Card>
   );
@@ -698,19 +709,56 @@ function UsageSection() {
 }
 
 /* ---------------------------------------------------------------------- */
-/* 5. Users & roles — active internal authentication model */
+/* 5. WhatsApp delivery — guided Meta Cloud API setup and test            */
 /* ---------------------------------------------------------------------- */
 
+interface WhatsAppPayload {
+  integration: { provider?: "meta_cloud" | "webhook"; status?: string; displayName?: string | null; phoneNumber?: string | null; accountId?: string | null; senderId?: string | null; lastTestAt?: string | null; lastTestStatus?: string | null; lastError?: string | null } | null;
+  environment: { tokenConfigured: boolean; senderConfigured: boolean; webhookConfigured: boolean; verifyTokenConfigured: boolean };
+  setup?: { callbackPath: string; requiredSecrets: string[]; fallbackSecret: string };
+}
+
+function WhatsAppSection() {
+  const [payload, setPayload] = useState<WhatsAppPayload | null>(null);
+  const [draft, setDraft] = useState({ provider: "meta_cloud" as "meta_cloud" | "webhook", displayName: "Orwell SEO alerts", phoneNumber: "", accountId: "", senderId: "" });
+  const [recipient, setRecipient] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const load = async () => {
+    const response = await fetch("/api/integrations/whatsapp", { cache: "no-store" }); const body = await response.json();
+    if (!response.ok) { setNotice(body.error ?? "Could not load WhatsApp settings."); return; }
+    setPayload(body); const integration = body.integration ?? {}; setDraft({ provider: integration.provider ?? "meta_cloud", displayName: integration.displayName ?? "Orwell SEO alerts", phoneNumber: integration.phoneNumber ?? "", accountId: integration.accountId ?? "", senderId: integration.senderId ?? "" });
+  };
+  useEffect(() => { void load(); }, []);
+  async function save() { setBusy(true); setNotice(null); const response = await fetch("/api/integrations/whatsapp", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft) }); const body = await response.json(); setBusy(false); setNotice(response.ok ? "WhatsApp delivery settings saved." : body.error ?? "Could not save settings."); if (response.ok) await load(); }
+  async function test() { if (!recipient.trim()) return; setBusy(true); setNotice(null); const response = await fetch("/api/integrations/whatsapp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recipient }) }); const body = await response.json(); setBusy(false); setNotice(response.ok ? "Test message delivered successfully." : body.error ?? "Test delivery failed."); if (response.ok) await load(); }
+  const callbackUrl = typeof window === "undefined" ? "/api/webhooks/whatsapp" : `${window.location.origin}/api/webhooks/whatsapp`;
+  return <div className="space-y-5">
+    <Card className="overflow-hidden"><div className="h-1 bg-gradient-to-r from-[#16A879] via-[#12B8C4] to-[#335CFF]" /><div className="p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-base font-extrabold text-ink">WhatsApp delivery</h3><p className="mt-1 max-w-2xl text-xs leading-5 text-muted">Connect Meta’s WhatsApp Cloud API for alerts and report links. A generic delivery webhook remains available as a fallback.</p></div><StatusBadge label={payload?.integration?.status ?? "not configured"} tone={payload?.integration?.status === "connected" ? "success" : "warning"} /></div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[["1","Create Meta app",true],["2","Add server secrets",Boolean(payload?.environment.tokenConfigured && payload?.environment.senderConfigured)],["3","Verify webhook",Boolean(payload?.environment.verifyTokenConfigured)],["4","Send a test",payload?.integration?.lastTestStatus === "passed"]].map(([number,label,done]) => <div key={String(number)} className={cn("rounded-lg border p-3", done ? "border-success/25 bg-success/5" : "border-border bg-workspace/50")}><div className="flex items-center gap-2"><span className={cn("flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold", done ? "bg-success text-white" : "bg-card text-muted")}>{number}</span><span className="text-xs font-bold text-ink">{label}</span></div></div>)}</div>
+    </div></Card>
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]"><Card className="p-5"><h3 className="text-sm font-bold text-ink">Connection details</h3><div className="mt-4 grid gap-4 sm:grid-cols-2"><SettingsField label="Delivery method"><select value={draft.provider} onChange={(event) => setDraft({ ...draft, provider: event.target.value as "meta_cloud" | "webhook" })} className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-ink"><option value="meta_cloud">Meta Cloud API · recommended</option><option value="webhook">Generic webhook fallback</option></select></SettingsField><SettingsField label="Display name"><SettingsInput value={draft.displayName} onChange={(value) => setDraft({ ...draft, displayName: value })} /></SettingsField><SettingsField label="WhatsApp phone number"><SettingsInput value={draft.phoneNumber} onChange={(value) => setDraft({ ...draft, phoneNumber: value })} placeholder="+971…" /></SettingsField><SettingsField label="Phone number ID"><SettingsInput value={draft.senderId} onChange={(value) => setDraft({ ...draft, senderId: value })} placeholder="Meta phone number ID" /></SettingsField><SettingsField label="Business account ID"><SettingsInput value={draft.accountId} onChange={(value) => setDraft({ ...draft, accountId: value })} /></SettingsField><SettingsField label="Callback URL"><div className="flex gap-2"><input readOnly value={callbackUrl} className="h-10 min-w-0 flex-1 rounded-md border border-border bg-workspace px-3 text-xs text-muted" /><button onClick={() => void navigator.clipboard.writeText(callbackUrl)} className="rounded-md border border-border px-3 text-muted hover:bg-workspace" aria-label="Copy callback URL"><Copy className="h-4 w-4" /></button></div></SettingsField></div><div className="mt-4 rounded-md border border-border bg-workspace/60 p-3 text-xs leading-5 text-muted">Secrets are never stored in the browser or database. Add <code className="text-ink">META_WHATSAPP_TOKEN</code>, <code className="text-ink">META_WHATSAPP_PHONE_NUMBER_ID</code> and <code className="text-ink">WHATSAPP_VERIFY_TOKEN</code> to Render. Website-level recipients and alert types remain in each website’s settings.</div><Button variant="primary" className="mt-4" disabled={busy} onClick={() => void save()}>{busy ? <RefreshCw className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} Save connection</Button></Card>
+      <Card className="h-fit p-5"><div className="flex items-center gap-2"><Send className="h-4 w-4 text-[#16A879]" /><h3 className="text-sm font-bold text-ink">Test delivery</h3></div><p className="mt-2 text-xs leading-5 text-muted">Send one connection test before enabling operational alerts.</p><SettingsField label="Recipient with country code"><SettingsInput value={recipient} onChange={setRecipient} placeholder="+971501234567" /></SettingsField><Button className="mt-3 w-full" variant="primary" disabled={!recipient.trim() || busy} onClick={() => void test()}><Send className="h-4 w-4" /> Send test message</Button>{payload?.integration?.lastTestAt && <p className="mt-3 text-2xs text-muted">Last test: {new Date(payload.integration.lastTestAt).toLocaleString()} · {payload.integration.lastTestStatus}</p>}{payload?.integration?.lastError && <p className="mt-2 text-2xs text-critical">{payload.integration.lastError}</p>}</Card></div>
+    {notice && <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-ink">{notice}</div>}
+  </div>;
+}
+
+function SettingsField({ label, children }: { label: string; children: React.ReactNode }) { return <label className="block"><span className="mb-1.5 block text-2xs font-bold uppercase tracking-wide text-muted">{label}</span>{children}</label>; }
+function SettingsInput({ value, onChange, placeholder }: { value: string; onChange: (value: string) => void; placeholder?: string }) { return <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-ink outline-none placeholder:text-muted focus:border-purple" />; }
+
+/* ---------------------------------------------------------------------- */
+/* 6. Users & roles — database accounts, invitations and scoped grants    */
+/* ---------------------------------------------------------------------- */
+
+type UserRole = "admin" | "manager" | "seo_analyst" | "viewer";
+interface UserGrant { scopeType: "portfolio" | "group" | "site"; scopeId?: string | null; permissions: string[]; }
 interface AppUser {
-  id: string;
-  name: string;
-  email: string;
-  role: "admin" | "manager" | "seo_analyst" | "viewer";
+  id: string; name: string; email: string; role: UserRole; status: string; grants: UserGrant[]; source?: string; invitedAt?: string | null; lastSignedInAt?: string | null;
 }
 
 const ROLE_PERMISSIONS: Record<AppUser["role"], string> = {
   admin: "Settings, providers, domains, users and all data across the portfolio.",
-  manager: "All domains, reports, approvals and tasks. No provider/user administration.",
+  manager: "All domains, reports, approvals, connectors and user administration. No content changes.",
   seo_analyst: "Research, analysis, recommendations and tasks for assigned domains.",
   viewer: "Read-only access to dashboards and reports.",
 };
@@ -723,18 +771,18 @@ const ROLE_TONE: Record<AppUser["role"], "info" | "success" | "warning" | "neutr
 };
 
 function UsersSection() {
-  const session = useProbe<SessionResponse>("/api/auth/session");
-  const users = useMemo<AppUser[]>(() => {
-    if (session.status !== "done" || !session.data.user.email) return [];
-    return [
-      {
-        id: session.data.user.email,
-        name: session.data.user.name || session.data.user.email,
-        email: session.data.user.email,
-        role: session.data.user.role || "viewer",
-      },
-    ];
-  }, [session]);
+  const { sites, groups } = useDomain();
+  const [users, setUsers] = useState<AppUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [name, setName] = useState(""); const [email, setEmail] = useState(""); const [role, setRole] = useState<UserRole>("viewer");
+  const [scopeType, setScopeType] = useState<UserGrant["scopeType"]>("portfolio"); const [scopeId, setScopeId] = useState("");
+  const [permissions, setPermissions] = useState<string[]>(["view"]); const [availablePermissions, setAvailablePermissions] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false); const [notice, setNotice] = useState<string | null>(null); const [inviteUrl, setInviteUrl] = useState<string | null>(null); const [editing, setEditing] = useState<AppUser | null>(null);
+  const load = async () => { setLoading(true); const response = await fetch("/api/users", { cache: "no-store" }); const body = await response.json(); setLoading(false); if (!response.ok) { setNotice(body.error ?? "Could not load users."); return; } setUsers(body.users ?? []); setAvailablePermissions(body.permissions ?? []); };
+  useEffect(() => { void load(); }, []);
+  useEffect(() => { const defaults: Record<UserRole,string[]> = { admin: ["view","research","run_scans","manage_content","manage_connectors","approve_spend","manage_users","manage_reports"], manager: ["view","research","run_scans","manage_connectors","approve_spend","manage_users","manage_reports"], seo_analyst: ["view","research","run_scans","manage_content"], viewer: ["view"] }; setPermissions(defaults[role]); }, [role]);
+  async function invite() { setBusy(true); setNotice(null); setInviteUrl(null); const response = await fetch("/api/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, email, role, grants: [{ scopeType, scopeId: scopeType === "portfolio" ? null : scopeId, permissions }] }) }); const body = await response.json(); setBusy(false); if (!response.ok) { setNotice(body.error ?? "Could not send the invitation."); return; } setNotice(body.delivery?.delivered ? "Invitation email sent." : body.delivery?.reason ?? "Invitation created."); setInviteUrl(body.inviteUrl ?? null); setName(""); setEmail(""); await load(); }
+  async function saveUser() { if (!editing || editing.source === "bootstrap") return; setBusy(true); const response = await fetch("/api/users", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: editing.id, role: editing.role, status: editing.status, grants: editing.grants }) }); const body = await response.json(); setBusy(false); if (!response.ok) { setNotice(body.error ?? "Could not update the user."); return; } setNotice("User role and permissions updated. Changes apply on their next sign-in."); setEditing(null); await load(); }
   const columns = useMemo<Column<AppUser>[]>(
     () => [
       {
@@ -755,51 +803,32 @@ function UsersSection() {
         render: (u) => <StatusBadge label={u.role} tone={ROLE_TONE[u.role]} />,
       },
       {
+        key: "status",
+        header: "Status",
+        sortValue: (u) => u.status,
+        render: (u) => <StatusBadge label={u.status} tone={u.status === "active" ? "success" : u.status === "invited" ? "info" : "warning"} />,
+      },
+      {
         key: "permissions",
-        header: "Permissions",
-        render: (u) => <span className="text-muted">{ROLE_PERMISSIONS[u.role]}</span>,
+        header: "Access scope",
+        render: (u) => <div className="flex flex-wrap gap-1">{u.source === "bootstrap" ? <span className="text-xs text-muted">Bootstrap portfolio account</span> : u.grants.map((grant,index) => <span key={`${grant.scopeType}:${grant.scopeId}:${index}`} className="rounded-full bg-workspace px-2 py-1 text-[10px] font-semibold text-muted">{grant.scopeType}{grant.scopeId ? ` · ${groups.find((group) => group.id === grant.scopeId)?.name ?? sites.find((site) => site.id === grant.scopeId)?.name ?? grant.scopeId}` : ""}</span>)}</div>,
       },
     ],
-    [],
+    [groups, sites],
   );
 
   return (
     <div className="space-y-5">
-      <Card className="p-4">
-        <div className="mb-3">
-          <h3 className="text-sm font-semibold text-ink">Current session</h3>
-          <p className="text-2xs text-muted">
-            Internal accounts are configured in secret environment variables. This row reflects
-            the authenticated user for the current HTTP-only session.
-          </p>
-        </div>
-        {session.status === "loading" ? (
+      <Card className="p-4"><div className="mb-4 flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-sm font-semibold text-ink">Workspace users</h3><p className="mt-0.5 text-2xs text-muted">Invite users, assign one of four roles and scope access to the portfolio, a folder or an individual website.</p></div><StatusBadge label={`${users.length} users`} tone="info" /></div>
+        {loading ? (
           <Skeleton className="h-20" />
-        ) : session.status === "error" ? (
-          <EmptyState title="Could not load the current session" description={session.message} />
         ) : (
-          <DataTable rows={users} columns={columns} exportName="users" pageSize={10} />
+          <DataTable rows={users} columns={columns} exportName="users" pageSize={10} rowKey={(user) => user.id} onRowClick={(user) => setEditing(structuredClone(user))} />
         )}
       </Card>
-
-      <Card className="p-4">
-        <div className="mb-3">
-          <h3 className="text-sm font-semibold text-ink">Roles</h3>
-          <p className="text-2xs text-muted">Four role tiers govern what each user can see and do.</p>
-        </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {(Object.keys(ROLE_PERMISSIONS) as AppUser["role"][]).map((role) => (
-            <div key={role} className="rounded-md border border-border p-3">
-              <StatusBadge label={role} tone={ROLE_TONE[role]} />
-              <p className="mt-2 text-2xs text-muted">{ROLE_PERMISSIONS[role]}</p>
-            </div>
-          ))}
-        </div>
-        <p className="mt-3 inline-flex items-center gap-1.5 text-2xs text-muted">
-          <Lock className="h-3.5 w-3.5" /> Signed HTTP-only sessions protect every dashboard and
-          live-data API. Viewer writes are rejected server-side.
-        </p>
-      </Card>
+      <Card className="p-5"><div className="flex items-center gap-2"><UserPlus className="h-4 w-4 text-purple" /><h3 className="text-sm font-bold text-ink">Invite a user</h3></div><div className="mt-4 grid gap-4 md:grid-cols-2"><SettingsField label="Name"><SettingsInput value={name} onChange={setName} /></SettingsField><SettingsField label="Email"><SettingsInput value={email} onChange={setEmail} placeholder="name@example.com" /></SettingsField><SettingsField label="Role"><select value={role} onChange={(event) => setRole(event.target.value as UserRole)} className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-ink">{(Object.keys(ROLE_PERMISSIONS) as UserRole[]).map((item) => <option key={item} value={item}>{item.replace("seo_analyst","SEO operator")}</option>)}</select><span className="mt-1 block text-[10px] text-muted">{ROLE_PERMISSIONS[role]}</span></SettingsField><SettingsField label="Access scope"><div className="grid grid-cols-[130px_1fr] gap-2"><select value={scopeType} onChange={(event) => { setScopeType(event.target.value as UserGrant["scopeType"]); setScopeId(""); }} className="h-10 rounded-md border border-border bg-card px-2 text-sm text-ink"><option value="portfolio">Portfolio</option><option value="group">Folder</option><option value="site">Website</option></select>{scopeType === "portfolio" ? <div className="flex h-10 items-center rounded-md border border-border bg-workspace px-3 text-xs text-muted">All websites</div> : <select value={scopeId} onChange={(event) => setScopeId(event.target.value)} className="h-10 min-w-0 rounded-md border border-border bg-card px-2 text-sm text-ink"><option value="">Choose…</option>{(scopeType === "group" ? groups : sites).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>}</div></SettingsField></div><div className="mt-4"><div className="text-2xs font-bold uppercase tracking-wide text-muted">Permissions</div><div className="mt-2 flex flex-wrap gap-2">{availablePermissions.map((permission) => <label key={permission} className={cn("flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold", permissions.includes(permission) ? "border-purple/30 bg-purple/10 text-purple" : "border-border text-muted")}><input type="checkbox" checked={permissions.includes(permission)} onChange={() => setPermissions((current) => current.includes(permission) ? current.filter((item) => item !== permission) : [...current, permission])} className="accent-purple" />{permission.replace(/_/g," ")}</label>)}</div></div><Button variant="primary" className="mt-4" disabled={busy || !name.trim() || !email.includes("@") || !permissions.length || (scopeType !== "portfolio" && !scopeId)} onClick={() => void invite()}>{busy ? <RefreshCw className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />} Send email invitation</Button>{notice && <p className="mt-3 text-xs text-muted">{notice}</p>}{inviteUrl && <div className="mt-3 flex gap-2 rounded-md border border-warning/25 bg-warning/10 p-2"><input readOnly value={inviteUrl} className="min-w-0 flex-1 bg-transparent px-2 text-xs text-ink" /><button onClick={() => void navigator.clipboard.writeText(inviteUrl)} className="rounded p-2 text-muted hover:bg-card"><Copy className="h-4 w-4" /></button></div>}</Card>
+      {editing && <Card className="p-5"><div className="flex items-start justify-between gap-3"><div><h3 className="text-sm font-bold text-ink">Edit {editing.name}</h3><p className="mt-0.5 text-xs text-muted">{editing.email}</p></div><button onClick={() => setEditing(null)} className="rounded p-2 text-muted hover:bg-workspace"><X className="h-4 w-4" /></button></div>{editing.source === "bootstrap" ? <div className="mt-4 rounded-md border border-warning/20 bg-warning/10 p-3 text-xs text-muted">The bootstrap account remains managed through Render secrets. Invite a database-backed account for configurable permissions.</div> : <><div className="mt-4 grid gap-4 sm:grid-cols-2"><SettingsField label="Role"><select value={editing.role} onChange={(event) => setEditing({ ...editing, role: event.target.value as UserRole })} className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-ink">{(Object.keys(ROLE_PERMISSIONS) as UserRole[]).map((item) => <option key={item} value={item}>{item}</option>)}</select></SettingsField><SettingsField label="Account status"><select value={editing.status} onChange={(event) => setEditing({ ...editing, status: event.target.value })} className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-ink"><option value="active">Active</option><option value="suspended">Suspended</option></select></SettingsField></div><div className="mt-4 space-y-3">{editing.grants.map((grant,index) => <div key={index} className="rounded-md border border-border p-3"><div className="text-xs font-bold capitalize text-ink">{grant.scopeType} {grant.scopeId ? `· ${groups.find((item) => item.id === grant.scopeId)?.name ?? sites.find((item) => item.id === grant.scopeId)?.name ?? grant.scopeId}` : ""}</div><div className="mt-2 flex flex-wrap gap-2">{availablePermissions.map((permission) => <label key={permission} className="flex items-center gap-1.5 text-[11px] text-muted"><input type="checkbox" checked={grant.permissions.includes(permission)} onChange={() => setEditing({ ...editing, grants: editing.grants.map((item,grantIndex) => grantIndex === index ? { ...item, permissions: item.permissions.includes(permission) ? item.permissions.filter((value) => value !== permission) : [...item.permissions, permission] } : item) })} className="accent-purple" />{permission.replace(/_/g," ")}</label>)}</div></div>)}</div><Button variant="primary" className="mt-4" disabled={busy} onClick={() => void saveUser()}><ShieldCheck className="h-4 w-4" /> Save role & permissions</Button></>}</Card>}
+      <p className="inline-flex items-center gap-1.5 text-2xs text-muted"><Lock className="h-3.5 w-3.5" /> Signed HTTP-only sessions protect every dashboard and live-data API. Scoped grants are enforced server-side.</p>
     </div>
   );
 }

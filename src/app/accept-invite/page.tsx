@@ -1,0 +1,16 @@
+"use client";
+
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowRight, KeyRound, Loader2, ShieldCheck } from "lucide-react";
+import { Button } from "@/components/ui/primitives";
+
+export default function AcceptInvitePage() {
+  return <Suspense fallback={<main className="flex min-h-screen items-center justify-center bg-ink text-sm text-white/60">Loading invitation…</main>}><AcceptInviteForm /></Suspense>;
+}
+
+function AcceptInviteForm() {
+  const token = useSearchParams().get("token") ?? ""; const router = useRouter(); const [password, setPassword] = useState(""); const [confirm, setConfirm] = useState(""); const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
+  async function accept(event: React.FormEvent) { event.preventDefault(); if (password !== confirm) { setError("Passwords do not match."); return; } setBusy(true); const response = await fetch("/api/auth/accept-invite", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, password }) }); const body = await response.json(); setBusy(false); if (!response.ok) { setError(body.error ?? "Could not accept the invitation."); return; } router.push("/action-centre"); router.refresh(); }
+  return <main className="flex min-h-screen items-center justify-center bg-ink px-4 py-12"><div className="w-full max-w-md overflow-hidden rounded-xl border border-white/10 bg-card shadow-pop"><div className="h-1 bg-gradient-to-r from-[#335CFF] via-[#12B8C4] to-[#FF6B5E]" /><div className="p-7"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple/10 text-purple"><KeyRound className="h-5 w-5" /></div><h1 className="mt-5 text-2xl font-extrabold tracking-tight text-ink">Join SEO Command Centre</h1><p className="mt-2 text-sm leading-6 text-muted">Create a secure password to activate your scoped workspace access.</p>{!token && <div className="mt-5 rounded-md border border-critical/20 bg-critical/5 p-3 text-sm text-critical">This invitation link is incomplete.</div>}<form onSubmit={accept} className="mt-6 space-y-4"><label className="block"><span className="mb-1.5 block text-xs font-bold text-ink">Password</span><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={12} className="h-11 w-full rounded-md border border-border bg-card px-3 text-sm text-ink outline-none focus:border-purple" placeholder="At least 12 characters" /></label><label className="block"><span className="mb-1.5 block text-xs font-bold text-ink">Confirm password</span><input type="password" value={confirm} onChange={(event) => setConfirm(event.target.value)} minLength={12} className="h-11 w-full rounded-md border border-border bg-card px-3 text-sm text-ink outline-none focus:border-purple" /></label>{error && <p className="text-sm text-critical">{error}</p>}<Button type="submit" variant="primary" className="h-11 w-full" disabled={!token || password.length < 12 || busy}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} Activate account <ArrowRight className="h-4 w-4" /></Button></form></div></div></main>;
+}

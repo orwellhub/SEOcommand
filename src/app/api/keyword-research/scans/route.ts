@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
-import { canWrite } from "@/lib/auth";
 import { hasDatabase } from "@/sync/store";
 import type { KeywordResearchRow } from "@/lib/types";
+import { canAccessSite, hasPermission } from "@/platform/access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,6 +43,11 @@ const RowSchema = z
   .passthrough();
 
 const SaveSchema = z.object({
+  projectId: z.string().uuid().nullable().optional(),
+  siteSlug: z.string().max(120).nullable().optional(),
+  label: z.string().max(160).nullable().optional(),
+  sourceType: z.string().max(40).optional(),
+  sourceValue: z.string().max(500).nullable().optional(),
   seed: z.string().min(1).max(200),
   locationCode: z.number().int().positive(),
   languageCode: z.string().min(2).max(10),
@@ -57,13 +62,19 @@ function unavailable() {
   );
 }
 
-export async function GET() {
-  if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ ok: true, scans: [], synthetic: true });
-  if (!hasDatabase()) return unavailable();
+export async function GET(request: Request) {
   try {
-    const scans = await db()
+    const siteSlug = new URL(request.url).searchParams.get("site")?.trim() || null;
+    if (siteSlug && !await canAccessSite(request, siteSlug)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
+    if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ ok: true, scans: [], synthetic: true });
+    if (!hasDatabase()) return unavailable();
+    const query = db()
       .select({
         id: schema.keywordScans.id,
+        projectId: schema.keywordScans.projectId,
+        siteSlug: schema.keywordScans.siteSlug,
+        label: schema.keywordScans.label,
+        sourceType: schema.keywordScans.sourceType,
         seed: schema.keywordScans.seed,
         locationCode: schema.keywordScans.locationCode,
         languageCode: schema.keywordScans.languageCode,
@@ -75,8 +86,9 @@ export async function GET() {
         createdAt: schema.keywordScans.createdAt,
       })
       .from(schema.keywordScans)
-      .orderBy(desc(schema.keywordScans.createdAt))
-      .limit(LIST_LIMIT);
+      .$dynamic();
+    const scans = await (siteSlug ? query.where(eq(schema.keywordScans.siteSlug, siteSlug)) : query)
+      .orderBy(desc(schema.keywordScans.createdAt)).limit(LIST_LIMIT);
     return NextResponse.json({ ok: true, scans });
   } catch (err) {
     return NextResponse.json(
@@ -87,13 +99,6 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (!canWrite(request.headers.get("x-orwell-user-role"))) {
-    return NextResponse.json(
-      { ok: false, error: "Your role does not permit saving searches." },
-      { status: 403 },
-    );
-  }
-
   let parsed: z.infer<typeof SaveSchema>;
   try {
     parsed = SaveSchema.parse(await request.json());
@@ -103,6 +108,9 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+
+  if (parsed.siteSlug && !await canAccessSite(request, parsed.siteSlug)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
+  if (!await hasPermission(request, "research", parsed.siteSlug)) return NextResponse.json({ error: "Research permission required." }, { status: 403 });
 
   if (process.env.QA_SYNTHETIC === "true") {
     const volumes = parsed.rows.map((row) => row.volume).filter((value): value is number => value != null);
@@ -135,6 +143,11 @@ export async function POST(request: Request) {
     const [saved] = await db()
       .insert(schema.keywordScans)
       .values({
+        projectId: parsed.projectId ?? null,
+        siteSlug: parsed.siteSlug ?? null,
+        label: parsed.label ?? null,
+        sourceType: parsed.sourceType ?? "seed",
+        sourceValue: parsed.sourceValue ?? parsed.seed,
         seed: parsed.seed,
         locationCode: parsed.locationCode,
         languageCode: parsed.languageCode,

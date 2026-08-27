@@ -20,6 +20,7 @@ import { useLivePortfolio } from "@/lib/use-live";
 import { fullNumber, percent } from "@/lib/format";
 import { relativeFromNow } from "@/lib/dates";
 import type { ReportTemplate } from "@/lib/types";
+import { useDomain } from "@/components/shell/domain-context";
 
 /* ---------------------------------------------------------------------- */
 /* Local types                                                            */
@@ -39,6 +40,9 @@ interface PersistedSchedule {
   lastDelivered: string | null;
   lastError: string | null;
   enabled: boolean;
+  scopeType?: "portfolio" | "group" | "site" | "campaign";
+  scopeId?: string | null;
+  channels?: string[];
 }
 
 /* ---------------------------------------------------------------------- */
@@ -233,6 +237,10 @@ const PAGE_DESCRIPTION =
 
 export default function ReportsPage() {
   const { data: pm, loading, error } = useLivePortfolio();
+  const { sites, groups, activeDomain } = useDomain();
+  const [scopeType, setScopeType] = useState<"portfolio" | "group" | "site" | "campaign">(activeDomain ? "site" : "portfolio");
+  const [scopeId, setScopeId] = useState(activeDomain?.id ?? "");
+  const [campaignOptions, setCampaignOptions] = useState<{ id: string; name: string }[]>([]);
 
   const [previewTemplate, setPreviewTemplate] = useState<ReportTemplate | null>(null);
 
@@ -242,6 +250,31 @@ export default function ReportsPage() {
   const [schedules, setSchedules] = useState<PersistedSchedule[]>([]);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!activeDomain) return;
+    setScopeType("site"); setScopeId(activeDomain.id);
+  }, [activeDomain]);
+  useEffect(() => {
+    if (!activeDomain) { setCampaignOptions([]); return; }
+    fetch(`/api/rank-tracking?site=${encodeURIComponent(activeDomain.id)}`).then((response) => response.json()).then((body: { campaigns?: { id: string; name: string }[] }) => setCampaignOptions(body.campaigns ?? [])).catch(() => setCampaignOptions([]));
+  }, [activeDomain]);
+
+  const scopedPm = useMemo<PortfolioLive | null>(() => {
+    if (!pm || scopeType === "portfolio" || !scopeId) return pm;
+    let allowed = new Set<string>();
+    if (scopeType === "site") allowed.add(scopeId);
+    else if (scopeType === "group") {
+      const descendants = new Set([scopeId]); let changed = true;
+      while (changed) { changed = false; for (const group of groups) if (group.parentId && descendants.has(group.parentId) && !descendants.has(group.id)) { descendants.add(group.id); changed = true; } }
+      for (const group of groups) if (descendants.has(group.id)) for (const siteSlug of group.siteSlugs) allowed.add(siteSlug);
+    } else if (scopeType === "campaign" && activeDomain) allowed.add(activeDomain.id);
+    const domains = pm.domains.filter((domain) => allowed.has(domain.domainId));
+    const synced = domains.filter((domain) => domain.lastSync);
+    const sum = (key: "clicks28d" | "impressions28d" | "sessions28d" | "conversions28d" | "referringDomains") => domains.reduce((total, domain) => total + (domain[key] ?? 0), 0);
+    const avg = (key: "health" | "visibility") => { const values = domains.map((domain) => domain[key]).filter((value): value is number => value != null); return values.length ? values.reduce((total, value) => total + value, 0) / values.length : null; };
+    return { ...pm, domains, totals: { ...pm.totals, domainsSynced: synced.length, clicks28d: sum("clicks28d"), impressions28d: sum("impressions28d"), sessions28d: sum("sessions28d"), conversions28d: sum("conversions28d"), referringDomains: sum("referringDomains"), avgHealth: avg("health"), avgVisibility: avg("visibility") } };
+  }, [activeDomain, groups, pm, scopeId, scopeType]);
 
   useEffect(() => {
     let active = true;
@@ -261,12 +294,12 @@ export default function ReportsPage() {
 
   // Latest sync across the whole portfolio — null when nothing has synced.
   const lastSync = useMemo(() => {
-    if (!pm) return null;
-    return pm.domains.reduce<string | null>(
+    if (!scopedPm) return null;
+    return scopedPm.domains.reduce<string | null>(
       (max, d) => (d.lastSync && (!max || d.lastSync > max) ? d.lastSync : max),
       null,
     );
-  }, [pm]);
+  }, [scopedPm]);
 
   async function saveSchedule() {
     const recipients = draftRecipients
@@ -283,7 +316,7 @@ export default function ReportsPage() {
       const response = await fetch("/api/reports/schedules", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ templateId: draftTemplateId, cadence: draftCadence, recipients, format: "PDF" }),
+        body: JSON.stringify({ templateId: draftTemplateId, cadence: draftCadence, recipients, format: "PDF", scopeType, scopeId: scopeType === "portfolio" ? null : scopeId, definition: { sections: REPORT_TEMPLATES.find((template) => template.id === draftTemplateId)?.sections ?? [] } }),
       });
       const body = (await response.json()) as { schedule?: PersistedSchedule; error?: string };
       if (!response.ok || !body.schedule) throw new Error(body.error || "Could not save the schedule.");
@@ -310,8 +343,8 @@ export default function ReportsPage() {
 
   function downloadCsv() {
     const header = ["Domain", "Clicks 28d", "Impressions 28d", "Sessions 28d", "Conversions 28d", "Health", "Visibility"];
-    const rows = pm?.domains.map((row) => {
-      const domain = DOMAINS.find((candidate) => candidate.id === row.domainId);
+    const rows = scopedPm?.domains.map((row) => {
+      const domain = sites.find((candidate) => candidate.id === row.domainId) ?? DOMAINS.find((candidate) => candidate.id === row.domainId);
       return [domain?.name ?? row.domainId, row.clicks28d, row.impressions28d, row.sessions28d, row.conversions28d, row.health, row.visibility];
     }) ?? [];
     const csv = [header, ...rows]
@@ -326,7 +359,7 @@ export default function ReportsPage() {
   }
 
   function printReport() {
-    if (!pm || !previewTemplate) return;
+    if (!scopedPm || !previewTemplate) return;
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
     printWindow.opener = null;
@@ -341,9 +374,9 @@ export default function ReportsPage() {
     const table = printWindow.document.createElement("table");
     table.innerHTML = "<thead><tr><th>Domain</th><th>Clicks</th><th>Sessions</th><th>Conversions</th><th>Health</th></tr></thead>";
     const body = printWindow.document.createElement("tbody");
-    for (const row of pm.domains) {
+    for (const row of scopedPm.domains) {
       const tr = printWindow.document.createElement("tr");
-      const values = [DOMAINS.find((candidate) => candidate.id === row.domainId)?.name ?? row.domainId, row.clicks28d, row.sessions28d, row.conversions28d, row.health];
+      const values = [sites.find((candidate) => candidate.id === row.domainId)?.name ?? row.domainId, row.clicks28d, row.sessions28d, row.conversions28d, row.health];
       for (const value of values) {
         const td = printWindow.document.createElement("td");
         td.textContent = value == null ? "—" : String(value);
@@ -393,13 +426,17 @@ export default function ReportsPage() {
     );
   }
 
+  const reportData = scopedPm ?? pm;
+  const scopeLabel = scopeType === "portfolio" ? "Portfolio" : scopeType === "group" ? groups.find((group) => group.id === scopeId)?.name ?? "Folder" : scopeType === "site" ? sites.find((site) => site.id === scopeId)?.name ?? "Website" : campaignOptions.find((campaign) => campaign.id === scopeId)?.name ?? "Campaign";
+
   return (
     <div className="animate-in space-y-5">
       <PageHeader
         title={PAGE_TITLE}
-        description={PAGE_DESCRIPTION}
+        description={`${PAGE_DESCRIPTION} Current reporting scope: ${scopeLabel}.`}
         lastSync={lastSync}
         loading={loading}
+        actions={<div className="flex items-center gap-2"><select value={scopeType} onChange={(event) => { const next = event.target.value as typeof scopeType; setScopeType(next); setScopeId(next === "site" ? activeDomain?.id ?? sites[0]?.id ?? "" : next === "group" ? groups[0]?.id ?? "" : next === "campaign" ? campaignOptions[0]?.id ?? "" : ""); }} className="h-9 rounded-md border border-border bg-card px-3 text-xs font-bold text-ink"><option value="portfolio">Portfolio</option><option value="group">Folder</option><option value="site">Website</option><option value="campaign" disabled={!activeDomain}>Campaign</option></select>{scopeType !== "portfolio" && <select value={scopeId} onChange={(event) => setScopeId(event.target.value)} className="h-9 max-w-56 rounded-md border border-border bg-card px-3 text-xs font-bold text-ink">{(scopeType === "group" ? groups : scopeType === "site" ? sites : campaignOptions).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>}</div>}
       />
 
       {/* KPI row */}
@@ -411,8 +448,8 @@ export default function ReportsPage() {
         />
         <KpiCard
           label="Domains with live data"
-          value={String(pm.totals.domainsSynced)}
-          hint={`Of ${DOMAINS.length} registered domains`}
+          value={String(reportData.totals.domainsSynced)}
+          hint={`Of ${scopeType === "portfolio" ? sites.length : reportData.domains.length} in scope`}
         />
         <KpiCard
           label="Scheduled reports"
@@ -436,8 +473,9 @@ export default function ReportsPage() {
           </span>
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {REPORT_TEMPLATES.map((t) => (
-            <div key={t.id} className="flex flex-col rounded-md border border-border p-3">
+          {REPORT_TEMPLATES.map((t, templateIndex) => (
+            <div key={t.id} className="relative flex flex-col overflow-hidden rounded-lg border border-border p-4 shadow-card">
+              <span className="absolute inset-x-0 top-0 h-1" style={{ background: ["#335CFF", "#12B8C4", "#FF6B5E", "#7137F5", "#16A879"][templateIndex % 5] }} />
               <div className="mb-1 flex items-start justify-between gap-2">
                 <div className="text-sm font-semibold text-ink">{t.name}</div>
                 <StatusBadge label={t.type} tone="info" />
@@ -461,7 +499,7 @@ export default function ReportsPage() {
             </div>
           ))}
         </div>
-        {pm.totals.domainsSynced === 0 && (
+        {reportData.totals.domainsSynced === 0 && (
           <p className="mt-3 text-2xs text-muted">
             No domain has synced yet — previews will show every section as “no data yet” until the
             first scheduled sync stores live datasets.
@@ -558,6 +596,7 @@ export default function ReportsPage() {
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <span className="text-xs font-medium text-ink">{schedule.templateName}</span>
                     <StatusBadge label={schedule.cadence} tone="info" />
+                    <StatusBadge label={schedule.scopeType ?? (schedule.scopeId ? "site" : "portfolio")} tone="neutral" />
                     <span className="truncate text-2xs text-muted">
                       {schedule.recipients.join(", ")}
                     </span>
@@ -614,7 +653,7 @@ export default function ReportsPage() {
                   </span>
                   <span className="text-sm font-semibold text-ink">{s}</span>
                 </div>
-                {renderSection(previewTemplate, s, pm)}
+                {renderSection(previewTemplate, s, reportData)}
               </div>
             ))}
             <p className="text-2xs text-muted">

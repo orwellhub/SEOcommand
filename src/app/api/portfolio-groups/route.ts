@@ -2,11 +2,10 @@ import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { canWrite } from "@/lib/auth";
 import { db, schema } from "@/db";
 import { hasDatabase } from "@/sync/store";
 import { listPortfolioGroups } from "@/platform/site-store";
-import { accessibleSiteSlugs, grantedGroupIds } from "@/platform/access";
+import { accessibleSiteSlugs, grantedGroupIds, hasPermission } from "@/platform/access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,16 +27,14 @@ export async function GET(request: Request) {
   const accessible = await accessibleSiteSlugs(request);
   if (accessible === null) return NextResponse.json({ groups });
   const allowed = new Set(accessible);
-  const directlyGranted = new Set(grantedGroupIds(request));
+  const directlyGranted = new Set(await grantedGroupIds(request));
   return NextResponse.json({
     groups: groups.filter((group) => directlyGranted.has(group.id) || group.siteSlugs.some((siteSlug) => allowed.has(siteSlug))),
   });
 }
 
 export async function POST(request: Request) {
-  if (!canWrite(request.headers.get("x-orwell-user-role"))) {
-    return NextResponse.json({ error: "Write access required." }, { status: 403 });
-  }
+  if (!await hasPermission(request, "manage_content")) return NextResponse.json({ error: "Portfolio-structure permission required." }, { status: 403 });
   if (process.env.QA_SYNTHETIC === "true") {
     const parsed = CreateSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return NextResponse.json({ error: "Review the group details." }, { status: 400 });

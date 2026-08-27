@@ -2,8 +2,9 @@ import { desc, inArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db, schema } from "@/db";
 import { hasDatabase } from "@/sync/store";
-import { listManagedSites, resolveGroupSiteSlugs } from "@/platform/site-store";
+import { listManagedSites } from "@/platform/site-store";
 import { QA_SITES } from "@/data/qa-fixtures";
+import { accessibleSiteSlugs } from "@/platform/access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,12 +13,8 @@ export async function GET(request: Request) {
   const requestedLimit = Number(new URL(request.url).searchParams.get("limit") ?? "150");
   const limit = Math.min(Math.max(Number.isFinite(requestedLimit) ? Math.trunc(requestedLimit) : 150, 25), 250);
   const allSites = await listManagedSites();
-  const role = request.headers.get("x-orwell-user-role");
-  const groupIds = request.headers.get("x-orwell-user-groups")?.split(",").filter(Boolean) ?? [];
-  const restricted = role === "manager" || role === "viewer";
-  const allowed = restricted
-    ? new Set((await Promise.all(groupIds.map(resolveGroupSiteSlugs))).flat())
-    : new Set(allSites.map((site) => site.id));
+  const granted = await accessibleSiteSlugs(request);
+  const allowed = new Set(granted ?? allSites.map((site) => site.id));
   const sites = allSites.filter((site) => allowed.has(site.id));
   if (process.env.QA_SYNTHETIC === "true") {
     const allItems = sites.flatMap((site) => {
@@ -28,13 +25,13 @@ export async function GET(request: Request) {
         siteSlug: site.id, siteName: site.name, title: index % 4 === 0 ? "Technical health needs attention" : "Tracked rankings moved",
         detail: index % 4 === 0 ? "High-impact synthetic crawl evidence is ready for review." : "A monitored keyword moved beyond the configured threshold.",
         status: "open", severity: index % 4 === 0 ? "critical" : index % 3 === 0 ? "high" : "medium",
-        score: index % 4 === 0 ? 100 : index % 3 === 0 ? 75 : 45, actionUrl: `/sites/${site.id}`, createdAt: new Date(Date.UTC(2026, 7, 26, 8, index)),
+        score: index % 4 === 0 ? 100 : index % 3 === 0 ? 75 : 45, actionUrl: index % 4 === 0 ? `/site-audit?site=${site.id}` : `/rankings?site=${site.id}`, createdAt: new Date(Date.UTC(2026, 7, 26, 8, index)),
       },
       {
         id: `30000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`, kind: "recommendation" as const,
         siteSlug: site.id, siteName: site.name, title: "Improve the highest-potential landing page",
         detail: "Content · M effort", status: index % 4 === 0 ? "in_progress" : "approved", severity: "high",
-        score: 78 - index, actionUrl: "/recommendations", createdAt: new Date(Date.UTC(2026, 7, 25, 8, index)),
+        score: 78 - index, actionUrl: `/recommendations?site=${site.id}&item=30000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`, createdAt: new Date(Date.UTC(2026, 7, 25, 8, index)),
       },
       ];
     }).sort((a, b) => b.score - a.score);
@@ -72,7 +69,7 @@ export async function GET(request: Request) {
         status: notice.status,
         severity: notice.severity,
         score: severityScore[notice.severity],
-        actionUrl: notice.actionUrl,
+        actionUrl: notice.actionUrl ? `${notice.actionUrl}${notice.siteSlug && !notice.actionUrl.includes("site=") ? `${notice.actionUrl.includes("?") ? "&" : "?"}site=${encodeURIComponent(notice.siteSlug)}` : ""}` : notice.siteSlug ? `/sites/${notice.siteSlug}` : "/portfolio",
         createdAt: notice.createdAt,
       })),
     ...tasks
@@ -87,7 +84,7 @@ export async function GET(request: Request) {
         status: task.status ?? "approved",
         severity: task.priorityScore >= 80 ? "high" : task.priorityScore >= 50 ? "medium" : "low",
         score: task.priorityScore,
-        actionUrl: "/recommendations",
+        actionUrl: `/recommendations?site=${encodeURIComponent(task.domainSlug)}&item=${encodeURIComponent(task.id)}`,
         createdAt: task.updatedAt,
       })),
   ].sort((a, b) => b.score - a.score || +new Date(b.createdAt) - +new Date(a.createdAt));

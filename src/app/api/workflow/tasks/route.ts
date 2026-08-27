@@ -2,10 +2,9 @@ import { NextResponse } from "next/server";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
-import { canWrite } from "@/lib/auth";
 import { hasDatabase } from "@/sync/store";
 import { isManagedSite } from "@/platform/site-store";
-import { canAccessSite } from "@/platform/access";
+import { canAccessSite, hasPermission } from "@/platform/access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,10 +30,6 @@ const StatusSchema = z.object({
 
 function unavailable() {
   return NextResponse.json({ error: "Workflow persistence requires DATABASE_URL." }, { status: 503 });
-}
-
-function canMutate(request: Request): boolean {
-  return canWrite(request.headers.get("x-orwell-user-role"));
 }
 
 export async function GET(request: Request) {
@@ -71,12 +66,12 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!canMutate(request)) return NextResponse.json({ error: "Write access required." }, { status: 403 });
   const parsed = DecisionSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid workflow decision." }, { status: 400 });
   const { domainId, action, recommendation } = parsed.data;
   if (!await isManagedSite(domainId)) return NextResponse.json({ error: "Unknown domain." }, { status: 404 });
   if (!await canAccessSite(request, domainId)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
+  if (!await hasPermission(request, "manage_content", domainId)) return NextResponse.json({ error: "Workflow permission required for this website." }, { status: 403 });
   if (process.env.QA_SYNTHETIC === "true") {
     return NextResponse.json({
       item: {
@@ -122,10 +117,10 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  if (!canMutate(request)) return NextResponse.json({ error: "Write access required." }, { status: 403 });
   const parsed = StatusSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid task status." }, { status: 400 });
   if (process.env.QA_SYNTHETIC === "true") {
+    if (!await hasPermission(request, "manage_content")) return NextResponse.json({ error: "Workflow permission required." }, { status: 403 });
     return NextResponse.json({ item: { ...parsed.data, synthetic: true } });
   }
   if (!hasDatabase()) return unavailable();
@@ -134,6 +129,7 @@ export async function PATCH(request: Request) {
   if (!current || !await canAccessSite(request, current.domainSlug)) {
     return NextResponse.json({ error: "Task access required." }, { status: 403 });
   }
+  if (!await hasPermission(request, "manage_content", current.domainSlug)) return NextResponse.json({ error: "Workflow permission required for this website." }, { status: 403 });
 
   const [item] = await db()
     .update(schema.workflowItems)

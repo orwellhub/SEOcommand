@@ -66,7 +66,7 @@ export function GroupManager({
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Group could not be created.");
-      const created = { ...body.group, siteSlugs: [] } as PortfolioGroup;
+      const created = { ...body.group, siteSlugs: [], primarySiteSlugs: [] } as PortfolioGroup;
       setGroups((current) => [...current, created]);
       setName("");
       setParentId(created.id);
@@ -86,7 +86,12 @@ export function GroupManager({
       const response = await fetch(`/api/sites/${encodeURIComponent(selectedSite)}/groups`, {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ groupIds: [...memberships] }),
+        body: JSON.stringify({
+          groupIds: [...memberships],
+          primaryGroupId: groups.find((group) => group.primarySiteSlugs?.includes(selectedSite) && memberships.has(group.id))?.id
+            ?? [...memberships][0]
+            ?? null,
+        }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Memberships could not be saved.");

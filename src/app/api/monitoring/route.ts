@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { canWrite } from "@/lib/auth";
 import { hasDatabase } from "@/sync/store";
 import { getManagedSite, listManagedSites, listPortfolioGroups, resolveGroupSiteSlugs } from "@/platform/site-store";
 import { checkReliability, reliabilityDashboard } from "@/platform/reliability";
 import { qaReliability } from "@/data/qa-fixtures";
-import { canAccessSite, filterAccessibleSiteSlugs } from "@/platform/access";
+import { canAccessSite, filterAccessibleSiteSlugs, hasPermission } from "@/platform/access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,10 +37,10 @@ export async function GET(request: Request) {
 const CheckSchema = z.object({ siteSlug: z.string().min(1) });
 
 export async function POST(request: Request) {
-  if (!canWrite(request.headers.get("x-orwell-user-role"))) return NextResponse.json({ error: "Write access required." }, { status: 403 });
   const parsed = CheckSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Choose a website." }, { status: 400 });
   if (!await canAccessSite(request, parsed.data.siteSlug)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
+  if (!await hasPermission(request, "run_scans", parsed.data.siteSlug)) return NextResponse.json({ error: "Run-scan permission required for this website." }, { status: 403 });
   if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ check: { siteSlug: parsed.data.siteSlug, status: "completed", synthetic: true, checkedAt: new Date().toISOString() } });
   if (!hasDatabase()) return NextResponse.json({ error: "Reliability checks require DATABASE_URL." }, { status: 503 });
   const site = await getManagedSite(parsed.data.siteSlug);

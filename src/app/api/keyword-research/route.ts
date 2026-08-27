@@ -5,6 +5,7 @@ import { DEFAULT_MARKET, marketByCode, marketLabel } from "@/lib/markets";
 import { isoDate } from "@/lib/dates";
 import type { KeywordResearchResult } from "@/lib/types";
 import { qaKeywordResearch } from "@/data/qa-fixtures";
+import { canAccessSite, hasPermission } from "@/platform/access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,12 +24,20 @@ export async function GET(req: NextRequest) {
   }
 
   const requestedCode = Number(params.get("location"));
-  const market = marketByCode(requestedCode) ?? DEFAULT_MARKET;
-  const languageCode = (params.get("language") || market.language).trim();
+  const fallbackMarket = marketByCode(requestedCode) ?? DEFAULT_MARKET;
+  const locationCode = Number.isInteger(requestedCode) && requestedCode > 0 ? requestedCode : fallbackMarket.code;
+  const requestedLabel = params.get("locationLabel")?.trim();
+  const locationLabel = requestedLabel || marketByCode(locationCode)?.label || marketLabel(locationCode);
+  const languageCode = (params.get("language") || fallbackMarket.language).trim();
   const limit = Math.min(Math.max(Number(params.get("limit")) || 100, 1), 1000);
+  const requestedSource = params.get("sourceType");
+  const sourceType = requestedSource === "domain" || requestedSource === "competitor" || requestedSource === "questions" ? requestedSource : "seed";
+  const siteSlug = params.get("site")?.trim() || null;
+  if (siteSlug && !await canAccessSite(req, siteSlug)) return NextResponse.json({ ok: false, message: "Website access required." }, { status: 403 });
+  if (!await hasPermission(req, "research", siteSlug)) return NextResponse.json({ ok: false, message: "Research permission required." }, { status: 403 });
 
   if (process.env.QA_SYNTHETIC === "true") {
-    return NextResponse.json({ ok: true, configured: true, synthetic: true, result: qaKeywordResearch(seed, market.code, languageCode, marketLabel(market.code)) });
+    return NextResponse.json({ ok: true, configured: true, synthetic: true, result: qaKeywordResearch(seed, locationCode, languageCode, locationLabel) });
   }
 
   if (!dataForSeoConfigured()) {
@@ -43,15 +52,17 @@ export async function GET(req: NextRequest) {
   try {
     const rows = await researchKeywords({
       seed,
-      locationCode: market.code,
+      sourceType,
+      siteSlug,
+      locationCode,
       languageCode,
       limit,
     });
     const result: KeywordResearchResult = {
       seed,
-      locationCode: market.code,
+      locationCode,
       languageCode,
-      locationLabel: marketLabel(market.code),
+      locationLabel,
       fetchedAt: isoDate(new Date()),
       rows,
     };

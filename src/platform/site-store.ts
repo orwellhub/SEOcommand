@@ -111,10 +111,16 @@ export async function listPortfolioGroups(): Promise<PortfolioGroup[]> {
     db().select().from(schema.siteGroupMemberships),
   ]);
   const sitesByGroup = new Map<string, string[]>();
+  const primarySitesByGroup = new Map<string, string[]>();
   for (const membership of memberships) {
     const values = sitesByGroup.get(membership.groupId) ?? [];
     values.push(membership.siteSlug);
     sitesByGroup.set(membership.groupId, values);
+    if (membership.isPrimary) {
+      const primary = primarySitesByGroup.get(membership.groupId) ?? [];
+      primary.push(membership.siteSlug);
+      primarySitesByGroup.set(membership.groupId, primary);
+    }
   }
   return groups.map((group) => ({
     id: group.id,
@@ -125,6 +131,7 @@ export async function listPortfolioGroups(): Promise<PortfolioGroup[]> {
     parentId: group.parentId,
     sortOrder: group.sortOrder,
     siteSlugs: sitesByGroup.get(group.id) ?? [],
+    primarySiteSlugs: primarySitesByGroup.get(group.id) ?? [],
   }));
 }
 
@@ -147,13 +154,18 @@ export async function resolveGroupSiteSlugs(groupId: string): Promise<string[]> 
   return [...new Set(groups.filter((group) => ids.has(group.id)).flatMap((group) => group.siteSlugs))];
 }
 
-export async function setSiteGroups(siteSlug: string, groupIds: string[]) {
+export async function setSiteGroups(siteSlug: string, groupIds: string[], primaryGroupId?: string | null) {
   if (!hasDatabase()) return;
   await db().transaction(async (tx) => {
     await tx.delete(schema.siteGroupMemberships).where(eq(schema.siteGroupMemberships.siteSlug, siteSlug));
     if (groupIds.length) {
       await tx.insert(schema.siteGroupMemberships).values(
-        [...new Set(groupIds)].map((groupId) => ({ groupId, siteSlug })),
+        [...new Set(groupIds)].map((groupId, sortOrder) => ({
+          groupId,
+          siteSlug,
+          isPrimary: primaryGroupId ? groupId === primaryGroupId : sortOrder === 0,
+          sortOrder,
+        })),
       );
     }
   });

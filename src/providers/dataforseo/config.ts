@@ -99,6 +99,7 @@ export const ENDPOINTS = {
   backlinksDomainIntersection: "/v3/backlinks/domain_intersection/live",
   businessGoogleMyBusinessInfoLive: "/v3/business_data/google/my_business_info/live",
   serpGoogleMapsLiveAdvanced: "/v3/serp/google/maps/live/advanced",
+  serpGoogleLocations: "/v3/serp/google/locations",
 } as const;
 
 /**

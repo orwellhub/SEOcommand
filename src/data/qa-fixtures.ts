@@ -8,10 +8,10 @@ const QA_SITE_COUNT = Number.isFinite(requestedSiteCount)
   ? Math.min(Math.max(Math.trunc(requestedSiteCount), 1), 500)
   : 20;
 export const QA_GROUPS: PortfolioGroup[] = [
-  { id: "10000000-0000-4000-8000-000000000001", slug: "finance", name: "Finance", description: "Synthetic staging group", color: "#335CFF", parentId: null, sortOrder: 0, siteSlugs: [] },
-  { id: "10000000-0000-4000-8000-000000000002", slug: "uae", name: "UAE", description: "Nested market group", color: "#12B8C4", parentId: "10000000-0000-4000-8000-000000000001", sortOrder: 0, siteSlugs: [] },
-  { id: "10000000-0000-4000-8000-000000000003", slug: "growth", name: "Growth portfolio", description: "Cross-group operational view", color: "#FF6B5E", parentId: null, sortOrder: 1, siteSlugs: [] },
-  { id: "10000000-0000-4000-8000-000000000004", slug: "launches", name: "Launches", description: "Pre-launch and recently launched sites", color: "#F2B544", parentId: "10000000-0000-4000-8000-000000000003", sortOrder: 0, siteSlugs: [] },
+  { id: "10000000-0000-4000-8000-000000000001", slug: "finance", name: "Finance", description: "Synthetic staging group", color: "#335CFF", parentId: null, sortOrder: 0, siteSlugs: [], primarySiteSlugs: [] },
+  { id: "10000000-0000-4000-8000-000000000002", slug: "uae", name: "UAE", description: "Nested market group", color: "#12B8C4", parentId: "10000000-0000-4000-8000-000000000001", sortOrder: 0, siteSlugs: [], primarySiteSlugs: [] },
+  { id: "10000000-0000-4000-8000-000000000003", slug: "growth", name: "Growth portfolio", description: "Cross-group operational view", color: "#FF6B5E", parentId: null, sortOrder: 1, siteSlugs: [], primarySiteSlugs: [] },
+  { id: "10000000-0000-4000-8000-000000000004", slug: "launches", name: "Launches", description: "Pre-launch and recently launched sites", color: "#F2B544", parentId: "10000000-0000-4000-8000-000000000003", sortOrder: 0, siteSlugs: [], primarySiteSlugs: [] },
 ];
 
 export const QA_SITES: ManagedSite[] = Array.from({ length: QA_SITE_COUNT }, (_, index) => {
@@ -40,6 +40,7 @@ export const QA_SITES: ManagedSite[] = Array.from({ length: QA_SITE_COUNT }, (_,
 for (let index = 0; index < QA_SITES.length; index++) {
   const group = index < 10 ? (index < 6 ? QA_GROUPS[1]! : QA_GROUPS[0]!) : (index < 16 ? QA_GROUPS[2]! : QA_GROUPS[3]!);
   group.siteSlugs.push(QA_SITES[index]!.id);
+  group.primarySiteSlugs.push(QA_SITES[index]!.id);
   if (index % 5 === 0) QA_GROUPS[2]!.siteSlugs.push(QA_SITES[index]!.id);
 }
 
