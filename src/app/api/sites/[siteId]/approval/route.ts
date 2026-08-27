@@ -1,27 +1,44 @@
 import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { canWrite } from "@/lib/auth";
+import { canApproveBudget } from "@/lib/auth";
 import { db, schema } from "@/db";
 import { hasDatabase } from "@/sync/store";
+import { canAccessSite } from "@/platform/access";
+import { getManagedSite } from "@/platform/site-store";
 
 const Schema = z.object({ action: z.enum(["approve", "reject"]), approvedMonthlyUsd: z.number().positive().optional() });
 
 export async function POST(
   request: Request,
-  { params }: { params: { siteId: string } },
+  { params }: { params: Promise<{ siteId: string }> },
 ) {
-  if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
-  if (!canWrite(request.headers.get("x-orwell-user-role"))) {
-    return NextResponse.json({ error: "Write access required." }, { status: 403 });
+  const { siteId } = await params;
+  if (!(await getManagedSite(siteId))) return NextResponse.json({ error: "Site not found." }, { status: 404 });
+  if (!await canAccessSite(request, siteId) || !canApproveBudget(request.headers.get("x-orwell-user-role"))) {
+    return NextResponse.json({ error: "Admin or Owner approval required." }, { status: 403 });
   }
   const parsed = Schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid approval decision." }, { status: 400 });
+  if (process.env.QA_SYNTHETIC === "true") {
+    const approved = parsed.data.action === "approve";
+    return NextResponse.json({
+      site: {
+        slug: siteId,
+        lifecycleStatus: "active",
+        spendApproval: approved ? "approved" : "rejected",
+        approvedMonthlyUsd: approved ? parsed.data.approvedMonthlyUsd ?? null : null,
+        synthetic: true,
+      },
+      initialScanQueued: approved,
+    });
+  }
+  if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
 
   const [current] = await db()
     .select()
     .from(schema.siteProfiles)
-    .where(eq(schema.siteProfiles.slug, params.siteId))
+    .where(eq(schema.siteProfiles.slug, siteId))
     .limit(1);
   if (!current) return NextResponse.json({ error: "Site not found." }, { status: 404 });
   const approved = parsed.data.action === "approve";
@@ -46,14 +63,14 @@ export async function POST(
           ? wasApproved
             ? current.lifecycleStatus
             : "provisioning"
-          : "forecast_pending",
+          : "active",
         updatedAt: new Date(),
       })
-      .where(eq(schema.siteProfiles.slug, params.siteId))
+      .where(eq(schema.siteProfiles.slug, siteId))
       .returning();
     if (approved && !wasApproved) {
       await tx.insert(schema.platformJobs).values({
-        siteSlug: params.siteId,
+        siteSlug: siteId,
         kind: "initial_site_scan",
         progress: {
           stages: ["technical_crawl", "keyword_scan", "competitors", "backlinks", "ai_visibility"],
@@ -66,7 +83,7 @@ export async function POST(
         .set({ status: "cancelled", lastError: "Site spend approval was withdrawn." })
         .where(
           and(
-            eq(schema.platformJobs.siteSlug, params.siteId),
+            eq(schema.platformJobs.siteSlug, siteId),
             eq(schema.platformJobs.status, "queued"),
           ),
         );

@@ -22,7 +22,7 @@ export function KpiCard({
   accent?: boolean;
 }) {
   return (
-    <Card className="p-4">
+    <Card className="surface-lift overflow-hidden p-5">
       <div className="flex items-start justify-between gap-2">
         <span className="text-2xs font-medium uppercase tracking-wide text-muted">
           {label}
@@ -32,7 +32,7 @@ export function KpiCard({
       <div className="mt-2 flex items-end justify-between gap-2">
         <span
           className={cn(
-            "text-2xl font-semibold tabular-nums tracking-tight text-ink tnum",
+            "text-[28px] font-bold tabular-nums tracking-[-0.035em] text-ink tnum",
             accent && "text-[color:var(--accent)]",
           )}
         >

@@ -6,7 +6,9 @@ export type SiteLifecycle =
   | "approved"
   | "provisioning"
   | "active"
+  | "pre_launch"
   | "paused"
+  | "archived"
   | "error";
 
 export type SpendApproval = "draft" | "pending" | "approved" | "rejected";
@@ -21,6 +23,19 @@ export type AiVisibilityPlatform =
   | "google_ai_mode"
   | "copilot";
 export type AiPromptCadence = "daily" | "weekly" | "monthly";
+export type SpendCategory = "rankings" | "crawling" | "backlinks" | "competitors" | "ai" | "local_seo";
+
+export type SiteBudgetLimits = Partial<Record<SpendCategory, number | null>>;
+
+export interface SiteMonitoringSchedule {
+  rankings?: AiPromptCadence;
+  crawling?: AiPromptCadence;
+  backlinks?: AiPromptCadence;
+  competitors?: AiPromptCadence;
+  ai?: AiPromptCadence;
+  localSeo?: AiPromptCadence;
+  reliability?: "hourly" | "daily";
+}
 
 export interface PortfolioGroup {
   id: string;
@@ -65,9 +80,13 @@ export interface ManagedSite extends Domain {
   spendApproval: SpendApproval;
   forecastMonthlyUsd: number;
   approvedMonthlyUsd: number | null;
+  budgetLimits: SiteBudgetLimits;
   forecast: SiteCostForecast | null;
   crawlMaxPages: number;
   backlinkLimit: number;
+  monitoringSchedule: SiteMonitoringSchedule;
+  siteSettings: Record<string, unknown>;
+  archivedAt: string | null;
   source: "database" | "registry";
   createdAt: string | null;
   updatedAt: string | null;

@@ -17,8 +17,8 @@ import {
 import { formatDate } from "@/lib/dates";
 import { compactNumber } from "@/lib/format";
 
-const AXIS = { fontSize: 11, fill: "#667087" };
-const GRID = "#E7ECF3";
+const AXIS = { fontSize: 11, fill: "rgb(var(--muted))" };
+const GRID = "rgb(var(--border))";
 
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
@@ -145,7 +145,7 @@ export function BarSeries({
         <CartesianGrid stroke={GRID} vertical={false} />
         <XAxis dataKey={xKey} tick={AXIS} tickLine={false} axisLine={false} />
         <YAxis tick={AXIS} tickLine={false} axisLine={false} width={40} tickFormatter={compactNumber} />
-        <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(113,55,245,0.06)" }} />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(51,92,255,0.07)" }} />
         <Bar dataKey={yKey} radius={[4, 4, 0, 0]} maxBarSize={48}>
           {data.map((_, i) => (
             <Cell key={i} fill={colors?.[i % colors.length] ?? "var(--accent)"} />

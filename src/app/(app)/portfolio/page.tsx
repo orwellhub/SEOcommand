@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { CloudOff, Database, Folder, FolderTree, Layers, Plus } from "lucide-react";
+import { CloudOff, Database, Plus } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/page-header";
 import { RefreshButtons } from "@/components/shell/refresh-buttons";
@@ -14,7 +14,7 @@ import { useLivePortfolio } from "@/lib/use-live";
 import { compactNumber, fullNumber, percent } from "@/lib/format";
 import { relativeFromNow } from "@/lib/dates";
 import { useDomain } from "@/components/shell/domain-context";
-import { cn } from "@/lib/cn";
+import { PortfolioConstellation } from "@/components/portfolio/portfolio-constellation";
 
 /** Leaderboard row: live headline joined with the domain registry entry. */
 interface LeaderboardRow extends DomainHeadline {
@@ -258,18 +258,7 @@ export default function PortfolioPage() {
         </Card>
       )}
 
-      {groups.length > 0 && (
-        <Card className="p-4">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2"><FolderTree className="h-4 w-4 text-purple" /><div><h2 className="text-sm font-semibold text-ink">Portfolio map</h2><p className="text-2xs text-muted">Select a group to focus every module; subgroups stay included.</p></div></div>
-            <Link href="/sites" className="text-xs font-medium text-purple hover:underline">Manage hierarchy</Link>
-          </div>
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            <button onClick={() => setScope("portfolio")} className={cn("min-w-44 rounded-md border p-3 text-left", scope === "portfolio" ? "border-purple bg-purple/5" : "border-border hover:bg-workspace")}><Layers className="h-4 w-4 text-purple" /><div className="mt-2 text-sm font-semibold text-ink">All websites</div><div className="text-2xs text-muted">{sites.length} properties</div></button>
-            {groups.map((group) => <button key={group.id} onClick={() => setScope(`group:${group.id}`)} className={cn("min-w-44 rounded-md border p-3 text-left", scope === `group:${group.id}` ? "border-purple bg-purple/5" : "border-border hover:bg-workspace")}><Folder className="h-4 w-4" style={{ color: group.color, fill: `${group.color}30` }} /><div className="mt-2 truncate text-sm font-semibold text-ink">{group.name}</div><div className="text-2xs text-muted">{group.siteSlugs.length} directly assigned</div></button>)}
-          </div>
-        </Card>
-      )}
+      <PortfolioConstellation sites={sites} groups={groups} headlines={pm.domains} />
 
       {/* KPI row 1 — organic performance, last 28 days */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

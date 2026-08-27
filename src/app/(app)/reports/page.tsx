@@ -488,10 +488,11 @@ export default function ReportsPage() {
           {/* Persisted schedule form */}
           <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,1.2fr)_auto]">
             <div>
-              <label className="text-2xs font-medium uppercase tracking-wide text-muted">
+              <label htmlFor="report-template" className="text-2xs font-medium uppercase tracking-wide text-muted">
                 Template
               </label>
               <select
+                id="report-template"
                 value={draftTemplateId}
                 onChange={(e) => setDraftTemplateId(e.target.value)}
                 className="mt-1 h-8 w-full rounded-md border border-border bg-card px-2 text-xs text-ink focus:outline-none focus-visible:outline-2"
@@ -504,10 +505,11 @@ export default function ReportsPage() {
               </select>
             </div>
             <div>
-              <label className="text-2xs font-medium uppercase tracking-wide text-muted">
+              <label htmlFor="report-cadence" className="text-2xs font-medium uppercase tracking-wide text-muted">
                 Cadence
               </label>
               <select
+                id="report-cadence"
                 value={draftCadence}
                 onChange={(e) => setDraftCadence(e.target.value as Cadence)}
                 className="mt-1 h-8 w-full rounded-md border border-border bg-card px-2 text-xs capitalize text-ink focus:outline-none focus-visible:outline-2"
@@ -520,10 +522,11 @@ export default function ReportsPage() {
               </select>
             </div>
             <div>
-              <label className="text-2xs font-medium uppercase tracking-wide text-muted">
+              <label htmlFor="report-recipients" className="text-2xs font-medium uppercase tracking-wide text-muted">
                 Recipients
               </label>
               <input
+                id="report-recipients"
                 value={draftRecipients}
                 onChange={(e) => setDraftRecipients(e.target.value)}
                 placeholder="team@orwell.io, cc@orwell.io"

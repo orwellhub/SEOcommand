@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronLeft, ChevronRight, CircleDollarSign, Github, Globe2, Loader2, PlugZap, Radar, ShieldCheck } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, CircleDollarSign, GitPullRequest, Globe2, Loader2, PlugZap, Radar, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button, Card, StatusBadge } from "@/components/ui/primitives";
 import { MARKETS } from "@/lib/markets";
+import { postOnboardingPath } from "@/lib/onboarding";
 import type { GooglePropertyDiscovery, PortfolioGroup, SiteCostForecast } from "@/platform/types";
+import { DEFAULT_ALERT_CHANNELS } from "@/platform/notification-defaults";
 import { cn } from "@/lib/cn";
 
 const STEPS = ["Website", "Tracking", "Google", "Connections", "Forecast"] as const;
@@ -49,7 +51,7 @@ const initial: Draft = {
   ga4Property: "",
   connectionKind: "github",
   connectionUrl: "",
-  alertChannels: [...ALERT_CHANNELS],
+  alertChannels: [...DEFAULT_ALERT_CHANNELS],
   emailRecipients: "",
   whatsappRecipients: "",
   groupIds: [],
@@ -74,6 +76,7 @@ export default function NewSitePage() {
   const [discovery, setDiscovery] = useState<GooglePropertyDiscovery | null>(null);
   const [forecast, setForecast] = useState<SiteCostForecast | null>(null);
   const [siteSlug, setSiteSlug] = useState<string | null>(null);
+  const [syntheticSite, setSyntheticSite] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [groups, setGroups] = useState<PortfolioGroup[]>([]);
@@ -184,6 +187,7 @@ export default function NewSitePage() {
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Site could not be created.");
       setSiteSlug(body.site.slug);
+      setSyntheticSite(Boolean(body.site.synthetic));
       setForecast(body.forecast);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
@@ -276,7 +280,7 @@ export default function NewSitePage() {
 
             {step === 3 && (
               <div className="max-w-3xl space-y-5">
-                <StepTitle icon={<Github />} title="Connect its source or deployment" copy="SEOcommand creates reviewable change proposals. It never publishes website changes automatically." />
+                <StepTitle icon={<GitPullRequest />} title="Connect its source or deployment" copy="SEOcommand creates reviewable change proposals. It never publishes website changes automatically." />
                 <div className="grid gap-4 sm:grid-cols-3">
                   {(["github", "hostinger_git", "webhook"] as const).map((kind) => (
                     <button key={kind} type="button" onClick={() => setDraft({ ...draft, connectionKind: kind })} className={cn("rounded-md border p-4 text-left", draft.connectionKind === kind ? "border-purple bg-purple/5" : "border-border hover:bg-workspace")}>
@@ -296,7 +300,7 @@ export default function NewSitePage() {
 
             {step === 4 && (
               <div className="max-w-3xl space-y-5">
-                <StepTitle icon={<CircleDollarSign />} title="Forecast and approve this website" copy="This is a planning ceiling, not a charge. Actual provider costs continue to be recorded in the spend ledger." />
+                <StepTitle icon={<CircleDollarSign />} title="Review cost and activate paid monitoring" copy="The website becomes active immediately with any connected free data. This forecast controls only paid provider work." />
                 {busy && !forecast ? <Loading label="Calculating monthly provider usage…" /> : forecast && (
                   <>
                     <div className="rounded-md border border-purple/20 bg-purple/5 p-5">
@@ -313,11 +317,11 @@ export default function NewSitePage() {
                       ))}
                     </div>
                     {!siteSlug ? (
-                      <Button variant="primary" onClick={createDraft} disabled={busy}>{busy && <Loader2 className="h-4 w-4 animate-spin" />} Create approval draft</Button>
+                      <Button variant="primary" onClick={createDraft} disabled={busy}>{busy && <Loader2 className="h-4 w-4 animate-spin" />} Add website</Button>
                     ) : (
                       <div className="rounded-md border border-success/25 bg-success/5 p-4">
-                        <div className="flex items-start gap-3"><ShieldCheck className="mt-0.5 h-5 w-5 text-success" /><div><div className="text-sm font-semibold text-ink">Draft ready for approval</div><p className="mt-1 text-xs text-muted">Approving a ${forecast.highUsd.toFixed(2)} monthly ceiling queues the initial crawl, keyword scan, competitor discovery, backlink history and AI visibility run.</p></div></div>
-                        <Button variant="primary" className="mt-4" onClick={approve} disabled={busy}>{busy && <Loader2 className="h-4 w-4 animate-spin" />} Approve and queue first scan</Button>
+                        <div className="flex items-start gap-3"><ShieldCheck className="mt-0.5 h-5 w-5 text-success" /><div><div className="text-sm font-semibold text-ink">Website active · free monitoring started</div><p className="mt-1 text-xs text-muted">Connected GSC, GA4 and free reliability checks can run now. Approving a ${forecast.highUsd.toFixed(2)} monthly ceiling also queues paid crawl, keyword, competitor, backlink and AI work.</p></div></div>
+                        <div className="mt-4 flex flex-wrap gap-2"><Button variant="primary" onClick={approve} disabled={busy}>{busy && <Loader2 className="h-4 w-4 animate-spin" />} Approve and queue paid scan</Button><Button onClick={() => router.push(postOnboardingPath(siteSlug, syntheticSite))}>Open website without paid scan</Button></div>
                       </div>
                     )}
                   </>
@@ -340,6 +344,7 @@ export default function NewSitePage() {
             <div className="text-2xs font-semibold uppercase tracking-wider text-muted">Launch policy</div>
             <div className="mt-3 space-y-3 text-xs text-muted">
               <Policy text="No paid request before approval" />
+              <Policy text="Free connectors start immediately" />
               <Policy text="Initial scan runs in the job queue" />
               <Policy text="Website changes stay review-only" />
               <Policy text="Actual cost is ledgered per site" />
@@ -347,7 +352,7 @@ export default function NewSitePage() {
           </Card>
           <Card className="p-4">
             <div className="text-sm font-semibold text-ink">What starts automatically</div>
-            <p className="mt-2 text-xs leading-relaxed text-muted">Full crawl, seed keyword universe, daily rank tracking, three main competitors, keyword gaps, backlink history and multi-model AI visibility with tiered prompt cadence.</p>
+            <p className="mt-2 text-xs leading-relaxed text-muted">GSC, GA4 and reliability monitoring start when available. Paid crawling, rank tracking, competitor gaps, backlinks, Local SEO and AI visibility wait for budget approval.</p>
           </Card>
         </aside>
       </div>

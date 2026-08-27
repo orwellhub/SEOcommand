@@ -6,7 +6,7 @@ import { canWrite } from "@/lib/auth";
 import { db, schema } from "@/db";
 import { hasDatabase } from "@/sync/store";
 import { forecastSiteCost } from "@/platform/cost-forecast";
-import { listManagedSites, listPortfolioGroups, listSiteConnections } from "@/platform/site-store";
+import { listManagedSites, listPortfolioGroups, listSiteConnections, resolveGroupSiteSlugs } from "@/platform/site-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,21 +64,43 @@ function unavailable() {
   return NextResponse.json({ error: "Site onboarding requires DATABASE_URL." }, { status: 503 });
 }
 
-export async function GET() {
-  const sites = await listManagedSites();
+export async function GET(request: Request) {
+  const role = request.headers.get("x-orwell-user-role");
+  const grantedGroups = request.headers.get("x-orwell-user-groups")?.split(",").filter(Boolean) ?? [];
+  const allSites = await listManagedSites();
+  const restricted = role === "manager" || role === "viewer";
+  const allowedSlugs = restricted
+    ? new Set((await Promise.all(grantedGroups.map(resolveGroupSiteSlugs))).flat())
+    : null;
+  const sites = allowedSlugs ? allSites.filter((site) => allowedSlugs.has(site.id)) : allSites;
   const [connections, groups] = await Promise.all([
     listSiteConnections(sites.map((site) => site.id)),
     listPortfolioGroups(),
   ]);
+  const visibleGroups = allowedSlugs
+    ? groups.filter((group) => group.siteSlugs.some((slug) => allowedSlugs.has(slug)) || grantedGroups.includes(group.id))
+    : groups;
   return NextResponse.json({
     sites,
     connections,
-    groups,
+    groups: visibleGroups,
     capacity: { designedFor: "300+", current: sites.length },
   });
 }
 
 export async function POST(request: Request) {
+  if (process.env.QA_SYNTHETIC === "true") {
+    if (!canWrite(request.headers.get("x-orwell-user-role"))) return NextResponse.json({ error: "Write access required." }, { status: 403 });
+    const qaParsed = SiteSchema.safeParse(await request.json().catch(() => null));
+    if (!qaParsed.success) return NextResponse.json({ error: "Review the site setup fields.", fields: qaParsed.error.flatten().fieldErrors }, { status: 400 });
+    const input = qaParsed.data;
+    const host = cleanHost(input.host);
+    const forecast = forecastSiteCost({ trackedKeywords: input.trackedKeywords, crawlMaxPages: input.crawlMaxPages, backlinkLimit: input.backlinkLimit, aiPrompts: input.aiPrompts, aiPlatforms: input.aiPlatforms.length, devices: input.devices });
+    return NextResponse.json({
+      site: { slug: slugFor(host), name: input.name, host, lifecycleStatus: "active", spendApproval: "pending", synthetic: true },
+      forecast, approvalRequired: true, freeMonitoringActive: true,
+    }, { status: 201 });
+  }
   if (!hasDatabase()) return unavailable();
   if (!canWrite(request.headers.get("x-orwell-user-role"))) {
     return NextResponse.json({ error: "Write access required." }, { status: 403 });
@@ -136,7 +158,7 @@ export async function POST(request: Request) {
         devices: input.devices,
         gscProperty: input.gscProperty || null,
         ga4Property: input.ga4Property || null,
-        lifecycleStatus: "forecast_pending",
+        lifecycleStatus: "active",
         spendApproval: "pending",
         forecastMonthlyUsd: forecast.monthlyUsd,
         forecastDetails: forecast as unknown as Record<string, unknown>,
@@ -149,7 +171,8 @@ export async function POST(request: Request) {
           devicesSelected: true,
           connectionsAdded: input.connections.length,
           costForecasted: true,
-          initialScan: "awaiting_approval",
+          freeMonitoring: "active",
+          initialScan: "paid_work_awaiting_approval",
         },
       })
       .returning();

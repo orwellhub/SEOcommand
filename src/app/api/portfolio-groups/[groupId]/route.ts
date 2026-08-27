@@ -18,15 +18,17 @@ function writable(request: Request) {
   return canWrite(request.headers.get("x-orwell-user-role"));
 }
 
-export async function PATCH(request: Request, { params }: { params: { groupId: string } }) {
-  if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
+export async function PATCH(request: Request, { params }: { params: Promise<{ groupId: string }> }) {
+  const { groupId } = await params;
   if (!writable(request)) return NextResponse.json({ error: "Write access required." }, { status: 403 });
+  if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ group: { id: groupId, ...(await request.json().catch(() => ({}))), synthetic: true } });
+  if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
   const parsed = UpdateSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Review the group details." }, { status: 400 });
   const groups = await listPortfolioGroups();
-  const current = groups.find((group) => group.id === params.groupId);
+  const current = groups.find((group) => group.id === groupId);
   if (!current) return NextResponse.json({ error: "Group not found." }, { status: 404 });
-  if (parsed.data.parentId === params.groupId) return NextResponse.json({ error: "A group cannot contain itself." }, { status: 400 });
+  if (parsed.data.parentId === groupId) return NextResponse.json({ error: "A group cannot contain itself." }, { status: 400 });
   if (parsed.data.parentId) {
     const descendants = new Set<string>();
     const visit = (id: string) => {
@@ -35,22 +37,24 @@ export async function PATCH(request: Request, { params }: { params: { groupId: s
         visit(child.id);
       }
     };
-    visit(params.groupId);
+    visit(groupId);
     if (descendants.has(parsed.data.parentId)) {
       return NextResponse.json({ error: "Move the child group first to avoid a circular hierarchy." }, { status: 400 });
     }
   }
-  const [group] = await db().update(schema.portfolioGroups).set({ ...parsed.data, updatedAt: new Date() }).where(eq(schema.portfolioGroups.id, params.groupId)).returning();
+  const [group] = await db().update(schema.portfolioGroups).set({ ...parsed.data, updatedAt: new Date() }).where(eq(schema.portfolioGroups.id, groupId)).returning();
   return NextResponse.json({ group });
 }
 
-export async function DELETE(request: Request, { params }: { params: { groupId: string } }) {
-  if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
+export async function DELETE(request: Request, { params }: { params: Promise<{ groupId: string }> }) {
+  const { groupId } = await params;
   if (!writable(request)) return NextResponse.json({ error: "Write access required." }, { status: 403 });
+  if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ deleted: true, groupId, synthetic: true });
+  if (!hasDatabase()) return NextResponse.json({ error: "DATABASE_URL is required." }, { status: 503 });
   await db().transaction(async (tx) => {
-    await tx.update(schema.portfolioGroups).set({ parentId: null, updatedAt: new Date() }).where(eq(schema.portfolioGroups.parentId, params.groupId));
-    await tx.delete(schema.siteGroupMemberships).where(eq(schema.siteGroupMemberships.groupId, params.groupId));
-    await tx.delete(schema.portfolioGroups).where(eq(schema.portfolioGroups.id, params.groupId));
+    await tx.update(schema.portfolioGroups).set({ parentId: null, updatedAt: new Date() }).where(eq(schema.portfolioGroups.parentId, groupId));
+    await tx.delete(schema.siteGroupMemberships).where(eq(schema.siteGroupMemberships.groupId, groupId));
+    await tx.delete(schema.portfolioGroups).where(eq(schema.portfolioGroups.id, groupId));
   });
   return NextResponse.json({ deleted: true });
 }

@@ -58,6 +58,7 @@ function unavailable() {
 }
 
 export async function GET() {
+  if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ ok: true, scans: [], synthetic: true });
   if (!hasDatabase()) return unavailable();
   try {
     const scans = await db()
@@ -86,7 +87,6 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (!hasDatabase()) return unavailable();
   if (!canWrite(request.headers.get("x-orwell-user-role"))) {
     return NextResponse.json(
       { ok: false, error: "Your role does not permit saving searches." },
@@ -103,6 +103,29 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+
+  if (process.env.QA_SYNTHETIC === "true") {
+    const volumes = parsed.rows.map((row) => row.volume).filter((value): value is number => value != null);
+    const difficulties = parsed.rows.map((row) => row.difficulty).filter((value): value is number => value != null);
+    const encodedSeed = Buffer.from(parsed.seed).toString("base64url");
+    return NextResponse.json({
+      ok: true,
+      synthetic: true,
+      scan: {
+        id: `qa-${encodedSeed}-${parsed.locationCode}`,
+        seed: parsed.seed,
+        locationCode: parsed.locationCode,
+        languageCode: parsed.languageCode,
+        locationLabel: parsed.locationLabel,
+        rowCount: parsed.rows.length,
+        totalVolume: volumes.reduce((total, value) => total + value, 0),
+        avgDifficulty: difficulties.length ? Math.round(difficulties.reduce((total, value) => total + value, 0) / difficulties.length) : null,
+        createdBy: request.headers.get("x-orwell-user-email"),
+        createdAt: new Date().toISOString(),
+      },
+    });
+  }
+  if (!hasDatabase()) return unavailable();
 
   const rows = parsed.rows as unknown as KeywordResearchRow[];
   const volumes = rows.map((r) => r.volume).filter((v): v is number => v != null);

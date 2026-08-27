@@ -1,0 +1,38 @@
+# Isolated synthetic QA environment. It contains no production data or provider
+# credentials and intentionally has no cron workers.
+databases:
+  - name: orwell-qa-db
+    databaseName: orwell_qa
+    user: orwell_qa
+    region: frankfurt
+    plan: free
+    postgresMajorVersion: "16"
+    ipAllowList: []
+
+services:
+  - type: web
+    name: orwell-qa-web
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: codex/full-ux-revamp
+    autoDeployTrigger: off
+    buildCommand: npm ci && npm run build
+    preDeployCommand: npm run db:migrate && npm run qa:seed
+    startCommand: npm run start
+    healthCheckPath: /api/healthz
+    envVars:
+      - key: NODE_VERSION
+        value: "22.22.2"
+      - key: PORT
+        value: "10000"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: orwell-qa-db
+          property: connectionString
+      - key: QA_SYNTHETIC
+        value: "true"
+      - key: QA_PUBLIC_ACCESS
+        value: "true"
+      - key: MONTHLY_BUDGET_USD
+        value: "10"

@@ -69,7 +69,7 @@ export const siteProfiles = pgTable(
     slug: text("slug").notNull(),
     name: text("name").notNull(),
     host: text("host").notNull(),
-    accent: text("accent").notNull().default("#7137F5"),
+    accent: text("accent").notNull().default("#335CFF"),
     industry: text("industry").notNull().default(""),
     primaryMarket: text("primary_market").notNull(),
     locationCode: integer("location_code").notNull(),
@@ -81,13 +81,17 @@ export const siteProfiles = pgTable(
     spendApproval: approvalEnum("spend_approval").notNull().default("pending"),
     forecastMonthlyUsd: real("forecast_monthly_usd").notNull().default(0),
     approvedMonthlyUsd: real("approved_monthly_usd"),
+    budgetLimits: jsonb("budget_limits").$type<Record<string, number | null>>().notNull().default({}),
     forecastDetails: jsonb("forecast_details").$type<Record<string, unknown>>().notNull().default({}),
     onboardingProgress: jsonb("onboarding_progress").$type<Record<string, unknown>>().notNull().default({}),
+    monitoringSchedule: jsonb("monitoring_schedule").$type<Record<string, unknown>>().notNull().default({}),
+    siteSettings: jsonb("site_settings").$type<Record<string, unknown>>().notNull().default({}),
     crawlMaxPages: integer("crawl_max_pages").notNull().default(10000),
     backlinkLimit: integer("backlink_limit").notNull().default(10000),
     createdBy: text("created_by"),
     approvedBy: text("approved_by"),
     approvedAt: timestamp("approved_at"),
+    archivedAt: timestamp("archived_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -153,6 +157,26 @@ export const siteConnections = pgTable(
   (t) => ({
     uniqSiteKind: uniqueIndex("uniq_site_connection_kind").on(t.siteSlug, t.kind),
     siteIdx: index("site_connection_site_idx").on(t.siteSlug),
+  }),
+);
+
+/** Human-readable, append-only record of portfolio and site administration. */
+export const accessAuditEvents = pgTable(
+  "access_audit_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    siteSlug: text("site_slug"),
+    actorEmail: text("actor_email"),
+    actorRole: text("actor_role"),
+    action: text("action").notNull(),
+    area: text("area").notNull(),
+    summary: text("summary").notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    siteIdx: index("access_audit_site_idx").on(t.siteSlug, t.createdAt),
+    actorIdx: index("access_audit_actor_idx").on(t.actorEmail, t.createdAt),
   }),
 );
 
@@ -754,12 +778,16 @@ export const portfolioNotifications = pgTable(
     detail: text("detail"),
     actionUrl: text("action_url"),
     fingerprint: text("fingerprint").notNull(),
+    status: text("status").notNull().default("open"),
     readAt: timestamp("read_at"),
+    snoozedUntil: timestamp("snoozed_until"),
+    resolvedAt: timestamp("resolved_at"),
+    resolvedBy: text("resolved_by"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => ({
     uniqFingerprint: uniqueIndex("uniq_portfolio_notification").on(t.fingerprint),
-    inboxIdx: index("portfolio_notification_inbox_idx").on(t.readAt, t.createdAt),
+    inboxIdx: index("portfolio_notification_inbox_idx").on(t.status, t.readAt, t.createdAt),
   }),
 );
 

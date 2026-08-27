@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   authenticateUser,
+  canApproveBudget,
   canWrite,
   configuredUsers,
   createSessionToken,
@@ -14,7 +15,7 @@ describe("internal authentication", () => {
     const now = new Date("2026-07-22T10:00:00Z");
     const token = await createSessionToken(user, "a-long-test-secret", now);
     const session = await verifySessionToken(token, "a-long-test-secret", now);
-    expect(session).toMatchObject({ email: "admin@example.com", name: "Admin", role: "admin" });
+    expect(session).toMatchObject({ email: "admin@example.com", name: "Admin", role: "admin", groupIds: [] });
   });
 
   it("rejects tampered and expired sessions", async () => {
@@ -25,8 +26,11 @@ describe("internal authentication", () => {
   });
 
   it("loads JSON users and validates credentials", () => {
-    const users = configuredUsers({ AUTH_USERS_JSON: JSON.stringify([user]) });
-    expect(authenticateUser("admin@example.com", "correct horse", users)?.role).toBe("admin");
+    const users = configuredUsers({ AUTH_USERS_JSON: JSON.stringify([{ ...user, groupIds: ["group-a"] }]) });
+    expect(authenticateUser("admin@example.com", "correct horse", users)).toMatchObject({
+      role: "admin",
+      groupIds: ["group-a"],
+    });
     expect(authenticateUser("admin@example.com", "wrong", users)).toBeNull();
   });
 
@@ -39,6 +43,16 @@ describe("internal authentication", () => {
   it("enforces write-capable roles", () => {
     expect(canWrite("admin")).toBe(true);
     expect(canWrite("seo_analyst")).toBe(true);
+    expect(canWrite("manager")).toBe(false);
     expect(canWrite("viewer")).toBe(false);
+    expect(canApproveBudget("admin")).toBe(true);
+    expect(canApproveBudget("manager")).toBe(true);
+    expect(canApproveBudget("seo_analyst")).toBe(false);
+  });
+
+  it("retains group-scoped grants in signed sessions", async () => {
+    const now = new Date("2026-07-22T10:00:00Z");
+    const token = await createSessionToken({ ...user, groupIds: ["group-a", "group-b"] }, "a-long-test-secret", now);
+    expect(await verifySessionToken(token, "a-long-test-secret", now)).toMatchObject({ groupIds: ["group-a", "group-b"] });
   });
 });

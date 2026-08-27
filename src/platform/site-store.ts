@@ -4,6 +4,7 @@ import { db, schema } from "@/db";
 import { hasDatabase } from "@/sync/store";
 import type { Domain } from "@/lib/types";
 import type { ManagedSite, PortfolioGroup, SiteCostForecast } from "./types";
+import { QA_GROUPS, QA_SITES } from "@/data/qa-fixtures";
 
 function legacySite(domain: Domain): ManagedSite {
   return {
@@ -13,9 +14,13 @@ function legacySite(domain: Domain): ManagedSite {
     spendApproval: "approved",
     forecastMonthlyUsd: 0,
     approvedMonthlyUsd: null,
+    budgetLimits: {},
     forecast: null,
     crawlMaxPages: 10000,
     backlinkLimit: 10000,
+    monitoringSchedule: {},
+    siteSettings: {},
+    archivedAt: null,
     source: "registry",
     createdAt: null,
     updatedAt: null,
@@ -41,11 +46,15 @@ function rowToSite(row: SiteRow): ManagedSite {
     spendApproval: row.spendApproval,
     forecastMonthlyUsd: row.forecastMonthlyUsd,
     approvedMonthlyUsd: row.approvedMonthlyUsd,
+    budgetLimits: row.budgetLimits,
     forecast: Object.keys(row.forecastDetails ?? {}).length
       ? (row.forecastDetails as unknown as SiteCostForecast)
       : null,
     crawlMaxPages: row.crawlMaxPages,
     backlinkLimit: row.backlinkLimit,
+    monitoringSchedule: row.monitoringSchedule,
+    siteSettings: row.siteSettings,
+    archivedAt: row.archivedAt?.toISOString() ?? null,
     source: "database",
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -54,6 +63,7 @@ function rowToSite(row: SiteRow): ManagedSite {
 
 /** Database sites override registry entries with the same slug. */
 export async function listManagedSites(): Promise<ManagedSite[]> {
+  if (process.env.QA_SYNTHETIC === "true") return QA_SITES;
   const fallback = DOMAINS.map(legacySite);
   if (!hasDatabase()) return fallback;
   const rows = await db().select().from(schema.siteProfiles).orderBy(asc(schema.siteProfiles.name));
@@ -63,6 +73,7 @@ export async function listManagedSites(): Promise<ManagedSite[]> {
 }
 
 export async function getManagedSite(slug: string): Promise<ManagedSite | null> {
+  if (process.env.QA_SYNTHETIC === "true") return QA_SITES.find((site) => site.id === slug) ?? null;
   if (hasDatabase()) {
     const [row] = await db()
       .select()
@@ -84,6 +95,7 @@ export function paidJobsApproved(site: ManagedSite): boolean {
 }
 
 export async function listSiteConnections(siteSlugs: string[]) {
+  if (process.env.QA_SYNTHETIC === "true") return [];
   if (!hasDatabase() || siteSlugs.length === 0) return [];
   return db()
     .select()
@@ -92,6 +104,7 @@ export async function listSiteConnections(siteSlugs: string[]) {
 }
 
 export async function listPortfolioGroups(): Promise<PortfolioGroup[]> {
+  if (process.env.QA_SYNTHETIC === "true") return QA_GROUPS;
   if (!hasDatabase()) return [];
   const [groups, memberships] = await Promise.all([
     db().select().from(schema.portfolioGroups).orderBy(asc(schema.portfolioGroups.sortOrder), asc(schema.portfolioGroups.name)),

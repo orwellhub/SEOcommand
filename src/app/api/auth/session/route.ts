@@ -6,6 +6,7 @@ export async function GET(request: Request) {
       email: request.headers.get("x-orwell-user-email"),
       name: request.headers.get("x-orwell-user-name"),
       role: request.headers.get("x-orwell-user-role"),
+      groupIds: request.headers.get("x-orwell-user-groups")?.split(",").filter(Boolean) ?? [],
     },
   });
 }

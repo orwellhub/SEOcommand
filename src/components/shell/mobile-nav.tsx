@@ -18,7 +18,7 @@ export function MobileNav() {
   /** Picking a site closes the drawer and lands on that property's page. */
   function selectDomain(id: string) {
     setScope(id);
-    router.push(`/domain/${id}`);
+    router.push(`/sites/${id}`);
     setOpen(false);
   }
 
@@ -38,7 +38,7 @@ export function MobileNav() {
     <div className="lg:hidden">
       <button
         onClick={() => setOpen(true)}
-        className="rounded-md p-1.5 text-white hover:bg-rail-selected/50"
+        className="rounded-md p-1.5 text-ink hover:bg-workspace"
         aria-label="Open navigation"
       >
         <Menu className="h-5 w-5" />
@@ -46,8 +46,8 @@ export function MobileNav() {
 
       {open && (
         <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Navigation">
-          <div className="absolute inset-0 bg-rail/50" onClick={() => setOpen(false)} aria-hidden />
-          <div className="animate-drawer absolute left-0 top-0 flex h-full w-[80%] max-w-xs flex-col bg-rail text-white">
+          <div className="absolute inset-0 bg-ink/30" onClick={() => setOpen(false)} aria-hidden />
+          <div className="animate-drawer absolute left-0 top-0 flex h-full w-[84%] max-w-sm flex-col border-r border-border bg-card text-ink">
             <div className="flex items-center justify-between px-4 py-4">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-md bg-purple">
@@ -61,12 +61,12 @@ export function MobileNav() {
             </div>
 
             <div className="px-3 pb-2">
-              <div className="px-2 pb-1 text-2xs uppercase tracking-wider text-white/40">Domain</div>
+              <div className="px-2 pb-1 text-2xs font-bold uppercase tracking-wider text-muted">Portfolio</div>
               <button
                 onClick={selectPortfolio}
                 className={cn(
                   "mb-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm",
-                  scope === "portfolio" ? "bg-rail-selected" : "hover:bg-nav",
+                  scope === "portfolio" ? "bg-rail-selected" : "hover:bg-workspace",
                 )}
               >
                 <Layers className="h-4 w-4" /> Portfolio
@@ -77,7 +77,7 @@ export function MobileNav() {
                   onClick={() => selectGroup(group.id)}
                   className={cn(
                     "flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm",
-                    scope === `group:${group.id}` ? "bg-rail-selected" : "hover:bg-nav",
+                    scope === `group:${group.id}` ? "bg-rail-selected" : "hover:bg-workspace",
                   )}
                 >
                   <Folder className="h-3.5 w-3.5" style={{ color: group.color, fill: `${group.color}40` }} />
@@ -90,7 +90,7 @@ export function MobileNav() {
                   onClick={() => selectDomain(d.id)}
                   className={cn(
                     "flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm",
-                    scope === d.id ? "bg-rail-selected" : "hover:bg-nav",
+                    scope === d.id ? "bg-rail-selected" : "hover:bg-workspace",
                   )}
                 >
                   <Circle className="h-2.5 w-2.5" style={{ fill: d.accent, color: d.accent }} />
@@ -100,18 +100,18 @@ export function MobileNav() {
             </div>
 
             <div className="mt-2 flex-1 overflow-y-auto px-3">
-              <div className="px-2 pb-1 text-2xs uppercase tracking-wider text-white/40">Modules</div>
+              <div className="px-2 pb-1 text-2xs font-bold uppercase tracking-wider text-muted">Tools</div>
               {NAV_ITEMS.map((item) => {
                 const Icon = item.icon;
                 const active = pathname.startsWith(item.href);
                 return (
                   <Link
                     key={item.href}
-                    href={item.href}
+                    href={scope !== "portfolio" && !scope.startsWith("group:") && item.group === "site" ? `${item.href}?site=${scope}` : item.href}
                     onClick={() => setOpen(false)}
                     className={cn(
                       "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm",
-                      active ? "bg-rail-selected text-white" : "text-white/70 hover:bg-nav hover:text-white",
+                      active ? "bg-ink text-card" : "text-muted hover:bg-workspace hover:text-ink",
                     )}
                   >
                     <Icon className="h-4 w-4" />
