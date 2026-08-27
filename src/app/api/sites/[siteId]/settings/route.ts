@@ -20,6 +20,16 @@ const ConnectionSchema = z.object({
   status: z.enum(["pending", "connected", "error", "disabled"]).default("pending"),
   config: z.record(z.unknown()).default({}),
 });
+const ReportBrandingSchema = z.object({
+  brandName: z.string().min(1).max(120),
+  logoUrl: z.union([z.literal(""), z.string().url().max(2000)]),
+  preparedBy: z.string().min(1).max(160),
+  contactEmail: z.union([z.literal(""), z.string().email().max(320)]),
+  accent: z.string().regex(/^#[0-9a-f]{6}$/i),
+  secondaryColor: z.string().regex(/^#[0-9a-f]{6}$/i),
+  footerText: z.string().max(500),
+  showPoweredBy: z.boolean(),
+});
 const PatchSchema = z.discriminatedUnion("section", [
   z.object({
     section: z.literal("general"),
@@ -51,6 +61,7 @@ const PatchSchema = z.discriminatedUnion("section", [
     crawlMaxPages: z.number().int().min(100).max(100000),
     backlinkLimit: z.number().int().min(1000).max(100000),
   }),
+  z.object({ section: z.literal("reporting"), branding: ReportBrandingSchema }),
   z.object({
     section: z.literal("google"),
     gscProperty: z.string().max(500).nullable(),
@@ -146,6 +157,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ si
   const input = parsed.data;
   const permission = input.section === "budget"
     ? "approve_spend"
+    : input.section === "reporting"
+      ? "manage_reports"
     : input.section === "connection" || input.section === "google"
       ? "manage_connectors"
       : "manage_content";
@@ -174,6 +187,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ si
       site.siteSettings = input.siteSettings;
       site.crawlMaxPages = input.crawlMaxPages;
       site.backlinkLimit = input.backlinkLimit;
+    } else if (input.section === "reporting") {
+      site.siteSettings = { ...site.siteSettings, reportBranding: input.branding };
     } else if (input.section === "google") {
       site.gscProperty = input.gscProperty;
       site.ga4Property = input.ga4Property;
@@ -298,6 +313,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ si
         backlinkLimit: input.backlinkLimit,
         updatedAt,
       }).where(eq(schema.siteProfiles.slug, siteId));
+    } else if (input.section === "reporting") {
+      const [current] = await db().select({ siteSettings: schema.siteProfiles.siteSettings }).from(schema.siteProfiles).where(eq(schema.siteProfiles.slug, siteId)).limit(1);
+      await db().update(schema.siteProfiles).set({ siteSettings: { ...(current?.siteSettings ?? {}), reportBranding: input.branding }, updatedAt }).where(eq(schema.siteProfiles.slug, siteId));
     } else if (input.section === "google") {
       await db().update(schema.siteProfiles).set({
         gscProperty: input.gscProperty,

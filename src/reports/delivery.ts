@@ -3,7 +3,8 @@ import { and, eq, lte } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { nextReportRun, type ReportCadence } from "@/lib/report-schedule";
 import { buildDomainBundle, buildPortfolio } from "@/sync/bundle";
-import { resolveGroupSiteSlugs } from "@/platform/site-store";
+import { getManagedSite, resolveGroupSiteSlugs } from "@/platform/site-store";
+import { resolveReportBranding } from "@/reports/branding";
 
 export interface DeliverySummary {
   due: number;
@@ -43,6 +44,12 @@ export async function deliverDueReports(now = new Date()): Promise<DeliverySumma
   for (const schedule of due) {
     try {
       let data: unknown;
+      let presentation: Record<string, unknown> = {
+        documentVersion: "client-report-v2",
+        brandName: "SEO Portfolio",
+        accent: "#335CFF",
+        secondaryColor: "#12B8C4",
+      };
       if (schedule.scopeType === "group" && schedule.scopeId) {
         const siteSlugs = await resolveGroupSiteSlugs(schedule.scopeId);
         data = { scope: { type: "group", id: schedule.scopeId }, domains: await Promise.all(siteSlugs.map(buildDomainBundle)) };
@@ -51,7 +58,10 @@ export async function deliverDueReports(now = new Date()): Promise<DeliverySumma
         const keywords = campaign ? await db().select().from(schema.rankTrackingKeywords).where(eq(schema.rankTrackingKeywords.campaignId, campaign.id)) : [];
         data = { scope: { type: "campaign", id: schedule.scopeId }, campaign, keywords };
       } else if (schedule.domainSlug || schedule.scopeType === "site") {
-        data = await buildDomainBundle(schedule.domainSlug ?? schedule.scopeId!);
+        const siteSlug = schedule.domainSlug ?? schedule.scopeId!;
+        data = await buildDomainBundle(siteSlug);
+        const site = await getManagedSite(siteSlug);
+        if (site) presentation = { documentVersion: "client-report-v2", ...resolveReportBranding(site) };
       } else data = portfolio;
       const payload = JSON.stringify({
         event: "seo.report.due",
@@ -69,6 +79,7 @@ export async function deliverDueReports(now = new Date()): Promise<DeliverySumma
           format: schedule.format,
         },
         generatedAt: now.toISOString(),
+        presentation,
         data,
       });
       const headers: Record<string, string> = { "content-type": "application/json" };

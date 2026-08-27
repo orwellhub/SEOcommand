@@ -100,6 +100,7 @@ export const ENDPOINTS = {
   businessGoogleMyBusinessInfoLive: "/v3/business_data/google/my_business_info/live",
   serpGoogleMapsLiveAdvanced: "/v3/serp/google/maps/live/advanced",
   serpGoogleLocations: "/v3/serp/google/locations",
+  userData: "/v3/appendix/user_data",
 } as const;
 
 /**

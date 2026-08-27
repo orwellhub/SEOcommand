@@ -5,18 +5,20 @@ import { useParams, useSearchParams } from "next/navigation";
 import {
   Activity, Bell, Bot, Check, ChevronRight, CircleDollarSign, Cloud, Code2, Database,
   FolderTree, Gauge, Globe2, History, KeyRound, MapPinned, PlugZap, Save, Settings2,
-  SlidersHorizontal, Plus, Trash2,
+  SlidersHorizontal, Plus, Trash2, FileBarChart2,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button, Card, EmptyState, Skeleton, StatusBadge } from "@/components/ui/primitives";
 import { useDomain } from "@/components/shell/domain-context";
 import { cn } from "@/lib/cn";
 import { DEFAULT_ALERT_CHANNELS } from "@/platform/notification-defaults";
+import { resolveReportBranding, type ReportBranding } from "@/reports/branding";
 
 const TABS = [
   { id: "general", label: "General", icon: Settings2 },
   { id: "targeting", label: "Folders & targeting", icon: FolderTree },
   { id: "strategy", label: "Search strategy", icon: SlidersHorizontal },
+  { id: "reporting", label: "Report branding", icon: FileBarChart2 },
   { id: "prompts", label: "AI prompt checks", icon: Bot },
   { id: "monitoring", label: "Monitoring", icon: Activity },
   { id: "local", label: "Local SEO", icon: MapPinned },
@@ -114,10 +116,19 @@ export default function SiteSettingsPage() {
   const canEdit = permissions.includes("manage_content");
   const canConnect = permissions.includes("manage_connectors");
   const canBudget = permissions.includes("approve_spend");
+  const canReport = permissions.includes("manage_reports");
   const monthlyLimit = draft?.approvedMonthlyUsd ?? 0;
   const proposedMonthlyLimit = draft?.approvedMonthlyUsd ?? draft?.forecastMonthlyUsd ?? 0;
   const budgetValid = Boolean(draft && proposedMonthlyLimit >= draft.forecastMonthlyUsd);
   const usedPct = monthlyLimit > 0 ? Math.min(100, ((data?.spend.totalUsd ?? 0) / monthlyLimit) * 100) : 0;
+  const reportBranding = resolveReportBranding(draft ?? { name: "Website", host: "website", accent: "#335CFF", siteSettings: {} });
+  const setReportBranding = (values: Partial<ReportBranding>) => setDraft((current) => {
+    if (!current) return current;
+    return {
+      ...current,
+      siteSettings: { ...current.siteSettings, reportBranding: { ...resolveReportBranding(current), ...values } },
+    };
+  });
 
   async function save(body: Record<string, unknown>) {
     setSaving(true); setNotice(null);
@@ -205,6 +216,37 @@ export default function SiteSettingsPage() {
               <Field label="Cannibalisation sensitivity"><Select disabled={!canEdit} value={String(draft.siteSettings.cannibalisationSensitivity ?? "balanced")} options={["conservative", "balanced", "sensitive"]} onChange={(value) => setDraft({ ...draft, siteSettings: { ...draft.siteSettings, cannibalisationSensitivity: value } })} /></Field>
             </div>
             <SaveBar canSave={canEdit} saving={saving} role={role} onSave={() => save({ section: "monitoring", monitoringSchedule: draft.monitoringSchedule, siteSettings: draft.siteSettings, crawlMaxPages: draft.crawlMaxPages, backlinkLimit: draft.backlinkLimit })} />
+          </SettingsPanel>}
+
+          {tab === "reporting" && <SettingsPanel title="Report branding" description="Control the client-facing identity used on report covers, charts, PDF exports and scheduled deliveries." icon={<FileBarChart2 className="h-5 w-5" />}>
+            <div className="mb-6 overflow-hidden rounded-lg border border-border bg-[#F7F8FC]">
+              <div className="h-2" style={{ background: `linear-gradient(90deg, ${reportBranding.accent}, ${reportBranding.secondaryColor})` }} />
+              <div className="grid gap-6 p-6 sm:grid-cols-[minmax(0,1fr)_180px] sm:items-end">
+                <div>
+                  <div className="mb-8 flex h-12 items-center">
+                    {reportBranding.logoUrl ? <>
+                      {/* Report logos can be supplied from any client-owned CDN, so they intentionally bypass the Next image host allow-list. */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={reportBranding.logoUrl} alt="Report logo preview" className="max-h-12 max-w-52 object-contain object-left" />
+                    </> : <div className="flex h-11 w-11 items-center justify-center rounded-md text-sm font-black text-white" style={{ background: reportBranding.accent }}>{reportBranding.brandName.slice(0, 2).toUpperCase()}</div>}
+                  </div>
+                  <div className="font-serif text-3xl font-bold tracking-tight text-[#11182B]">Monthly SEO performance</div>
+                  <div className="mt-2 text-xs text-[#65708A]">A client-facing preview for {draft.host}</div>
+                </div>
+                <div className="border-l border-[#DDE2EC] pl-5 text-[10px] uppercase tracking-[0.14em] text-[#65708A]"><div>Prepared by</div><div className="mt-1 text-xs font-bold normal-case tracking-normal text-[#11182B]">{reportBranding.preparedBy}</div></div>
+              </div>
+            </div>
+            <FieldGrid>
+              <Field label="Client-facing brand name"><Input disabled={!canReport} value={reportBranding.brandName} onChange={(value) => setReportBranding({ brandName: value })} /></Field>
+              <Field label="Logo URL"><Input disabled={!canReport} value={reportBranding.logoUrl} onChange={(value) => setReportBranding({ logoUrl: value })} placeholder="https://example.com/logo.svg" /></Field>
+              <Field label="Prepared by"><Input disabled={!canReport} value={reportBranding.preparedBy} onChange={(value) => setReportBranding({ preparedBy: value })} /></Field>
+              <Field label="Report contact email"><Input disabled={!canReport} value={reportBranding.contactEmail} onChange={(value) => setReportBranding({ contactEmail: value })} placeholder="reports@example.com" /></Field>
+              <Field label="Primary report colour"><div className="flex gap-2"><input type="color" value={reportBranding.accent} disabled={!canReport} onChange={(event) => setReportBranding({ accent: event.target.value })} className="h-10 w-12 rounded-md border border-border bg-card p-1" /><Input disabled={!canReport} value={reportBranding.accent} onChange={(value) => setReportBranding({ accent: value })} /></div></Field>
+              <Field label="Supporting chart colour"><div className="flex gap-2"><input type="color" value={reportBranding.secondaryColor} disabled={!canReport} onChange={(event) => setReportBranding({ secondaryColor: event.target.value })} className="h-10 w-12 rounded-md border border-border bg-card p-1" /><Input disabled={!canReport} value={reportBranding.secondaryColor} onChange={(value) => setReportBranding({ secondaryColor: value })} /></div></Field>
+            </FieldGrid>
+            <label className="mt-5 block text-xs font-semibold text-ink">Report footer<textarea disabled={!canReport} value={reportBranding.footerText} onChange={(event) => setReportBranding({ footerText: event.target.value })} className="mt-2 min-h-20 w-full rounded-md border border-border bg-card px-3 py-2 text-sm font-normal text-ink outline-none focus:border-purple" /></label>
+            <label className="mt-4 flex items-center gap-3 rounded-md border border-border bg-workspace/50 p-3 text-xs text-ink"><input type="checkbox" disabled={!canReport} checked={reportBranding.showPoweredBy} onChange={(event) => setReportBranding({ showPoweredBy: event.target.checked })} /><span><span className="font-semibold">Show “Powered by SEOcommand”</span><span className="mt-0.5 block text-2xs text-muted">Leave this off for a fully white-label client document.</span></span></label>
+            <SaveBar canSave={canReport} saving={saving} role={role} onSave={() => save({ section: "reporting", branding: reportBranding })} />
           </SettingsPanel>}
 
           {tab === "local" && <SettingsPanel title="Local SEO" description="Public business identity, tracked locations and map-grid defaults for this website." icon={<MapPinned className="h-5 w-5" />}>

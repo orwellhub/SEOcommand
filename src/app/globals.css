@@ -146,3 +146,72 @@ table :is(th, td) {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* Client report output. The application chrome remains useful on screen, while
+ * print/PDF receives a clean, white-label document with stable page breaks. */
+.client-report table :is(th, td) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  body > div,
+  body > div > div,
+  main,
+  .report-studio {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  #client-report,
+  #client-report * {
+    visibility: visible !important;
+  }
+
+  #client-report {
+    position: absolute !important;
+    inset: 0 auto auto 0 !important;
+    width: 210mm !important;
+    max-width: none !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .report-cover {
+    min-height: 297mm !important;
+    break-after: page;
+  }
+
+  .report-body {
+    padding: 14mm !important;
+  }
+
+  .report-chart,
+  .client-report table,
+  .client-report tr {
+    break-inside: avoid;
+  }
+
+  .report-section {
+    break-before: auto;
+  }
+}
