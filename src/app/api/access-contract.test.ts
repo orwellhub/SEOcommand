@@ -12,6 +12,7 @@ import { POST as createGroup } from "./portfolio-groups/route";
 import { POST as approveSite } from "./sites/[siteId]/approval/route";
 import { GET as getSiteSettings, PATCH as patchSiteSettings } from "./sites/[siteId]/settings/route";
 import { POST as queueBrowserCrawl } from "./technical/browser-crawl/route";
+import { GET as getWorkflowTasks, POST as createWorkflowTask } from "./workflow/tasks/route";
 import { QA_GROUPS } from "@/data/qa-fixtures";
 import { resolveGroupSiteSlugs } from "@/platform/site-store";
 
@@ -71,6 +72,10 @@ describe("API access contract", () => {
     const getResponse = await getSiteSettings(request("/api/sites/mortgagecompare/settings", "manager", [FINANCE.id]), params);
     expect(getResponse.status).toBe(200);
 
+    const workflowResponse = await getWorkflowTasks(request("/api/workflow/tasks?domain=mortgagecompare", "manager", [FINANCE.id]));
+    expect(workflowResponse.status).toBe(200);
+    expect(await json(workflowResponse)).toMatchObject({ synthetic: true });
+
     const approvalResponse = await approveSite(request("/api/sites/mortgagecompare/approval", "manager", [FINANCE.id], {
       method: "POST",
       body: JSON.stringify({ action: "approve", approvedMonthlyUsd: 10 }),
@@ -113,6 +118,7 @@ describe("API access contract", () => {
       discoverLinks(request("/api/link-building", "viewer", viewerGroups, { method: "POST", body: JSON.stringify({ siteSlug: "mortgagecompare", competitors: ["competitor.test"] }) })),
       createAiPrompt(request("/api/ai-prompts", "viewer", viewerGroups, { method: "POST", body: JSON.stringify({ siteSlug: "mortgagecompare", prompt: "Which mortgage provider is best?", topic: "Comparison", platforms: ["chatgpt"] }) })),
       patchNotification(request("/api/notifications", "viewer", viewerGroups, { method: "PATCH", body: JSON.stringify({ id: "20000000-0000-4000-8000-000000000001", action: "resolve" }) })),
+      createWorkflowTask(request("/api/workflow/tasks", "viewer", viewerGroups, { method: "POST", body: JSON.stringify({ domainId: "mortgagecompare", action: "approve", recommendation: { id: "qa-rec", title: "Blocked recommendation", module: "Technical", effort: "S", priorityScore: 80 } }) })),
     ];
     const responses = await Promise.all(calls);
     expect(responses.map((response) => response.status)).toEqual(responses.map(() => 403));
