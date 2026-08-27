@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BellRing, CheckCircle2, CirclePause, ListChecks, Loader2, Sparkles, Zap } from "lucide-react";
+import { AlertTriangle, ArrowRight, BellRing, CheckCircle2, CirclePause, ListChecks, Loader2, Sparkles, Zap } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button, Card, EmptyState, SeverityBadge, Skeleton, StatusBadge } from "@/components/ui/primitives";
 import { cn } from "@/lib/cn";
@@ -18,6 +18,7 @@ interface ActionItem {
   severity: "critical" | "high" | "medium" | "low";
   score: number;
   actionUrl: string | null;
+  duplicateWarning?: { severity?: string; summary?: string; matches?: unknown[] };
   createdAt: string;
 }
 
@@ -33,6 +34,7 @@ export default function ActionCentrePage() {
   const [loading, setLoading] = useState(true);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [executionItemId, setExecutionItemId] = useState<string | null>(null);
 
   function load() {
     setLoading(true);
@@ -63,6 +65,7 @@ export default function ActionCentrePage() {
       const response = await fetch("/api/research-mappings", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: item.id, action }) });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error ?? "The research decision could not be saved.");
+      if (action === "approve" && body.executionItemId) setExecutionItemId(body.executionItemId);
       setData((current) => current ? { ...current, items: current.items.filter((value) => value.id !== item.id) } : current);
     } catch (reason) { setActionError(reason instanceof Error ? reason.message : "The research decision could not be saved."); }
     finally { setReviewingId(null); }
@@ -78,6 +81,7 @@ export default function ActionCentrePage() {
         <SignalCard icon={<CirclePause className="h-5 w-5" />} label="Paused websites" value={data?.counts.paused ?? 0} note="Free checks continue where possible" color="#F2B544" />
       </section>
       {actionError && <div role="alert" className="rounded-md border border-critical/25 bg-critical/5 px-4 py-3 text-xs font-semibold text-critical">{actionError}</div>}
+      {executionItemId && <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-success/25 bg-success/5 px-4 py-3"><div className="text-xs font-semibold text-success">Opportunity approved. Its evidence, owner and page plan are ready for execution.</div><Link href={`/work?item=${encodeURIComponent(executionItemId)}`} className="inline-flex items-center gap-1 text-xs font-bold text-purple">Continue work <ArrowRight className="h-3.5 w-3.5" /></Link></div>}
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
         <Card className="overflow-hidden">
@@ -93,6 +97,7 @@ export default function ActionCentrePage() {
               <div className="flex flex-wrap items-center gap-2"><SeverityBadge severity={item.severity} /><StatusBadge label={item.kind} tone={item.kind === "alert" ? "warning" : "info"} />{item.kind === "research" && <StatusBadge label="awaiting approval" tone="warning" />}<span className="text-2xs font-semibold text-muted">Priority {item.score}</span></div>
               <h3 className="mt-2 text-sm font-bold text-ink">{item.title}</h3>
               {item.detail && <p className="mt-1 text-xs leading-5 text-muted">{item.detail}</p>}
+              {item.kind === "research" && item.duplicateWarning?.severity === "warning" && <div className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-warning/25 bg-warning/5 px-2 py-1 text-[10px] font-semibold text-warning"><AlertTriangle className="h-3 w-3" />{item.duplicateWarning.summary ?? "Possible overlap found"}</div>}
               <div className="mt-2 flex items-center gap-2 text-2xs text-muted"><span>{item.siteName}</span><span>•</span><time>{new Date(item.createdAt).toLocaleDateString()}</time></div>
             </div>
             <div className="flex items-center gap-1 self-center">

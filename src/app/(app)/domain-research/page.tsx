@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Building2, CheckCircle2, Clock3, Database, ExternalLink, FileSearch, Globe2, History, Loader2, MapPin, Search, ShieldCheck, Target, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, Building2, CheckCircle2, Clock3, Database, ExternalLink, FileSearch, Globe2, History, Loader2, MapPin, Search, ShieldCheck, Target, X } from "lucide-react";
 import { useDomain } from "@/components/shell/domain-context";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button, Card, EmptyState, Skeleton, SourceBadge, StatusBadge } from "@/components/ui/primitives";
@@ -12,18 +12,26 @@ import { compactNumber, currency } from "@/lib/format";
 import { DEFAULT_MARKET } from "@/lib/markets";
 import { cn } from "@/lib/cn";
 import { DOMAIN_RESEARCH_ESTIMATE_USD } from "@/lib/research";
+import { Drawer } from "@/components/ui/drawer";
 
 type Summary = { organicKeywords?: number | null; organicTraffic?: number | null; paidKeywords?: number | null; paidTraffic?: number | null; estimatedTrafficCost?: number | null };
 type KeywordRow = { keyword: string; position: number | null; volume: number | null; difficulty: number | null; intent: string | null; url: string | null; traffic: number | null };
 type PageRow = { url: string; keywords: number | null; traffic: number | null; trafficCost: number | null };
 type Backlinks = { rank: number | null; backlinks: number | null; referringDomains: number | null; spamScore: number | null };
 type DomainEvidence = { id: string; projectId: string | null; kind: string; title: string; sourceValue: string; locationCode: number; languageCode: string; locationLabel: string; provider: string; providerCostUsd: number; summary: Summary; evidence?: { keywords?: KeywordRow[]; pages?: PageRow[]; backlinks?: Backlinks }; createdBy: string | null; capturedAt: string; updatedAt: string };
-type ResearchMapping = { id: string; evidenceId: string; siteSlug: string; title: string; notes: string | null; priorityScore: number; status: string; createdAt: string; updatedAt: string };
+type DuplicateWarning = { severity: "none" | "info" | "warning"; summary: string; matches: Array<{ kind: string; label: string; url?: string }>; checkedAt: string };
+type ResearchMapping = { id: string; evidenceId: string; siteSlug: string; title: string; notes: string | null; priorityScore: number; executionType: string; pageMode: string; targetUrl: string | null; plannedUrl: string | null; targetKeywords: string[]; ownerEmail: string | null; dueDate: string | null; duplicateWarning: DuplicateWarning; status: string; createdAt: string; updatedAt: string };
 type SearchLocation = { code: number; name: string; parent: string | null; countryCode: string | null; type: string; language: string };
 
 function metric(value: number | null | undefined) { return value == null ? "—" : compactNumber(value); }
 function shortUrl(value: string) { try { const url = new URL(value); return `${url.pathname}${url.search}` || "/"; } catch { return value; } }
 function freshness(iso: string) { const hours = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 3_600_000)); return hours < 1 ? "Just collected" : hours < 24 ? `${hours}h old` : `${Math.floor(hours / 24)}d old`; }
+function defaultDueDate() { const date = new Date(); date.setDate(date.getDate() + 14); return date.toISOString().slice(0, 10); }
+
+const EXECUTION_OPTIONS = [
+  ["content_brief", "Content brief"], ["refresh_brief", "Refresh brief"], ["keyword_page_map", "Keyword-to-page map"],
+  ["tracked_keyword_group", "Tracked keyword group"], ["internal_link_task", "Internal-link task"], ["link_prospect_list", "Link prospects / outreach"], ["technical_task", "Technical task"],
+] as const;
 
 const KEYWORD_COLUMNS: Column<KeywordRow>[] = [
   { key: "keyword", header: "Keyword", width: "34%", sortValue: (row) => row.keyword, render: (row) => <div><div className="font-semibold text-ink">{row.keyword}</div><div className="mt-0.5 truncate text-[10px] text-muted">{row.url ? shortUrl(row.url) : "No ranking URL"}</div></div> },
@@ -56,6 +64,15 @@ export default function DomainResearchPage() {
   const [priorityScore, setPriorityScore] = useState(70);
   const [mappingBusy, setMappingBusy] = useState(false);
   const [mappedNow, setMappedNow] = useState(false);
+  const [mappingOpen, setMappingOpen] = useState(false);
+  const [executionType, setExecutionType] = useState<(typeof EXECUTION_OPTIONS)[number][0]>("content_brief");
+  const [pageMode, setPageMode] = useState<"new_page" | "existing_page" | "site_wide">("new_page");
+  const [targetUrl, setTargetUrl] = useState("");
+  const [plannedUrl, setPlannedUrl] = useState("");
+  const [targetKeywords, setTargetKeywords] = useState("");
+  const [ownerEmail, setOwnerEmail] = useState("");
+  const [dueDate, setDueDate] = useState(defaultDueDate);
+  const [mappingWarning, setMappingWarning] = useState<DuplicateWarning | null>(null);
 
   const loadMappings = useCallback(async (evidenceId: string) => {
     const response = await fetch(`/api/research-mappings?evidence=${encodeURIComponent(evidenceId)}`, { cache: "no-store" });
@@ -70,7 +87,7 @@ export default function DomainResearchPage() {
       const body = await response.json();
       if (!response.ok || !body.evidence) throw new Error(body.error ?? "Research evidence could not be opened.");
       const evidence = body.evidence as DomainEvidence;
-      setActive(evidence); setTargetHost(evidence.sourceValue); setMappingTitle(`Investigate ${evidence.sourceValue} opportunity`);
+      setActive(evidence); setTargetHost(evidence.sourceValue); setMappingTitle(`Investigate ${evidence.sourceValue} opportunity`); setTargetKeywords((evidence.evidence?.keywords ?? []).slice(0, 5).map((item) => item.keyword).join("\n"));
       await loadMappings(evidence.id);
       if (updateUrl) router.replace(`/domain-research?evidence=${encodeURIComponent(evidence.id)}`);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Research evidence could not be opened."); }
@@ -81,6 +98,11 @@ export default function DomainResearchPage() {
     let live = true;
     fetch("/api/domain-research", { cache: "no-store" }).then((response) => response.json().then((body) => ({ response, body }))).then(({ response, body }) => { if (live) setSaved(response.ok ? body.evidence ?? [] : []); }).catch(() => { if (live) setSaved([]); }).finally(() => { if (live) setLoadingSaved(false); });
     return () => { live = false; };
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/auth/session", { cache: "no-store" }).then((response) => response.ok ? response.json() : null)
+      .then((body) => { if (body?.user?.email) setOwnerEmail(body.user.email); }).catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -104,7 +126,7 @@ export default function DomainResearchPage() {
       const body = await response.json();
       if (!response.ok || !body.evidence) throw new Error(body.error ?? "Domain research failed.");
       const evidence = body.evidence as DomainEvidence;
-      setActive(evidence); setSaved((current) => [evidence, ...current.filter((item) => item.id !== evidence.id)]); setMappings([]); setMappingTitle(`Investigate ${evidence.sourceValue} opportunity`);
+      setActive(evidence); setSaved((current) => [evidence, ...current.filter((item) => item.id !== evidence.id)]); setMappings([]); setMappingTitle(`Investigate ${evidence.sourceValue} opportunity`); setTargetKeywords((evidence.evidence?.keywords ?? []).slice(0, 5).map((item) => item.keyword).join("\n"));
       router.replace(`/domain-research?evidence=${encodeURIComponent(evidence.id)}`);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Domain research failed."); }
     finally { setRunning(false); }
@@ -114,10 +136,10 @@ export default function DomainResearchPage() {
     if (!active || !mappingSite || !mappingTitle.trim() || mappingBusy) return;
     setMappingBusy(true); setError(null);
     try {
-      const response = await fetch("/api/research-mappings", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ evidenceId: active.id, siteSlug: mappingSite, title: mappingTitle.trim(), notes: mappingNotes.trim() || null, priorityScore }) });
+      const response = await fetch("/api/research-mappings", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ evidenceId: active.id, siteSlug: mappingSite, title: mappingTitle.trim(), notes: mappingNotes.trim() || null, priorityScore, executionType, pageMode, targetUrl: targetUrl.trim() || null, plannedUrl: plannedUrl.trim() || null, targetKeywords: targetKeywords.split(/[\n,]/).map((value) => value.trim()).filter(Boolean).slice(0, 30), ownerEmail: ownerEmail.trim(), dueDate }) });
       const body = await response.json();
       if (!response.ok || !body.mapping) throw new Error(body.error ?? "Evidence could not be mapped.");
-      setMappings((current) => [body.mapping, ...current.filter((item) => item.id !== body.mapping.id)]); setMappedNow(true); setMappingNotes("");
+      setMappings((current) => [body.mapping, ...current.filter((item) => item.id !== body.mapping.id)]); setMappedNow(true); setMappingWarning(body.mapping.duplicateWarning ?? null);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Evidence could not be mapped."); }
     finally { setMappingBusy(false); }
   }
@@ -158,10 +180,25 @@ export default function DomainResearchPage() {
 
         <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_340px]"><div className="space-y-5"><Card className="overflow-hidden p-4"><div className="mb-3"><h3 className="text-sm font-bold text-ink">Organic keyword footprint</h3><p className="mt-0.5 text-2xs text-muted">The strongest keyword evidence collected for this market.</p></div><DataTable rows={keywords} columns={KEYWORD_COLUMNS} rowKey={(row) => row.keyword} searchKeys={(row) => `${row.keyword} ${row.intent ?? ""} ${row.url ?? ""}`} searchPlaceholder="Filter keyword evidence…" exportName={`${active.sourceValue}-domain-keywords`} pageSize={15} /></Card><Card className="overflow-hidden"><div className="border-b border-border px-5 py-4"><h3 className="text-sm font-bold text-ink">Pages creating the footprint</h3><p className="mt-0.5 text-2xs text-muted">Evidence ranked by estimated organic traffic.</p></div><div className="divide-y divide-border">{strongestPages.map((page, index) => <div key={page.url} className="grid gap-2 px-5 py-3 sm:grid-cols-[28px_minmax(0,1fr)_90px_90px] sm:items-center"><span className="text-xs font-black text-muted tnum">{String(index + 1).padStart(2, "0")}</span><div className="min-w-0"><div className="truncate text-xs font-semibold text-ink">{shortUrl(page.url)}</div><div className="truncate text-[10px] text-muted">{page.url}</div></div><div className="text-right"><div className="text-xs font-bold text-ink tnum">{metric(page.traffic)}</div><div className="text-[10px] text-muted">traffic</div></div><div className="text-right"><div className="text-xs font-bold text-ink tnum">{metric(page.keywords)}</div><div className="text-[10px] text-muted">keywords</div></div></div>)}{!strongestPages.length && <div className="p-5 text-xs text-muted">No page evidence was returned for this market.</div>}</div></Card></div>
 
-          <aside className="space-y-4"><Card className="overflow-hidden border-purple/20"><div className="border-b border-border bg-purple/[0.04] px-5 py-4"><div className="flex items-center gap-2"><Target className="h-4 w-4 text-purple" /><h3 className="text-sm font-bold text-ink">Qualify and map</h3></div><p className="mt-1 text-xs leading-5 text-muted">Choose a website only after the evidence is worth acting on. Mapping creates a pending approval, not live work.</p></div><div className="space-y-3 p-5"><label><span className="mb-1 block text-2xs font-bold uppercase tracking-wide text-muted">Destination website</span><select value={mappingSite} onChange={(event) => setMappingSite(event.target.value)} className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-ink"><option value="">Choose a website</option>{sites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}</select></label><label><span className="mb-1 block text-2xs font-bold uppercase tracking-wide text-muted">Opportunity title</span><input value={mappingTitle} onChange={(event) => setMappingTitle(event.target.value)} className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-ink outline-none focus:border-purple" /></label><label><span className="mb-1 flex items-center justify-between text-2xs font-bold uppercase tracking-wide text-muted"><span>Priority</span><span className="text-purple tnum">{priorityScore}/100</span></span><input type="range" min="0" max="100" step="5" value={priorityScore} onChange={(event) => setPriorityScore(Number(event.target.value))} className="w-full accent-purple" /></label><label><span className="mb-1 block text-2xs font-bold uppercase tracking-wide text-muted">Qualification notes</span><textarea value={mappingNotes} onChange={(event) => setMappingNotes(event.target.value)} placeholder="Why this matters, likely value and recommended next action" rows={4} className="w-full resize-none rounded-md border border-border bg-card px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-purple" /></label><Button variant="primary" className="w-full" onClick={() => void mapEvidence()} disabled={!mappingSite || !mappingTitle.trim() || mappingBusy}>{mappingBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Building2 className="h-4 w-4" />} Map to website</Button>{mappedNow && <div className="rounded-md border border-success/20 bg-success/5 p-3"><div className="flex items-center gap-2 text-xs font-bold text-success"><CheckCircle2 className="h-4 w-4" />Mapped · awaiting approval</div><Link href="/action-centre" className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-purple">Review in Action Centre <ArrowRight className="h-3.5 w-3.5" /></Link></div>}</div></Card>
+          <aside className="space-y-4"><Card className="overflow-hidden border-purple/20"><div className="border-b border-border bg-purple/[0.04] px-5 py-4"><div className="flex items-center gap-2"><Target className="h-4 w-4 text-purple" /><h3 className="text-sm font-bold text-ink">Turn evidence into work</h3></div><p className="mt-1 text-xs leading-5 text-muted">Carry the evidence, destination, owner and deadline into one approval-ready execution item.</p></div><div className="space-y-4 p-5"><div className="grid grid-cols-2 gap-2 text-center"><div className="rounded-md bg-workspace p-3"><div className="text-lg font-black text-ink tnum">{keywords.length}</div><div className="text-[10px] font-bold uppercase tracking-wide text-muted">keywords</div></div><div className="rounded-md bg-workspace p-3"><div className="text-lg font-black text-ink tnum">{active.evidence?.pages?.length ?? 0}</div><div className="text-[10px] font-bold uppercase tracking-wide text-muted">pages</div></div></div><Button variant="primary" className="w-full" onClick={() => { setMappedNow(false); setMappingWarning(null); setMappingOpen(true); }}><Building2 className="h-4 w-4" /> Convert opportunity</Button><p className="text-[10px] leading-4 text-muted">No work starts until a reviewer approves it in Action Centre.</p></div></Card>
           {mappings.length > 0 && <Card className="p-4"><div className="text-2xs font-bold uppercase tracking-[0.12em] text-muted">Website mappings</div><div className="mt-3 space-y-2">{mappings.map((mapping) => <div key={mapping.id} className="flex items-center justify-between gap-2 rounded-md bg-workspace px-3 py-2"><div className="min-w-0"><div className="truncate text-xs font-bold text-ink">{sites.find((site) => site.id === mapping.siteSlug)?.name ?? mapping.siteSlug}</div><div className="text-[10px] text-muted">Priority {mapping.priorityScore}</div></div><StatusBadge label={mapping.status} tone={mapping.status === "approved" ? "success" : mapping.status === "rejected" ? "critical" : "warning"} /></div>)}</div></Card>}
           </aside></div>
       </div> : <Card className="flex min-h-[420px] items-center justify-center p-6"><EmptyState title="Investigate any domain" description="Enter a competitor, market leader, publisher or acquisition target. The result is saved globally and remains independent until you map it." icon={<Globe2 className="h-7 w-7" />} /></Card>}
     </div>
+
+    {active && <Drawer open={mappingOpen} onClose={() => setMappingOpen(false)} title="Convert opportunity" subtitle={`${active.sourceValue} · ${active.locationLabel}`} width="max-w-xl" footer={<div className="flex items-center justify-between gap-3"><span className="text-[10px] text-muted">Mapping saves a proposal; it does not start execution.</span><div className="flex gap-2"><Button onClick={() => setMappingOpen(false)}>Cancel</Button><Button variant="primary" onClick={() => void mapEvidence()} disabled={!mappingSite || !mappingTitle.trim() || !ownerEmail.trim() || !dueDate || (pageMode === "existing_page" && !targetUrl.trim()) || (pageMode === "new_page" && !plannedUrl.trim()) || mappingBusy}>{mappingBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Building2 className="h-4 w-4" />} Save for approval</Button></div></div>}>
+      <div className="space-y-5">
+        <div className="rounded-lg border border-[#12B8C4]/25 bg-[#12B8C4]/[0.06] p-4"><div className="text-2xs font-bold uppercase tracking-[0.12em] text-[#0E98A3]">Evidence carried forward</div><div className="mt-2 text-sm font-bold text-ink">{active.title}</div><div className="mt-1 text-xs text-muted">{metric(active.summary.organicKeywords)} keywords · {metric(active.summary.organicTraffic)} estimated traffic · captured {freshness(active.capturedAt)}</div></div>
+
+        <section><div className="mb-3 text-2xs font-bold uppercase tracking-[0.12em] text-muted">1 · Destination and output</div><div className="grid gap-3 sm:grid-cols-2"><label><span className="mb-1 block text-xs font-semibold text-ink">Website</span><select value={mappingSite} onChange={(event) => setMappingSite(event.target.value)} className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-ink"><option value="">Choose a website</option>{sites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}</select></label><label><span className="mb-1 block text-xs font-semibold text-ink">Execution type</span><select value={executionType} onChange={(event) => setExecutionType(event.target.value as typeof executionType)} className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-ink">{EXECUTION_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></div><label className="mt-3 block"><span className="mb-1 block text-xs font-semibold text-ink">Opportunity title</span><input value={mappingTitle} onChange={(event) => setMappingTitle(event.target.value)} className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-ink outline-none focus:border-purple" /></label></section>
+
+        <section><div className="mb-3 text-2xs font-bold uppercase tracking-[0.12em] text-muted">2 · Page plan</div><div className="grid grid-cols-3 gap-2">{([['new_page','New page'],['existing_page','Existing page'],['site_wide','Site-wide']] as const).map(([value,label]) => <button key={value} type="button" onClick={() => setPageMode(value)} className={cn("rounded-md border px-2 py-2 text-xs font-semibold", pageMode === value ? "border-purple bg-purple/10 text-purple" : "border-border text-muted hover:text-ink")}>{label}</button>)}</div>{pageMode === "existing_page" && <label className="mt-3 block"><span className="mb-1 block text-xs font-semibold text-ink">Target URL</span><input value={targetUrl} onChange={(event) => setTargetUrl(event.target.value)} placeholder="https://site.com/existing-page" className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-ink outline-none focus:border-purple" /></label>}{pageMode === "new_page" && <label className="mt-3 block"><span className="mb-1 block text-xs font-semibold text-ink">Planned URL or path</span><input value={plannedUrl} onChange={(event) => setPlannedUrl(event.target.value)} placeholder="/guides/new-opportunity" className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-ink outline-none focus:border-purple" /></label>}<label className="mt-3 block"><span className="mb-1 block text-xs font-semibold text-ink">Target keywords <span className="font-normal text-muted">one per line</span></span><textarea value={targetKeywords} onChange={(event) => setTargetKeywords(event.target.value)} rows={4} className="w-full resize-none rounded-md border border-border bg-card px-3 py-2 text-sm text-ink outline-none focus:border-purple" /></label></section>
+
+        <section><div className="mb-3 text-2xs font-bold uppercase tracking-[0.12em] text-muted">3 · Ownership and value</div><div className="grid gap-3 sm:grid-cols-2"><label><span className="mb-1 block text-xs font-semibold text-ink">Owner email</span><input type="email" value={ownerEmail} onChange={(event) => setOwnerEmail(event.target.value)} className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-ink outline-none focus:border-purple" /></label><label><span className="mb-1 block text-xs font-semibold text-ink">Due date</span><input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-ink outline-none focus:border-purple" /></label></div><label className="mt-3 block"><span className="mb-1 flex items-center justify-between text-xs font-semibold text-ink"><span>Priority</span><span className="text-purple tnum">{priorityScore}/100</span></span><input type="range" min="0" max="100" step="5" value={priorityScore} onChange={(event) => setPriorityScore(Number(event.target.value))} className="w-full accent-purple" /></label><label className="mt-3 block"><span className="mb-1 block text-xs font-semibold text-ink">Qualification notes</span><textarea value={mappingNotes} onChange={(event) => setMappingNotes(event.target.value)} placeholder="Why this matters, expected value and recommended next action" rows={4} className="w-full resize-none rounded-md border border-border bg-card px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-purple" /></label></section>
+
+        {mappedNow && <div className="rounded-lg border border-success/25 bg-success/5 p-4"><div className="flex items-center gap-2 text-sm font-bold text-success"><CheckCircle2 className="h-4 w-4" />Opportunity mapped and awaiting approval</div><Link href="/action-centre" className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-purple">Review in Action Centre <ArrowRight className="h-3.5 w-3.5" /></Link></div>}
+        {mappingWarning && <div className={cn("rounded-lg border p-4", mappingWarning.severity === "warning" ? "border-warning/30 bg-warning/5" : "border-[#12B8C4]/25 bg-[#12B8C4]/[0.05]")}><div className="flex items-start gap-2"><AlertTriangle className={cn("mt-0.5 h-4 w-4 shrink-0", mappingWarning.severity === "warning" ? "text-warning" : "text-[#0E98A3]")} /><div><div className="text-xs font-bold text-ink">Duplicate and cannibalisation check</div><p className="mt-1 text-xs leading-5 text-muted">{mappingWarning.summary}</p></div></div>{mappingWarning.matches.length > 0 && <div className="mt-3 space-y-1">{mappingWarning.matches.map((match, index) => <div key={`${match.kind}:${match.label}:${index}`} className="rounded bg-card px-2.5 py-2 text-[10px] text-muted"><span className="font-bold uppercase text-ink">{match.kind}</span> · {match.label}{match.url ? ` · ${shortUrl(match.url)}` : ""}</div>)}</div>}</div>}
+      </div>
+    </Drawer>}
   </div>;
 }

@@ -1,6 +1,6 @@
 import {
   Activity, Bell, Bot, Building2, FileText, FolderKanban, Gauge, GitCompareArrows,
-  Globe2, Home, LayoutDashboard, Link2, ListChecks, MapPinned, Radar, Search, Settings,
+  Globe2, Home, LayoutDashboard, Link2, ListChecks, ListTodo, MapPinned, Radar, Search, Settings,
   ScanLine, ShieldCheck, Sparkles, Swords, TrendingUp, Waypoints, type LucideIcon,
 } from "lucide-react";
 
@@ -17,6 +17,7 @@ export const GLOBAL_NAV: NavItem[] = [
   { href: "/research", label: "Research", icon: Search, group: "global" },
   { href: "/sites", label: "Sites", icon: Building2, group: "global" },
   { href: "/action-centre", label: "Action centre", icon: ListChecks, group: "global" },
+  { href: "/work", label: "Continue work", icon: ListTodo, group: "global" },
   { href: "/reports", label: "Reports", icon: FileText, group: "global" },
   { href: "/notifications", label: "Notifications", icon: Bell, group: "global" },
   { href: "/settings", label: "Admin", icon: Settings, group: "global" },
@@ -57,12 +58,12 @@ export const AI_SECONDARY: NavItem[] = [{ href: "/ai-visibility", label: "AI vis
 export const NAV_ITEMS: NavItem[] = [...GLOBAL_NAV, ...RESEARCH_NAV.slice(1), SCAN_CENTRE, ...SITE_NAV, ...TECHNICAL_SECONDARY, ...KEYWORD_SECONDARY, ...BACKLINK_SECONDARY];
 export const PRIMARY_NAV = SITE_NAV;
 export const NAV_SECTIONS = [
-  { label: "Portfolio", icon: Building2, items: GLOBAL_NAV.slice(0, 5) },
+  { label: "Portfolio", icon: Building2, items: GLOBAL_NAV.slice(0, 6) },
   { label: "Search", icon: Search, items: SITE_NAV.slice(1, 5) },
   { label: "Technical", icon: ShieldCheck, items: [SITE_NAV[5]!, ...TECHNICAL_SECONDARY] },
   { label: "Authority", icon: Link2, items: [SITE_NAV[7]!, ...BACKLINK_SECONDARY] },
   { label: "Local", icon: MapPinned, items: [SITE_NAV[9]!] },
   { label: "AI visibility", icon: Sparkles, items: [SITE_NAV[8]!] },
   { label: "Actions", icon: ListChecks, items: [SITE_NAV[6]!, { href: "/recommendations", label: "Recommendations", icon: ListChecks }] },
-  { label: "Reports", icon: FileText, items: [GLOBAL_NAV[5]!] },
+  { label: "Reports", icon: FileText, items: [GLOBAL_NAV[6]!] },
 ];

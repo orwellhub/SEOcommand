@@ -9,6 +9,7 @@ async function request(path: string, role: AppRole, body: unknown, groupIds: str
 }
 
 describe("global research to website handoff", () => {
+  const executionDetails = { executionType: "content_brief", pageMode: "new_page", plannedUrl: "/guides/competitor-opportunity", targetKeywords: ["competitor opportunity"], ownerEmail: "seo_analyst@orwell.test", dueDate: "2026-09-10" } as const;
   beforeAll(() => {
     vi.stubEnv("QA_SYNTHETIC", "true");
     vi.stubEnv("AUTH_SECRET", "a-long-test-secret");
@@ -25,7 +26,7 @@ describe("global research to website handoff", () => {
   });
 
   it("keeps mapping and approval as separate permissioned decisions", async () => {
-    const mappingResponse = await mapResearch(await request("/api/research-mappings", "seo_analyst", { evidenceId: "71000000-0000-4000-8000-000000000001", siteSlug: "mortgagecompare", title: "Review a competitor content opportunity", notes: "Strong commercial keyword overlap.", priorityScore: 80 }));
+    const mappingResponse = await mapResearch(await request("/api/research-mappings", "seo_analyst", { evidenceId: "71000000-0000-4000-8000-000000000001", siteSlug: "mortgagecompare", title: "Review a competitor content opportunity", notes: "Strong commercial keyword overlap.", priorityScore: 80, ...executionDetails }));
     expect(mappingResponse.status).toBe(201);
     const mapping = await mappingResponse.json() as { mapping: { id: string; status: string } };
     expect(mapping.mapping.status).toBe("mapped");
@@ -40,7 +41,7 @@ describe("global research to website handoff", () => {
 
   it("blocks viewers from running paid research or mapping evidence", async () => {
     const research = await runDomainResearch(await request("/api/domain-research", "viewer", { targetHost: "competitor.example", locationCode: 2784, languageCode: "en", locationLabel: "United Arab Emirates" }));
-    const mapping = await mapResearch(await request("/api/research-mappings", "viewer", { evidenceId: "71000000-0000-4000-8000-000000000001", siteSlug: "mortgagecompare", title: "Blocked mapping", priorityScore: 50 }));
+    const mapping = await mapResearch(await request("/api/research-mappings", "viewer", { evidenceId: "71000000-0000-4000-8000-000000000001", siteSlug: "mortgagecompare", title: "Blocked mapping", priorityScore: 50, ...executionDetails }));
     expect([research.status, mapping.status]).toEqual([403, 403]);
   });
 });

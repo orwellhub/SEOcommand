@@ -1254,6 +1254,17 @@ export const workflowItems = pgTable(
     status: text("status"), // approved | in_progress | done (null when dismissed)
     sourceUrl: text("source_url"),
     sourceEvidence: jsonb("source_evidence").$type<Record<string, unknown>>().notNull().default({}),
+    opportunityId: uuid("opportunity_id"),
+    executionType: text("execution_type"),
+    ownerEmail: text("owner_email"),
+    dueDate: date("due_date"),
+    pageMode: text("page_mode"),
+    targetUrl: text("target_url"),
+    plannedUrl: text("planned_url"),
+    executionData: jsonb("execution_data").$type<Record<string, unknown>>().notNull().default({}),
+    verification: jsonb("verification").$type<Record<string, unknown>>().notNull().default({}),
+    shippedAt: timestamp("shipped_at"),
+    verifiedAt: timestamp("verified_at"),
     createdBy: text("created_by"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -1416,6 +1427,14 @@ export const researchMappings = pgTable(
     title: text("title").notNull(),
     notes: text("notes"),
     priorityScore: integer("priority_score").notNull().default(60),
+    executionType: text("execution_type").notNull().default("content_brief"),
+    pageMode: text("page_mode").notNull().default("new_page"),
+    targetUrl: text("target_url"),
+    plannedUrl: text("planned_url"),
+    targetKeywords: jsonb("target_keywords").$type<string[]>().notNull().default([]),
+    ownerEmail: text("owner_email"),
+    dueDate: date("due_date"),
+    duplicateWarning: jsonb("duplicate_warning").$type<Record<string, unknown>>().notNull().default({}),
     status: text("status").notNull().default("mapped"),
     createdBy: text("created_by"),
     reviewedBy: text("reviewed_by"),
@@ -1427,6 +1446,36 @@ export const researchMappings = pgTable(
     uniqEvidenceSite: uniqueIndex("uniq_research_mapping_evidence_site").on(t.evidenceId, t.siteSlug),
     siteStatusIdx: index("research_mapping_site_status_idx").on(t.siteSlug, t.status, t.updatedAt),
   }),
+);
+
+/** Discussion attached to the runtime execution item, independent of the
+ * legacy task model used by the original relational prototype. */
+export const workflowComments = pgTable(
+  "workflow_comments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workflowItemId: uuid("workflow_item_id").references(() => workflowItems.id, { onDelete: "cascade" }).notNull(),
+    actorEmail: text("actor_email"),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({ itemDateIdx: index("workflow_comment_item_date_idx").on(t.workflowItemId, t.createdAt) }),
+);
+
+/** Immutable lifecycle events make approval, execution and verification
+ * auditable without reconstructing state from the current item alone. */
+export const workflowStatusHistory = pgTable(
+  "workflow_status_history",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workflowItemId: uuid("workflow_item_id").references(() => workflowItems.id, { onDelete: "cascade" }).notNull(),
+    fromStatus: text("from_status"),
+    toStatus: text("to_status").notNull(),
+    changedBy: text("changed_by"),
+    note: text("note"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({ itemDateIdx: index("workflow_status_item_date_idx").on(t.workflowItemId, t.createdAt) }),
 );
 
 /** Database-backed workspace accounts replace environment-only account

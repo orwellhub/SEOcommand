@@ -37,6 +37,7 @@ export async function GET(request: Request) {
         id: "72000000-0000-4000-8000-000000000001", kind: "research" as const,
         siteSlug: site.id, siteName: site.name, title: "Investigate competitor.example opportunity",
         detail: "Mapped domain evidence · awaiting approval", status: "mapped", severity: "medium" as const,
+        duplicateWarning: { severity: "none", summary: "No overlap found in the latest stored website evidence.", matches: [] },
         score: 70, actionUrl: "/domain-research?evidence=71000000-0000-4000-8000-000000000001&mapping=72000000-0000-4000-8000-000000000001", createdAt: new Date(Date.UTC(2026, 7, 27, 9, 0)),
       }] : []),
       ];
@@ -95,7 +96,7 @@ export async function GET(request: Request) {
         status: task.status ?? "approved",
         severity: task.priorityScore >= 80 ? "high" : task.priorityScore >= 50 ? "medium" : "low",
         score: task.priorityScore,
-        actionUrl: task.sourceUrl ?? `/recommendations?site=${encodeURIComponent(task.domainSlug)}&item=${encodeURIComponent(task.id)}`,
+        actionUrl: task.executionType ? `/work?item=${encodeURIComponent(task.id)}` : task.sourceUrl ?? `/recommendations?site=${encodeURIComponent(task.domainSlug)}&item=${encodeURIComponent(task.id)}`,
         createdAt: task.updatedAt,
       })),
     ...mappedResearch.map(({ mapping, evidence }) => ({
@@ -104,7 +105,8 @@ export async function GET(request: Request) {
       siteSlug: mapping.siteSlug,
       siteName: siteName.get(mapping.siteSlug) ?? mapping.siteSlug,
       title: mapping.title,
-      detail: `Mapped ${evidence.kind} evidence · ${evidence.sourceValue} · awaiting approval`,
+      detail: `${mapping.executionType.replace(/_/g, " ")} · ${mapping.pageMode.replace(/_/g, " ")} · ${mapping.ownerEmail ?? "Unassigned"}${mapping.dueDate ? ` · due ${mapping.dueDate}` : ""}`,
+      duplicateWarning: mapping.duplicateWarning,
       status: mapping.status,
       severity: mapping.priorityScore >= 80 ? "high" as const : mapping.priorityScore >= 50 ? "medium" as const : "low" as const,
       score: mapping.priorityScore,
