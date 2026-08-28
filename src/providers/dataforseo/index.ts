@@ -13,7 +13,7 @@ import type {
   TrackedRankingResult,
 } from "@/platform/types";
 import { analyseAiResponse } from "@/platform/ai-analysis";
-import { getManagedSite, listAiTrackingPrompts, listDueAiTrackingPrompts, listRankTrackingKeywords, markAiPromptRun } from "@/platform/site-store";
+import { ensureRegistryAiTrackingPrompts, getManagedSite, listAiTrackingPrompts, listDueAiTrackingPrompts, listRankTrackingKeywords, markAiPromptRun } from "@/platform/site-store";
 import { isoDate } from "@/lib/dates";
 import { ENDPOINTS, locationFor, locationForSite, readConfig } from "./config";
 import { MissingCredentialsError } from "./errors";
@@ -324,7 +324,11 @@ export async function fetchAiPromptResults(
   competitors: { name?: string; host: string }[] = [],
 ): Promise<AiVisibilityRun | null> {
   const site = await siteFor(domainId);
-  const storedAll = await listAiTrackingPrompts(domainId);
+  let storedAll = await listAiTrackingPrompts(domainId);
+  const registryPrompts = TRACKED_AI_PROMPTS[domainId] ?? [];
+  if (!storedAll.length && registryPrompts.length) {
+    storedAll = await ensureRegistryAiTrackingPrompts(domainId, registryPrompts);
+  }
   const stored = storedAll.length ? await listDueAiTrackingPrompts(domainId) : [];
   const tracked = stored.length
     ? stored.map((item) => ({
@@ -339,7 +343,7 @@ export async function fetchAiPromptResults(
       }))
     : storedAll.length
       ? []
-      : (TRACKED_AI_PROMPTS[domainId] ?? []).map((item) => ({
+      : registryPrompts.map((item) => ({
           ...item,
           id: null,
           platforms: ["chatgpt"],

@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, lte } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lte } from "drizzle-orm";
 import { DOMAINS, DOMAIN_MAP } from "@/data/domains";
 import { db, schema } from "@/db";
 import { hasDatabase } from "@/sync/store";
@@ -198,6 +198,50 @@ export async function listDueAiTrackingPrompts(siteSlug: string, now = new Date(
       ),
     )
     .orderBy(asc(schema.aiTrackingPrompts.nextRunAt), asc(schema.aiTrackingPrompts.createdAt));
+}
+
+export function registryPromptRunTimes(lastRunAt: Date | null, now = new Date()) {
+  const nextRunAt = lastRunAt ? new Date(lastRunAt) : new Date(now);
+  if (lastRunAt) nextRunAt.setUTCDate(nextRunAt.getUTCDate() + 7);
+  return { lastRunAt, nextRunAt };
+}
+
+/** Migrate legacy registry prompts into durable cadence rows. Existing AI
+ * observations seed last/next run times, preventing the daily scheduler from
+ * buying a nominally weekly fallback prompt again on the next day. */
+export async function ensureRegistryAiTrackingPrompts(
+  siteSlug: string,
+  prompts: Array<{ prompt: string; topic: string }>,
+) {
+  if (!hasDatabase() || !prompts.length) return [];
+  const promptTexts = prompts.map((item) => item.prompt);
+  const observations = await db().select({
+    prompt: schema.aiResponseObservations.prompt,
+    capturedAt: schema.aiResponseObservations.capturedAt,
+  }).from(schema.aiResponseObservations).where(and(
+    eq(schema.aiResponseObservations.siteSlug, siteSlug),
+    inArray(schema.aiResponseObservations.prompt, promptTexts),
+  )).orderBy(desc(schema.aiResponseObservations.capturedAt));
+  const lastByPrompt = new Map<string, Date>();
+  for (const observation of observations) {
+    if (!lastByPrompt.has(observation.prompt)) lastByPrompt.set(observation.prompt, observation.capturedAt);
+  }
+  await db().insert(schema.aiTrackingPrompts).values(prompts.map((item) => {
+    const lastRunAt = lastByPrompt.get(item.prompt) ?? null;
+    const schedule = registryPromptRunTimes(lastRunAt);
+    return {
+      siteSlug,
+      prompt: item.prompt,
+      topic: item.topic,
+      platforms: ["chatgpt"],
+      cadence: "weekly",
+      priority: 60,
+      sampleCount: 1,
+      source: "registry",
+      ...schedule,
+    };
+  })).onConflictDoNothing({ target: [schema.aiTrackingPrompts.siteSlug, schema.aiTrackingPrompts.prompt] });
+  return listAiTrackingPrompts(siteSlug);
 }
 
 export async function markAiPromptRun(id: string, cadence: string, runAt = new Date()) {

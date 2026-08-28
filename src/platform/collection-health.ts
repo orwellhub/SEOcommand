@@ -147,12 +147,15 @@ export function resolveAiCollectionSchedule(
   stored: Array<{ cadence: string; nextRunAt: Date | string }>,
   registryPromptCount: number,
   now = new Date(),
+  registryLastObservedAt?: Date | string | null,
 ) {
   const cadences = stored.length ? stored.map((row) => row.cadence) : registryPromptCount > 0 ? ["weekly"] : [];
+  const registryNext = registryLastObservedAt ? new Date(registryLastObservedAt) : nextWeeklyCollection(now);
+  if (registryLastObservedAt) registryNext.setUTCDate(registryNext.getUTCDate() + 7);
   return {
     configured: cadences.length > 0,
     cadences,
-    nextRunAt: stored.length ? earliestDate(stored.map((row) => row.nextRunAt)) : registryPromptCount > 0 ? nextWeeklyCollection(now) : null,
+    nextRunAt: stored.length ? earliestDate(stored.map((row) => row.nextRunAt)) : registryPromptCount > 0 ? registryNext : null,
     staleAfterDays: aiStaleAfterDays(cadences),
   };
 }
@@ -210,7 +213,7 @@ export async function loadCollectionHealth(siteSlug: string, now = new Date()): 
   const validation = validateCollectionEvidence({ rankings, competitors, gaps, links: prospects, ai: observations });
   const paidConfigured = dataForSeoConfigured() && paidJobsApproved(site);
   const registryAiPrompts = TRACKED_AI_PROMPTS[siteSlug as keyof typeof TRACKED_AI_PROMPTS] ?? [];
-  const aiSchedule = resolveAiCollectionSchedule(prompts, registryAiPrompts.length, now);
+  const aiSchedule = resolveAiCollectionSchedule(prompts, registryAiPrompts.length, now, latest(observations.map((row) => row.capturedAt)));
   const verified = work.filter((row) => {
     const outcome = (row.verification as { outcome?: string }).outcome;
     return outcome && outcome !== "awaiting_data";

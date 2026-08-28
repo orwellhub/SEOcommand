@@ -51,6 +51,7 @@ describe("collection health", () => {
       staleAfterDays: 9,
       nextRunAt: new Date("2026-08-31T06:00:00Z"),
     });
+    expect(resolveAiCollectionSchedule([], 6, now, "2026-08-28T06:04:00Z").nextRunAt).toEqual(new Date("2026-09-04T06:04:00Z"));
     expect(resolveAiCollectionSchedule([], 0, now)).toMatchObject({ configured: false, nextRunAt: null });
   });
 
