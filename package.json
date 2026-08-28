@@ -12,7 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "drizzle-kit migrate && tsx scripts/activate-mortgagecompare.ts",
     "db:seed": "tsx scripts/seed.ts",
     "qa:seed": "tsx scripts/seed-qa.ts",
     "qa:load": "node --import tsx scripts/qa-load.ts",
