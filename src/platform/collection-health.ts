@@ -1,5 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
+import { TRACKED_AI_PROMPTS } from "@/data/ai-prompts";
 import { crossedThresholds } from "@/lib/budget";
 import type { Severity } from "@/lib/types";
 import { currentMonth } from "@/providers/dataforseo/cost";
@@ -142,6 +143,20 @@ export function aiStaleAfterDays(cadences: string[]): number {
   return cadences.includes("daily") ? 2 : cadences.includes("weekly") ? 9 : 35;
 }
 
+export function resolveAiCollectionSchedule(
+  stored: Array<{ cadence: string; nextRunAt: Date | string }>,
+  registryPromptCount: number,
+  now = new Date(),
+) {
+  const cadences = stored.length ? stored.map((row) => row.cadence) : registryPromptCount > 0 ? ["weekly"] : [];
+  return {
+    configured: cadences.length > 0,
+    cadences,
+    nextRunAt: stored.length ? earliestDate(stored.map((row) => row.nextRunAt)) : registryPromptCount > 0 ? nextWeeklyCollection(now) : null,
+    staleAfterDays: aiStaleAfterDays(cadences),
+  };
+}
+
 function issue(dataset: CollectionDataset, code: string, count: number, detail: string): ValidationIssue[] {
   return count ? [{ dataset, code, count, detail }] : [];
 }
@@ -194,21 +209,22 @@ export async function loadCollectionHealth(siteSlug: string, now = new Date()): 
   ]);
   const validation = validateCollectionEvidence({ rankings, competitors, gaps, links: prospects, ai: observations });
   const paidConfigured = dataForSeoConfigured() && paidJobsApproved(site);
+  const registryAiPrompts = TRACKED_AI_PROMPTS[siteSlug as keyof typeof TRACKED_AI_PROMPTS] ?? [];
+  const aiSchedule = resolveAiCollectionSchedule(prompts, registryAiPrompts.length, now);
   const verified = work.filter((row) => {
     const outcome = (row.verification as { outcome?: string }).outcome;
     return outcome && outcome !== "awaiting_data";
   });
-  const aiNext = earliestDate(prompts.map((row) => row.nextRunAt));
   const aiPolicy = {
     ...COLLECTION_POLICIES.ai,
-    staleAfterDays: aiStaleAfterDays(prompts.map((row) => row.cadence)),
+    staleAfterDays: aiSchedule.staleAfterDays,
   };
   const evidence: Record<CollectionDataset, CollectionEvidence> = {
     rankings: { configured: paidConfigured && tracked.length > 0, records: rankings.length, distinctDates: distinctDays(rankings.map((row) => row.capturedOn)), observedAt: latest(rankings.map((row) => row.capturedOn)), nextRunAt: nextDailyCollection(now), validationIssues: validation.filter((item) => item.dataset === "rankings") },
     competitors: { configured: paidConfigured, records: competitors.length, distinctDates: distinctDays(competitors.map((row) => row.capturedAt)), observedAt: latest(competitors.map((row) => row.capturedAt)), nextRunAt: nextWeeklyCollection(now), validationIssues: validation.filter((item) => item.dataset === "competitors") },
     coverage: { configured: paidConfigured, records: gaps.length, distinctDates: distinctDays(gaps.map((row) => row.capturedOn)), observedAt: latest(gaps.map((row) => row.capturedOn)), nextRunAt: nextWeeklyCollection(now), validationIssues: validation.filter((item) => item.dataset === "coverage") },
     links: { configured: paidConfigured, records: prospects.length + linkHistory.length, distinctDates: distinctDays([...prospects.map((row) => row.updatedAt), ...linkHistory.map((row) => row.capturedOn)]), observedAt: latest([...prospects.map((row) => row.updatedAt), ...linkHistory.map((row) => row.capturedOn)]), nextRunAt: nextWeeklyCollection(now), validationIssues: validation.filter((item) => item.dataset === "links") },
-    ai: { configured: paidConfigured && prompts.length > 0, records: observations.length, distinctDates: distinctDays(observations.map((row) => row.capturedOn)), observedAt: latest(observations.map((row) => row.capturedAt)), nextRunAt: aiNext, validationIssues: validation.filter((item) => item.dataset === "ai") },
+    ai: { configured: paidConfigured && aiSchedule.configured, records: observations.length, distinctDates: distinctDays(observations.map((row) => row.capturedOn)), observedAt: latest(observations.map((row) => row.capturedAt)), nextRunAt: aiSchedule.nextRunAt, validationIssues: validation.filter((item) => item.dataset === "ai") },
     outcomes: { configured: true, records: verified.length, distinctDates: distinctDays(verified.map((row) => row.updatedAt)), observedAt: latest(verified.map((row) => row.updatedAt)), nextRunAt: null },
   };
   return {

@@ -6,6 +6,7 @@ import {
   earliestDate,
   nextDailyCollection,
   nextWeeklyCollection,
+  resolveAiCollectionSchedule,
   validateCollectionEvidence,
 } from "./collection-health";
 
@@ -44,6 +45,13 @@ describe("collection health", () => {
     expect(aiStaleAfterDays(["monthly", "daily"])).toBe(2);
     expect(aiStaleAfterDays(["monthly", "weekly"])).toBe(9);
     expect(aiStaleAfterDays(["monthly"])).toBe(35);
+    expect(resolveAiCollectionSchedule([], 6, now)).toMatchObject({
+      configured: true,
+      cadences: ["weekly"],
+      staleAfterDays: 9,
+      nextRunAt: new Date("2026-08-31T06:00:00Z"),
+    });
+    expect(resolveAiCollectionSchedule([], 0, now)).toMatchObject({ configured: false, nextRunAt: null });
   });
 
   it("flags raw provider evidence outside accepted bounds", () => {
