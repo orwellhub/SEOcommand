@@ -17,6 +17,7 @@ import { syncAll, syncDomain, scheduledTiers, ALL_TIERS } from "../src/sync/engi
 import { deliverDueReports } from "../src/reports/delivery";
 import { processPlatformJobs } from "../src/platform/jobs";
 import { deliverQueuedAlerts } from "../src/platform/alert-delivery";
+import { monitorCollectionHealth, monitorProviderBudget } from "../src/platform/collection-health";
 import { closeDb } from "../src/db";
 
 async function main() {
@@ -53,6 +54,25 @@ async function main() {
   console.log(
     `[orwell-jobs] Onboarding: ${onboarding.due} due, ${onboarding.completed} completed, ${onboarding.failed} failed.`,
   );
+
+  for (const domainReport of report.domains) {
+    try {
+      const health = await monitorCollectionHealth(domainReport.domainId, domainReport);
+      const counts = Object.values(health.items).reduce<Record<string, number>>((summary, item) => {
+        summary[item.state] = (summary[item.state] ?? 0) + 1;
+        return summary;
+      }, {});
+      console.log(`[orwell-jobs] Collection health ${domainReport.domainId}: ${Object.entries(counts).map(([state, count]) => `${state}=${count}`).join(" ")}.`);
+    } catch (error) {
+      console.error(`[orwell-jobs] Collection health ${domainReport.domainId} failed:`, error);
+    }
+  }
+  try {
+    const budget = await monitorProviderBudget();
+    if (budget) console.log(`[orwell-jobs] DataForSEO budget: $${budget.spentUsd.toFixed(2)} / $${budget.limitUsd.toFixed(2)} (${budget.month}).`);
+  } catch (error) {
+    console.error("[orwell-jobs] Provider budget monitoring failed:", error);
+  }
 
   const deliveries = await deliverDueReports();
   console.log(

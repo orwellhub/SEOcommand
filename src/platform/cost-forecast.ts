@@ -51,12 +51,12 @@ export function forecastSiteCost(input: ForecastInput): SiteCostForecast {
     },
     {
       key: "keyword_competitor_gap",
-      label: "Keywords and competitor gaps",
+      label: "Keywords, competitor gaps and content history",
       cadence: "weekly",
-      units: 12,
+      units: 20,
       unitCostUsd: 0.04,
-      monthlyUsd: money(12 * 0.04),
-      note: "Three principal competitors refreshed weekly",
+      monthlyUsd: money(20 * 0.04),
+      note: "Weekly domain discovery, three principal gaps and one principal competitor page snapshot",
     },
     {
       key: "backlink_history",

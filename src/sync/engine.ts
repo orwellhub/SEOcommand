@@ -16,6 +16,8 @@ import { auditAiCrawlerAccess } from "@/platform/ai-crawler-audit";
 import { discoverAiPromptOpportunities } from "@/platform/ai-opportunities";
 import { refreshKeywordStrategy } from "@/platform/keyword-strategy";
 import type { Competitor, GscRow, Keyword } from "@/lib/types";
+import type { KeywordGapRow } from "@/platform/types";
+import { persistScheduledCompetitorSnapshot } from "@/platform/competitive-intelligence";
 import { googleConfigured } from "@/providers/google/auth";
 import {
   gscBreakdown,
@@ -125,9 +127,24 @@ export interface SyncTiers {
   dfsLight: boolean;
   dfsHeavy: boolean;
   ai: boolean;
+  /** Scheduler retries reuse same-day paid snapshots. Explicitly confirmed
+   * manual scans leave this false so the requested refresh still happens. */
+  dedupePaid: boolean;
+  /** Null means every light collector (scheduled/full refresh). Manual Scan
+   * Centre jobs name the approved modules so unselected calls never run. */
+  dfsLightModules: Array<"keywords" | "competitors" | "backlinks"> | null;
 }
 
-export const ALL_TIERS: SyncTiers = { google: true, rankings: true, dfsLight: true, dfsHeavy: true, ai: true };
+export const ALL_TIERS: SyncTiers = { google: true, rankings: true, dfsLight: true, dfsHeavy: true, ai: true, dedupePaid: false, dfsLightModules: null };
+
+export function shouldReusePaidSnapshots(
+  dedupePaid: boolean,
+  today: string,
+  capturedByDataset: ReadonlyMap<string, string | undefined>,
+  datasets: string[],
+): boolean {
+  return dedupePaid && datasets.length > 0 && datasets.every((dataset) => capturedByDataset.get(dataset) === today);
+}
 
 export async function syncDomain(
   domainId: DomainId,
@@ -140,6 +157,8 @@ export async function syncDomain(
   const results: DatasetResult[] = [];
   const existing = await readLatestSnapshots(domainId).catch(() => []);
   const existingByDataset = new Map(existing.map((s) => [s.dataset, s]));
+  const capturedByDataset = new Map(existing.map((snapshot) => [snapshot.dataset, snapshot.capturedOn]));
+  const reusePaid = (...datasets: string[]) => shouldReusePaidSnapshots(tiers.dedupePaid, today, capturedByDataset, datasets);
 
   const approved = paidJobsApproved(domain);
   const dailyRankOk = dataForSeoConfigured() && tiers.rankings && approved;
@@ -148,6 +167,8 @@ export async function syncDomain(
   const aiOk = dataForSeoConfigured() && tiers.ai && approved;
   const dfsConfigured = dataForSeoConfigured();
   const googleOk = googleConfigured() && tiers.google;
+  const lightModules = new Set(tiers.dfsLightModules ?? ["keywords", "competitors", "backlinks"]);
+  const lightOk = (module: "keywords" | "competitors" | "backlinks") => dfsLightOk && lightModules.has(module);
 
   const write = (dataset: string, payload: unknown, provenance: Provenance) =>
     writeSnapshot(domainId, dataset, today, payload, provenance);
@@ -165,11 +186,13 @@ export async function syncDomain(
   const dfsProv = () => prov("dataforseo", dfsLocation);
   let aiCompetitors = ((existingByDataset.get("competitors")?.payload ?? []) as Competitor[])
     .map((item) => ({ host: item.host }));
+  let weeklyCompetitors = (existingByDataset.get("competitors")?.payload ?? []) as Competitor[];
+  let weeklyGaps = (existingByDataset.get("keyword_gaps")?.payload ?? []) as KeywordGapRow[];
 
   const collectors: Collector[] = [
     () =>
       collect("keywords", async () => {
-        if (!dfsLightOk) return "skip";
+        if (!lightOk("keywords") || reusePaid("keywords", "rank_snapshots")) return "skip";
         const { keywords, rankSnapshots } = await fetchRankedKeywordsBundle(domainId);
         const planned = Number(domain.forecast?.assumptions.trackedKeywords ?? 100);
         await seedTrackedKeywords(domain, keywords, planned);
@@ -180,7 +203,7 @@ export async function syncDomain(
       }),
     () =>
       collect("daily_rankings", async () => {
-        if (!dailyRankOk) return "skip";
+        if (!dailyRankOk || reusePaid("daily_rankings")) return "skip";
         const rankings = await fetchDailyTrackedRankings(domainId);
         if (!rankings.length) return "skip";
         await persistDailyRankings(domain, rankings);
@@ -199,11 +222,12 @@ export async function syncDomain(
           tags: [],
         }));
         await write("rank_snapshots", snapshots, p);
+        await write("daily_rankings", { capturedOn: today, records: snapshots.length }, p);
         return { payload: snapshots, provenance: p };
       }),
     () =>
       collect("position_buckets", async () => {
-        if (!dfsLightOk) return "skip";
+        if (!lightOk("keywords") || reusePaid("position_buckets", "visibility_point")) return "skip";
         const { visibility, buckets } = await fetchDomainOverviewBundle(domainId);
         const p = dfsProv();
         await write("position_buckets", buckets, p);
@@ -212,19 +236,40 @@ export async function syncDomain(
       }),
     () =>
       collect("competitors", async () => {
-        if (!dfsLightOk) return "skip";
+        if (!lightOk("competitors") || reusePaid("competitors", "keyword_gaps")) return "skip";
         const data = await fetchCompetitors(domainId);
+        weeklyCompetitors = data;
         aiCompetitors = data.map((item) => ({ host: item.host }));
         const p = dfsProv();
         await write("competitors", data, p);
         const gaps = (await Promise.all(data.slice(0, 3).map((competitor) => fetchKeywordGap(domainId, competitor.host, 500)))).flat();
+        weeklyGaps = gaps;
         await persistKeywordGaps(domain, gaps);
         await write("keyword_gaps", gaps, p);
         return { payload: data, provenance: p };
       }),
     () =>
+      collect("competitor_content_history", async () => {
+        if (!lightOk("competitors") || !weeklyCompetitors[0]) return "skip";
+        const snapshot = await persistScheduledCompetitorSnapshot({
+          siteSlug: domainId,
+          competitor: weeklyCompetitors[0],
+          gaps: weeklyGaps,
+          dedupe: tiers.dedupePaid,
+        });
+        const p = dfsProv();
+        const payload = {
+          targetHost: weeklyCompetitors[0].host,
+          capturedOn: today,
+          duplicateProtected: snapshot.status === "existing",
+          costUsd: snapshot.costUsd,
+        };
+        await write("competitor_content_history", payload, p);
+        return { payload, provenance: p };
+      }),
+    () =>
       collect("backlinks", async () => {
-        if (!dfsLightOk) return "skip";
+        if (!lightOk("backlinks") || reusePaid("backlinks", "backlink_history")) return "skip";
         const [data, history] = await Promise.all([
           fetchBacklinks(domainId),
           fetchBacklinkHistory(domainId),
@@ -237,7 +282,7 @@ export async function syncDomain(
       }),
     () =>
       collect("referring_domains", async () => {
-        if (!dfsLightOk) return "skip";
+        if (!lightOk("backlinks") || reusePaid("referring_domains")) return "skip";
         const data = await fetchReferringDomains(domainId);
         const p = dfsProv();
         await write("referring_domains", data, p);
@@ -254,7 +299,7 @@ export async function syncDomain(
         const pendingTaskId =
           (existingByDataset.get("onpage_task")?.payload as { taskId: string | null } | undefined)
             ?.taskId ?? null;
-        if (!wantCrawl && !pendingTaskId) return "skip";
+        if ((!wantCrawl && !pendingTaskId) || (wantCrawl && !pendingTaskId && reusePaid("onpage"))) return "skip";
         const res = await ensureOnPageCrawl(domainId, pendingTaskId);
         const p = dfsProv();
         if (res.status === "pending") {
@@ -390,7 +435,7 @@ export async function syncDomain(
   }
 
   results.push(await collect("keyword_strategy", async () => {
-    if (!tiers.google && !tiers.dfsLight) return "skip";
+    if (!tiers.google && !lightOk("keywords") && !lightOk("competitors")) return "skip";
     const data = await refreshKeywordStrategy(domainId);
     return { payload: data, provenance: prov("orwell-crawler", "GSC + DataForSEO strategy model") };
   }));
@@ -546,5 +591,7 @@ export function scheduledTiers(now: Date): SyncTiers {
     dfsLight: process.env.SYNC_DFS_LIGHT === "1" || isMonday || dfsHeavy,
     dfsHeavy,
     ai: process.env.SYNC_AI !== "0",
+    dedupePaid: true,
+    dfsLightModules: null,
   };
 }

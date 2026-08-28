@@ -13,6 +13,7 @@ import {
 } from "@/platform/market-intelligence";
 import { getManagedSite } from "@/platform/site-store";
 import { hasDatabase } from "@/sync/store";
+import { loadCollectionHealth } from "@/platform/collection-health";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,7 +46,7 @@ export async function GET(request: Request) {
   const site = await getManagedSite(siteSlug);
   if (!site)
     return NextResponse.json({ error: "Website not found." }, { status: 404 });
-  const [rankRows, runs, prospects, links, gaps, work, dashboards, ai] =
+  const [rankRows, runs, prospects, links, gaps, work, dashboards, ai, collection] =
     await Promise.all([
       db()
         .select({
@@ -110,6 +111,7 @@ export async function GET(request: Request) {
         { id: siteSlug, label: site.name, siteSlugs: [siteSlug] },
         90,
       ),
+      loadCollectionHealth(siteSlug),
     ]);
   const cutoff = new Date();
   cutoff.setUTCDate(cutoff.getUTCDate() - rangeDays);
@@ -205,6 +207,7 @@ export async function GET(request: Request) {
     opportunities: buildOpportunityQueue(intelligence),
     dashboards,
     datasets,
+    collection,
     filters: {
       applied: { days: rangeDays, device, market, segment },
       options: {

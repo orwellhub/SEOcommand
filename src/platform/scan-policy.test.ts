@@ -14,7 +14,7 @@ describe("scan-centre policy", () => {
       paidModules: ["ai"],
       freeModules: ["google", "reliability"],
     });
-    expect(estimateScanCost(FULL_SCAN_MODULES).estimatedUsd).toBe(1.15);
+    expect(estimateScanCost(FULL_SCAN_MODULES).estimatedUsd).toBe(1.17);
   });
 
   it("maps tool scans onto only the required sync tiers", () => {
@@ -24,6 +24,9 @@ describe("scan-centre policy", () => {
       dfsLight: false,
       dfsHeavy: true,
       ai: true,
+      dedupePaid: false,
+      dfsLightModules: [],
     });
+    expect(tiersForModules(["competitors"]).dfsLightModules).toEqual(["competitors"]);
   });
 });

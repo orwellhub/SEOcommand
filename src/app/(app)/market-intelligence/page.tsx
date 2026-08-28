@@ -263,7 +263,7 @@ export default function MarketIntelligencePage() {
               Manage collection and cost
             </Link>
           </div>
-          <DataHealth datasets={data.datasets} />
+          <DataHealth datasets={data.collection?.items ?? data.datasets} />
           {tab === "opportunities" && (
             <Opportunities
               rows={data.opportunities}
@@ -444,10 +444,16 @@ function DataHealth({
   datasets: Record<
     string,
     {
+      label?: string;
       observedAt: string | null;
       records: number;
       state: string;
       confidence: string;
+      distinctDates?: number;
+      minimumDates?: number;
+      nextRunAt?: string | null;
+      cadence?: string;
+      validationIssues?: Array<{ detail: string; count: number }>;
     }
   >;
 }) {
@@ -460,21 +466,35 @@ function DataHealth({
         >
           <div className="flex items-center justify-between gap-2">
             <span className="text-[10px] font-bold capitalize text-ink">
-              {name}
+              {item.label ?? name}
             </span>
             <StatusBadge
               label={item.state}
               tone={
                 item.state === "ready"
                   ? "success"
-                  : item.state === "partial"
+                  : item.state === "failed" || item.state === "stale"
+                    ? "critical"
+                    : item.state === "partial" || item.state === "warming"
                     ? "warning"
                     : "neutral"
               }
             />
           </div>
           <div className="mt-1 text-[9px] text-muted">
-            {item.records} records · {item.confidence} confidence
+            {item.records} records
+            {item.distinctDates != null && item.minimumDates != null
+              ? ` · ${item.distinctDates}/${item.minimumDates} dates`
+              : ` · ${item.confidence} confidence`}
+          </div>
+          <div className="mt-0.5 text-[9px] text-muted">
+            {item.nextRunAt
+              ? `Next ${new Date(item.nextRunAt).toLocaleString()}`
+              : item.cadence === "continuous"
+                ? "Updates after verification"
+                : item.observedAt
+                  ? `Latest ${new Date(item.observedAt).toLocaleDateString()}`
+                  : "No collection scheduled"}
           </div>
         </div>
       ))}

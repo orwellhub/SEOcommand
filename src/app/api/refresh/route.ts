@@ -28,8 +28,8 @@ export const maxDuration = 300;
 export type RefreshSource = "google" | "dataforseo";
 
 const TIERS: Record<RefreshSource, SyncTiers> = {
-  google: { google: true, rankings: false, dfsLight: false, dfsHeavy: false, ai: false },
-  dataforseo: { google: false, rankings: true, dfsLight: true, dfsHeavy: false, ai: false },
+  google: { google: true, rankings: false, dfsLight: false, dfsHeavy: false, ai: false, dedupePaid: false, dfsLightModules: [] },
+  dataforseo: { google: false, rankings: true, dfsLight: true, dfsHeavy: false, ai: false, dedupePaid: false, dfsLightModules: null },
 };
 
 interface Body {

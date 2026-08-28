@@ -20,6 +20,10 @@ describe("forecastSiteCost", () => {
     ]);
     expect(forecast.monthlyUsd).toBeGreaterThan(0);
     expect(forecast.highUsd).toBeGreaterThan(forecast.monthlyUsd);
+    expect(forecast.lines.find((line) => line.key === "keyword_competitor_gap")).toMatchObject({
+      units: 20,
+      monthlyUsd: 0.8,
+    });
   });
 
   it("scales daily ranking cost with keywords and devices", () => {

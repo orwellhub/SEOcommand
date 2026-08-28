@@ -1,8 +1,10 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { getManagedSite } from "./site-store";
 import { getDataForSeoClient } from "@/providers/dataforseo";
 import { ENDPOINTS, locationForSite } from "@/providers/dataforseo/config";
+import type { Competitor } from "@/lib/types";
+import type { KeywordGapRow } from "./types";
 
 type Row = Record<string, unknown>;
 
@@ -52,6 +54,27 @@ export interface CollectedDomainResearch extends CompetitorExplorerResult {
   costUsd: number;
 }
 
+export type CompetitorPage = CompetitorExplorerResult["pages"][number];
+
+export function parseRelevantPages(result: Row[]): CompetitorPage[] {
+  return items(result).map((item) => {
+    const pageOrganic = record(record(item.metrics).organic);
+    return {
+      url: string(item.page_address) ?? string(item.url) ?? "",
+      keywords: number(pageOrganic.count),
+      traffic: number(pageOrganic.etv),
+      trafficCost: number(pageOrganic.estimated_paid_traffic_cost),
+    };
+  }).filter((item) => item.url);
+}
+
+export function utcDayWindow(now: Date): { start: Date; end: Date } {
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 1);
+  return { start, end };
+}
+
 /** Collect domain evidence without attaching it to a managed website. The
  * global SpendGuard still preflights every call and records actual cost. */
 export async function collectDomainResearch(opts: {
@@ -82,10 +105,7 @@ export async function collectDomainResearch(opts: {
     const serpItem = record(record(item.ranked_serp_element).serp_item);
     return { keyword: string(keywordData.keyword) ?? "", position: number(serpItem.rank_absolute), volume: number(keywordInfo.search_volume), difficulty: number(properties.keyword_difficulty), intent: string(intentInfo.main_intent), url: string(serpItem.url), traffic: number(serpItem.etv) };
   }).filter((item) => item.keyword);
-  const pages = items(pageResponse.result).map((item) => {
-    const pageOrganic = record(record(item.metrics).organic);
-    return { url: string(item.page_address) ?? string(item.url) ?? "", keywords: number(pageOrganic.count), traffic: number(pageOrganic.etv), trafficCost: number(pageOrganic.estimated_paid_traffic_cost) };
-  }).filter((item) => item.url);
+  const pages = parseRelevantPages(pageResponse.result);
   const backlinkRaw = backlinkResponse.result[0] ?? {};
   return {
     targetHost,
@@ -96,6 +116,79 @@ export async function collectDomainResearch(opts: {
     pages,
     backlinks: { rank: number(backlinkRaw.rank), backlinks: number(backlinkRaw.backlinks), referringDomains: number(backlinkRaw.referring_domains), spamScore: number(backlinkRaw.backlinks_spam_score) },
   };
+}
+
+/**
+ * Capture the content footprint for one principal competitor during the
+ * existing weekly light sync. The same-day lookup happens before the paid
+ * request, so retries do not buy and store the same evidence twice.
+ */
+export async function persistScheduledCompetitorSnapshot(input: {
+  siteSlug: string;
+  competitor: Competitor;
+  gaps: KeywordGapRow[];
+  now?: Date;
+  dedupe?: boolean;
+}): Promise<{ status: "created" | "existing"; costUsd: number }> {
+  const now = input.now ?? new Date();
+  const targetHost = cleanCompetitorHost(input.competitor.host);
+  const { start: dayStart, end: nextDay } = utcDayWindow(now);
+  if (input.dedupe !== false) {
+    const [existing] = await db().select({ capturedAt: schema.competitorResearchRuns.capturedAt })
+      .from(schema.competitorResearchRuns)
+      .where(and(
+        eq(schema.competitorResearchRuns.siteSlug, input.siteSlug),
+        eq(schema.competitorResearchRuns.targetHost, targetHost),
+        gte(schema.competitorResearchRuns.capturedAt, dayStart),
+        lt(schema.competitorResearchRuns.capturedAt, nextDay),
+      ))
+      .limit(1);
+    if (existing) return { status: "existing", costUsd: 0 };
+  }
+
+  const site = await getManagedSite(input.siteSlug);
+  if (!site) throw new Error("Website not found.");
+  const location = locationForSite(site);
+  const response = await getDataForSeoClient().post<Row>(
+    "labsRelevantPages",
+    ENDPOINTS.labsRelevantPages,
+    [{
+      target: targetHost,
+      location_code: location.location_code,
+      language_code: location.language_code,
+      limit: 100,
+      order_by: ["metrics.organic.etv,desc"],
+    }],
+    { domainSlug: input.siteSlug },
+  );
+  const relevantGaps = input.gaps.filter((gap) => gap.competitorHost === targetHost);
+  await db().insert(schema.competitorResearchRuns).values({
+    siteSlug: input.siteSlug,
+    targetHost,
+    capturedAt: now,
+    overview: {
+      organicKeywords: input.competitor.keywords,
+      organicTraffic: input.competitor.estTraffic,
+      paidKeywords: null,
+      paidTraffic: null,
+      estimatedTrafficCost: null,
+      authority: input.competitor.authority,
+      commonKeywords: input.competitor.commonKeywords,
+      overlapPct: input.competitor.overlapPct,
+    },
+    keywords: relevantGaps.map((gap) => ({
+      keyword: gap.keyword,
+      position: gap.competitorPosition,
+      volume: gap.volume,
+      difficulty: gap.difficulty,
+      intent: gap.intent,
+      url: null,
+      traffic: gap.trafficPotential,
+    })),
+    pages: parseRelevantPages(response.result),
+    backlinks: {},
+  });
+  return { status: "created", costUsd: response.costUsd };
 }
 
 export async function exploreCompetitor(siteSlug: string, targetInput: string): Promise<CompetitorExplorerResult> {

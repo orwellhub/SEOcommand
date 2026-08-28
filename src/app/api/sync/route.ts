@@ -13,9 +13,9 @@ import { hasDatabase } from "@/sync/store";
 function resolveTiers(tier: string | null): SyncTiers {
   switch (tier) {
     case "google":
-      return { google: true, rankings: false, dfsLight: false, dfsHeavy: false, ai: false };
+      return { google: true, rankings: false, dfsLight: false, dfsHeavy: false, ai: false, dedupePaid: false, dfsLightModules: [] };
     case "light":
-      return { google: true, rankings: true, dfsLight: true, dfsHeavy: false, ai: false };
+      return { google: true, rankings: true, dfsLight: true, dfsHeavy: false, ai: false, dedupePaid: false, dfsLightModules: null };
     case "full":
     case null:
       return ALL_TIERS;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildLinkGapRequest, cleanCompetitorHost, parseLinkGapProspects } from "./competitive-intelligence";
+import { buildLinkGapRequest, cleanCompetitorHost, parseLinkGapProspects, parseRelevantPages, utcDayWindow } from "./competitive-intelligence";
 
 describe("link-gap prospect discovery", () => {
   it("builds a valid numbered Domain Intersection request", () => {
@@ -45,5 +45,24 @@ describe("link-gap prospect discovery", () => {
   it("normalises competitor URLs and rejects invalid domains", () => {
     expect(cleanCompetitorHost("https://www.Example.com/path")).toBe("example.com");
     expect(() => cleanCompetitorHost("not a domain")).toThrow("Enter a valid competitor domain.");
+  });
+
+  it("normalises relevant-page evidence for scheduled content history", () => {
+    expect(parseRelevantPages([{ items: [{
+      page_address: "https://competitor.example/guides/remortgage",
+      metrics: { organic: { count: 18, etv: 420.5, estimated_paid_traffic_cost: 91.2 } },
+    }] }])).toEqual([{
+      url: "https://competitor.example/guides/remortgage",
+      keywords: 18,
+      traffic: 420.5,
+      trafficCost: 91.2,
+    }]);
+  });
+
+  it("builds an exact UTC day window for pre-call duplicate protection", () => {
+    expect(utcDayWindow(new Date("2026-08-28T23:59:59Z"))).toEqual({
+      start: new Date("2026-08-28T00:00:00Z"),
+      end: new Date("2026-08-29T00:00:00Z"),
+    });
   });
 });
