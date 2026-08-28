@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { captureBaseline, evidenceMetrics, recordCheckpoint, recordShipment } from "./workflow-verification";
+import { captureBaseline, captureMetricBaseline, evidenceMetrics, recordCheckpoint, recordShipment } from "./workflow-verification";
 
 describe("workflow verification", () => {
   it("turns attached evidence into a provenance-preserving baseline", () => {
@@ -17,5 +17,22 @@ describe("workflow verification", () => {
     const checked = recordCheckpoint(shipped, { day: 7, metrics: [], outcome: "won" }, new Date("2026-08-17T00:00:00Z"));
     expect(checked.checkpoints?.[0]?.status).toBe("recorded");
     expect(checked.outcome).toBe("won");
+  });
+
+  it("retains immutable source provenance through an automated checkpoint", () => {
+    const provenance = { mode: "stored_first_party" as const, datasets: ["gsc_pages"], capturedOn: "2026-08-28", scope: "page" as const, target: "https://example.com/page" };
+    const baseline = captureMetricBaseline([{ key: "clicks", label: "Clicks", value: 10, unit: "count", source: "gsc_page" }], provenance, new Date("2026-08-01T00:00:00Z"));
+    const shipped = recordShipment(baseline, {}, new Date("2026-08-21T00:00:00Z"));
+    const checked = recordCheckpoint(shipped, { day: 7, metrics: [{ key: "clicks", label: "Clicks", value: 14, unit: "count", source: "gsc_page" }], provenance });
+    expect(checked.baseline?.provenance).toEqual(provenance);
+    expect(checked.checkpoints?.[0]?.provenance).toEqual(provenance);
+  });
+
+  it("does not overwrite a human outcome note when later evidence is collected", () => {
+    const shipped = recordShipment(captureBaseline({ clicks: 10 }), {}, new Date("2026-08-01T00:00:00Z"));
+    const reviewed = recordCheckpoint(shipped, { day: 7, metrics: [], outcome: "won", note: "The page gained qualified clicks." });
+    const later = recordCheckpoint(reviewed, { day: 14, metrics: [], note: "Collected automatically from stored data." });
+    expect(later.outcomeNote).toBe("The page gained qualified clicks.");
+    expect(later.checkpoints?.[1]?.note).toBe("Collected automatically from stored data.");
   });
 });

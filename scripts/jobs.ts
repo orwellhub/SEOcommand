@@ -18,6 +18,7 @@ import { deliverDueReports } from "../src/reports/delivery";
 import { processPlatformJobs } from "../src/platform/jobs";
 import { deliverQueuedAlerts } from "../src/platform/alert-delivery";
 import { monitorCollectionHealth, monitorProviderBudget } from "../src/platform/collection-health";
+import { collectDueOutcomeEvidence } from "../src/platform/outcome-collection";
 import { closeDb } from "../src/db";
 
 async function main() {
@@ -65,6 +66,14 @@ async function main() {
       console.log(`[orwell-jobs] Collection health ${domainReport.domainId}: ${Object.entries(counts).map(([state, count]) => `${state}=${count}`).join(" ")}.`);
     } catch (error) {
       console.error(`[orwell-jobs] Collection health ${domainReport.domainId} failed:`, error);
+    }
+  }
+  for (const domainReport of report.domains) {
+    try {
+      const outcomes = await collectDueOutcomeEvidence(domainReport.domainId);
+      console.log(`[orwell-jobs] Outcome evidence ${domainReport.domainId}: due=${outcomes.due} collected=${outcomes.collected} missing=${outcomes.missing}.`);
+    } catch (error) {
+      console.error(`[orwell-jobs] Outcome evidence ${domainReport.domainId} failed:`, error);
     }
   }
   try {

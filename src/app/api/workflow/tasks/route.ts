@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
-import { hasDatabase } from "@/sync/store";
+import { hasDatabase, readLatestSnapshots } from "@/sync/store";
 import { isManagedSite } from "@/platform/site-store";
 import { accessibleSiteSlugs, canAccessSite, hasPermission } from "@/platform/access";
 import { sessionFromRequest } from "@/lib/auth";
 import { EXECUTION_TYPES, PAGE_MODES, WORKFLOW_STATUSES } from "@/platform/opportunity-bridge";
 import { captureBaseline, recordShipment, type VerificationState } from "@/platform/workflow-verification";
+import { baselineFromSnapshots } from "@/platform/outcome-evidence";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -219,7 +220,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ item: { ...(statusParsed.success ? statusParsed.data : assignment!), synthetic: true } });
   }
   if (!hasDatabase()) return unavailable();
-  const [current] = await db().select({ domainSlug: schema.workflowItems.domainSlug, status: schema.workflowItems.status, executionType: schema.workflowItems.executionType, sourceEvidence: schema.workflowItems.sourceEvidence, verification: schema.workflowItems.verification, targetUrl: schema.workflowItems.targetUrl })
+  const [current] = await db().select({ domainSlug: schema.workflowItems.domainSlug, status: schema.workflowItems.status, executionType: schema.workflowItems.executionType, sourceEvidence: schema.workflowItems.sourceEvidence, verification: schema.workflowItems.verification, targetUrl: schema.workflowItems.targetUrl, plannedUrl: schema.workflowItems.plannedUrl, executionData: schema.workflowItems.executionData })
     .from(schema.workflowItems).where(eq(schema.workflowItems.id, id)).limit(1);
   if (!current || !await canAccessSite(request, current.domainSlug)) {
     return NextResponse.json({ error: "Task access required." }, { status: 403 });
@@ -228,6 +229,10 @@ export async function PATCH(request: Request) {
 
   const actor = request.headers.get("x-orwell-user-email");
   const now = new Date();
+  const requestedStatus = statusParsed.success ? statusParsed.data.status : null;
+  const storedBaseline = requestedStatus === "in_progress" && !(current.verification as VerificationState).baseline
+    ? await baselineFromSnapshots(current, await readLatestSnapshots(current.domainSlug), now)
+    : null;
   const item = await db().transaction(async (tx) => {
     if (statusParsed.success) {
       const next = statusParsed.data.status;
@@ -236,8 +241,9 @@ export async function PATCH(request: Request) {
       const toIndex = order.indexOf(next);
       if (current.executionType && toIndex !== fromIndex && toIndex !== fromIndex + 1) throw new Error("Move execution work through each lifecycle stage in order.");
       let verification = current.verification as VerificationState;
-      if (next === "in_progress" && !verification.baseline) verification = captureBaseline(current.sourceEvidence, now);
+      if (next === "in_progress" && !verification.baseline) verification = storedBaseline ?? captureBaseline(current.sourceEvidence, now);
       if (next === "shipped" && !verification.shipment) verification = recordShipment(verification, { note: statusParsed.data.note, url: current.targetUrl }, now);
+      if (next === "done" && (!verification.outcome || verification.outcome === "awaiting_data")) throw new Error("Classify the measured outcome before marking work verified.");
       const [updated] = await tx.update(schema.workflowItems).set({
         status: next,
         verification,
@@ -253,8 +259,10 @@ export async function PATCH(request: Request) {
     return updated;
   }).catch((error: unknown) => {
     if (error instanceof Error && error.message.startsWith("Move execution work")) return null;
+    if (error instanceof Error && error.message.startsWith("Classify the measured outcome")) return "outcome_required" as const;
     throw error;
   });
+  if (item === "outcome_required") return NextResponse.json({ error: "Classify the measured outcome before marking work verified." }, { status: 409 });
   if (!item && statusParsed.success && current.executionType) return NextResponse.json({ error: "Move execution work through each lifecycle stage in order." }, { status: 409 });
   if (!item) return NextResponse.json({ error: "Task not found." }, { status: 404 });
   return NextResponse.json({ item });
