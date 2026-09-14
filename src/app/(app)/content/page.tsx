@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 
+import { ReportTabs, useReportView } from "@/components/reports/report-layout";
 import { useMemo, useState } from "react";
 import { FileText, TrendingDown, TrendingUp, ExternalLink, BarChart3, ListTodo } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
@@ -19,7 +20,6 @@ import { compactNumber, fullNumber, percent } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { useDomain, useResolvedDomain } from "@/components/shell/domain-context";
 import { useScopedLive } from "@/lib/use-live";
-import { getDomain } from "@/data/domains";
 import type { Ga4LandingPage, GscMover, GscRow } from "@/lib/types";
 import { ContentWorkflowBoard } from "@/components/content/content-workflow-board";
 import { SiteFindingWorkDrawer, type SiteFinding } from "@/components/workflow/site-finding-work-drawer";
@@ -75,6 +75,7 @@ function MoverList({
 
 export default function ContentIntelligencePage() {
   const domain = useResolvedDomain();
+  const [view, setView] = useReportView(["overview", "editor", "briefs", "calendar"] as const, "overview");
   const { scope } = useDomain();
   const { data: bundle, loading, error, isPortfolio, scopeLabel, scopeHost, scopeId } = useScopedLive();
 
@@ -85,7 +86,7 @@ export default function ContentIntelligencePage() {
   const pagesDs = datasets?.gsc_pages;
   const moversDs = datasets?.gsc_page_movers;
   const ga4LandingDs = datasets?.ga4_landing_pages;
-  const ga4Mapped = getDomain(domain.id).ga4PropertyId != null;
+  const ga4Mapped = domain.ga4PropertyId != null;
 
   const pages = pagesDs?.data;
   const movers = moversDs?.data;
@@ -206,12 +207,15 @@ export default function ContentIntelligencePage() {
   return (
     <div className="animate-in space-y-5">
       <PageHeader
-        title="Content Intelligence"
-        description={`Page-level search performance for ${scopeHost} — real Search Console page data: traffic, decay and rising pages, plus GA4 landing-page outcomes.`}
+        title={view === "editor" ? "SEO Writing Assistant" : view === "briefs" ? "Content Templates & Briefs" : view === "calendar" ? "Content Calendar" : "Content Dashboard"}
+        description={view === "overview" ? `Page-level search performance for ${scopeHost}: traffic, decay, rising pages and landing-page outcomes.` : `Saved editorial work for ${scopeHost}. Open an item to review its brief, draft, owner and deadline.`}
         lastSync={bundle?.lastSync ?? null}
         loading={loading}
       />
 
+      <ReportTabs items={[{id:"overview",label:"Overview"},{id:"editor",label:"Writing assistant"},{id:"briefs",label:"Templates & briefs"},{id:"calendar",label:"Calendar"}]} value={view} onChange={setView} label="Content views" />
+      {!isPortfolio && <ContentWorkflowBoard key={`${domain.id}:${view}`} siteSlug={domain.id} view={view} />}
+      {view === "overview" && <>
       <ScopeNote isPortfolio={isPortfolio} noun="content data" />
       <div id="research" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm"><span className="text-muted">Looking for customer questions to turn into content?</span><Link href={`/questions?site=${domain.id}`} className="font-semibold text-purple hover:underline">Open question research →</Link></div>
 
@@ -224,7 +228,6 @@ export default function ContentIntelligencePage() {
             <Skeleton className="h-24" />
           </div>
 
-          {!isPortfolio && <ContentWorkflowBoard siteSlug={domain.id} />}
           <Skeleton className="h-80" />
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <Skeleton className="h-64" />
@@ -394,6 +397,7 @@ export default function ContentIntelligencePage() {
         </>
       )}
 
+      </>}
       {/* ----------------------------- Page drawer --------------------------- */}
       <Drawer
         open={selected != null}

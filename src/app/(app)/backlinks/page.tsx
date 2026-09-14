@@ -1,4 +1,5 @@
 "use client";
+import { ReportTabs, useReportView } from "@/components/reports/report-layout";
 import { ResearchEvidencePanel } from "@/components/research/evidence-panel";
 
 import { useMemo, useState } from "react";
@@ -83,7 +84,7 @@ function ToxicityMeter({ value }: { value: number }) {
 export default function BacklinksPage() {
   const { data: bundle, loading, error, isPortfolio, scopeLabel, scopeHost, scopeId } = useScopedLive();
 
-  const [tab, setTab] = useState<SubTab>("backlinks");
+  const [tab, setTab] = useReportView<SubTab>(["backlinks", "history", "referring", "anchors", "risk"], "backlinks");
   const [selected, setSelected] = useState<Backlink | null>(null);
 
   const backlinks = bundle?.datasets.backlinks?.data ?? null;
@@ -99,8 +100,11 @@ export default function BacklinksPage() {
   const hasLinkData = backlinks !== null && referringDomains !== null;
 
   const authorityScore = useMemo(
-    () =>
-      hasLinkData ? computeAuthorityScore(referringDomains!, backlinks!, latestVisibility) : null,
+    () => {
+      if (!hasLinkData) return null;
+      const score = computeAuthorityScore(referringDomains!, backlinks!, latestVisibility);
+      return Number.isFinite(score) ? score : null;
+    },
     [hasLinkData, referringDomains, backlinks, latestVisibility],
   );
 
@@ -128,7 +132,7 @@ export default function BacklinksPage() {
 
   // The transparent score components, recomputed from the same live data as the score.
   const scoreComponents = useMemo<ScoreComponent[] | null>(() => {
-    if (!hasLinkData) return null;
+    if (!hasLinkData || authorityScore == null) return null;
     const rd = referringDomains!;
     const bl = backlinks!;
     const avgAuthority = rd.length ? rd.reduce((s, r) => s + r.authority, 0) / rd.length : 0;
@@ -143,7 +147,7 @@ export default function BacklinksPage() {
       { label: "Organic visibility", weight: 20, value: Math.round(latestVisibility), penalty: false },
       { label: "Toxic-link risk penalty", weight: 10, value: Math.round(avgToxicity), penalty: true },
     ];
-  }, [hasLinkData, referringDomains, backlinks, latestVisibility]);
+  }, [hasLinkData, referringDomains, backlinks, latestVisibility, authorityScore]);
 
   // Authority distribution — referring domains bucketed by authority band.
   const authorityBands = useMemo(() => {
@@ -268,7 +272,7 @@ export default function BacklinksPage() {
         sortValue: (r) => r.topicalRelevance,
         render: (r) => (
           <span className={r.topicalRelevance >= 60 ? "text-success" : "text-muted"}>
-            {r.topicalRelevance}
+            {r.topicalRelevance ?? "—"}
           </span>
         ),
       },
@@ -324,7 +328,7 @@ export default function BacklinksPage() {
     return (
       <div className="animate-in space-y-5">
         <PageHeader
-          title="Backlinks & Authority"
+          title="Backlink Analytics"
           description="Referring-domain quality and toxic-link risk, scored with the transparent Orwell Authority Score."
           lastSync={null}
           loading
@@ -347,7 +351,7 @@ export default function BacklinksPage() {
     return (
       <div className="animate-in space-y-5">
         <PageHeader
-          title="Backlinks & Authority"
+          title="Backlink Analytics"
           description="Referring-domain quality and toxic-link risk, scored with the transparent Orwell Authority Score."
           lastSync={null}
         />
@@ -359,14 +363,14 @@ export default function BacklinksPage() {
   return (
     <div className="animate-in space-y-5">
       <PageHeader
-        title="Backlinks & Authority"
+        title="Backlink Analytics"
         description="Referring-domain quality and toxic-link risk, scored with the transparent Orwell Authority Score."
         lastSync={bundle?.lastSync ?? null}
         loading={loading}
       />
 
       <ScopeNote isPortfolio={isPortfolio} noun="backlink data" />
-      <ResearchEvidencePanel features={["links", "recovery"]} />
+      <ReportTabs items={TABS.map((item) => ({ id: item.key, label: item.label }))} value={tab} onChange={setTab} label="Backlink reports" />
 
       {/* KPI row */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -374,7 +378,7 @@ export default function BacklinksPage() {
           label="Orwell Authority Score"
           value={authorityScore !== null ? String(authorityScore) : "—"}
           accent
-          hint="Transparent 0–100 composite"
+          hint={authorityScore == null ? "Required scoring evidence unavailable" : "Transparent 0–100 composite"}
         />
         <KpiCard
           label="Backlinks in sample"
@@ -396,85 +400,6 @@ export default function BacklinksPage() {
           value={backlinks ? fullNumber(riskLinks.length) : "—"}
           hint="Toxicity above 50"
         />
-      </div>
-
-      {/* Score explainer + authority distribution */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
-          <CardHeader
-            title="Orwell Authority Score — how it is built"
-            subtitle="An original, transparent composite — NOT a copy of any vendor score"
-          />
-          <div className="p-4">
-            <p className="mb-4 max-w-2xl text-xs leading-relaxed text-muted">
-              A transparent 0–100 composite computed from live link data. Components:
-              referring-domain authority (35%), topical relevance (20%), link diversity (15%),
-              organic visibility (20%), minus a toxic-link risk penalty (10%). Full method in{" "}
-              <span className="font-medium text-ink">docs/scoring-methodology.md</span>.
-            </p>
-            {scoreComponents ? (
-              <div className="space-y-3">
-                {scoreComponents.map((c) => (
-                  <div key={c.label}>
-                    <div className="mb-1 flex items-center justify-between text-2xs">
-                      <span className="font-medium text-ink">
-                        {c.label}
-                        {c.penalty && <span className="ml-1 text-critical">(subtractive)</span>}
-                      </span>
-                      <span className="text-muted tnum">
-                        {c.value} · {c.weight}% weight
-                      </span>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-workspace">
-                      <div
-                        className={cn(
-                          "h-full rounded-full",
-                          c.penalty ? "bg-critical/70" : "bg-[color:var(--accent)]",
-                        )}
-                        style={{ width: `${Math.max(0, Math.min(100, c.value))}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <EmptyState
-                title={AWAITING_SYNC}
-                description="Score components are computed once backlink and referring-domain data have synced."
-              />
-            )}
-          </div>
-        </Card>
-
-        <Card>
-          <CardHeader title="Authority distribution" subtitle="Referring domains by authority band" />
-          <div className="px-3 pb-3 pt-4">
-            {authorityBands ? (
-              <BarSeries data={authorityBands} xKey="band" yKey="count" height={220} />
-            ) : (
-              <EmptyState
-                title={AWAITING_SYNC}
-                description="Referring-domain data populates on the next scheduled sync."
-              />
-            )}
-          </div>
-        </Card>
-      </div>
-
-      {/* Sub-tabs */}
-      <div className="flex flex-wrap gap-1 rounded-md border border-border bg-workspace p-0.5">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={cn(
-              "rounded px-3 py-1.5 text-xs font-medium transition-colors",
-              tab === t.key ? "bg-card text-ink shadow-sm" : "text-muted hover:text-ink",
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
       </div>
 
       {tab === "backlinks" && (
@@ -609,6 +534,71 @@ export default function BacklinksPage() {
       )}
 
       {/* Backlink detail drawer */}
+      <details className="rounded-md border border-border bg-card p-4"><summary className="cursor-pointer text-sm font-semibold">Authority distribution & scoring methodology</summary><div className="mt-4">      {/* Score explainer + authority distribution */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <Card className="xl:col-span-2">
+          <CardHeader
+            title="Orwell Authority Score — how it is built"
+            subtitle="An original, transparent composite — NOT a copy of any vendor score"
+          />
+          <div className="p-4">
+            <p className="mb-4 max-w-2xl text-xs leading-relaxed text-muted">
+              A transparent 0–100 composite computed from live link data. Components:
+              referring-domain authority (35%), topical relevance (20%), link diversity (15%),
+              organic visibility (20%), minus a toxic-link risk penalty (10%). Full method in{" "}
+              <span className="font-medium text-ink">docs/scoring-methodology.md</span>.
+            </p>
+            {scoreComponents ? (
+              <div className="space-y-3">
+                {scoreComponents.map((c) => (
+                  <div key={c.label}>
+                    <div className="mb-1 flex items-center justify-between text-2xs">
+                      <span className="font-medium text-ink">
+                        {c.label}
+                        {c.penalty && <span className="ml-1 text-critical">(subtractive)</span>}
+                      </span>
+                      <span className="text-muted tnum">
+                        {c.value} · {c.weight}% weight
+                      </span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-workspace">
+                      <div
+                        className={cn(
+                          "h-full rounded-full",
+                          c.penalty ? "bg-critical/70" : "bg-[color:var(--accent)]",
+                        )}
+                        style={{ width: `${Math.max(0, Math.min(100, c.value))}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                title={AWAITING_SYNC}
+                description="Score components are computed once backlink and referring-domain data have synced."
+              />
+            )}
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader title="Authority distribution" subtitle="Referring domains by authority band" />
+          <div className="px-3 pb-3 pt-4">
+            {authorityBands ? (
+              <BarSeries data={authorityBands} xKey="band" yKey="count" height={220} />
+            ) : (
+              <EmptyState
+                title={AWAITING_SYNC}
+                description="Referring-domain data populates on the next scheduled sync."
+              />
+            )}
+          </div>
+        </Card>
+      </div>
+
+</div></details>
+      <ResearchEvidencePanel features={["links", "recovery"]} />
       <Drawer
         open={selected !== null}
         onClose={() => setSelected(null)}

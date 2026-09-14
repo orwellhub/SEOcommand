@@ -1,5 +1,6 @@
 "use client";
 
+import { ReportTabs, UnavailableReport } from "@/components/reports/report-layout";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BarChart3, ChevronRight, Download, FolderKanban, Globe2, History, Layers3, Loader2, MapPin, Plus, Radar, ScanSearch, Search, Sparkles, Target, X } from "lucide-react";
@@ -14,7 +15,7 @@ import { cn } from "@/lib/cn";
 import { DEFAULT_MARKET } from "@/lib/markets";
 import type { Domain, KeywordResearchResult, KeywordResearchRow } from "@/lib/types";
 
-type View = "discover" | "projects" | "saved" | "tracking";
+type View = "discover" | "projects" | "saved" | "tracking" | "autocomplete";
 type SearchLocation = { code: number; name: string; parent: string | null; countryCode: string | null; type: string; language: string };
 type Project = { id: string; siteSlug: string | null; name: string; description: string | null; status: string; tags: string[]; updatedAt: string };
 type Campaign = { id: string; name: string; defaultCadence: string; searchEngine: string; updatedAt: string };
@@ -39,7 +40,7 @@ export default function KeywordResearchPage() {
   const { sites, activeDomain } = useDomain();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const view = (["projects", "saved", "tracking"].includes(searchParams.get("view") ?? "") ? searchParams.get("view") : "discover") as View;
+  const view = (["projects", "saved", "tracking", "autocomplete"].includes(searchParams.get("view") ?? "") ? searchParams.get("view") : "discover") as View;
   function setView(next: View) { const query = new URLSearchParams(searchParams); query.set("view", next); router.push(`/keyword-research?${query}`, { scroll: false }); }
   const [sourceType, setSourceType] = useState("seed");
   const [seed, setSeed] = useState("");
@@ -185,8 +186,9 @@ export default function KeywordResearchPage() {
 
   return <div>
     <PageHeader title="Keyword research" description="Discover worldwide demand, organise repeatable research and turn the best opportunities into monitored campaigns." actions={<Button variant="secondary" onClick={() => void downloadExcel()} disabled={!rows.length || exporting}>{exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Export</Button>} />
-    <div className="mb-5 flex gap-1 overflow-x-auto rounded-lg border border-border bg-card p-1">{([ ["discover","Discover",Search], ["projects","Projects",FolderKanban], ["saved","Saved searches",History], ["tracking","Tracking",Radar] ] as const).map(([id, label, Icon]) => <button key={id} onClick={() => setView(id)} className={cn("flex min-w-fit flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-xs font-bold transition-colors", view === id ? "bg-ink text-white shadow-sm" : "text-muted hover:bg-workspace hover:text-ink")}><Icon className="h-3.5 w-3.5" />{label}</button>)}</div>
+    <ReportTabs items={[{id:"discover",label:"Keyword overview"},{id:"autocomplete",label:"Autocomplete"},{id:"projects",label:"Projects"},{id:"saved",label:"Saved searches"},{id:"tracking",label:"Tracking"}]} value={view} onChange={setView} label="Keyword research views" />
     {error && <div className="mb-5 flex items-center gap-2 rounded-lg border border-critical/20 bg-critical/5 px-4 py-3 text-sm text-critical"><X className="h-4 w-4" />{error}</div>}
+    {view === "autocomplete" && <UnavailableReport title="Autocomplete Suggestions" description="Autocomplete collection is not connected yet. Suggestions will appear here with their seed keyword, language and location when available." metrics={["Suggestions", "Seed keywords", "Locations", "Last collection"]} />}
     {view === "discover" && <DiscoverView sourceType={sourceType} setSourceType={setSourceType} seed={seed} setSeed={setSeed} depth={depth} setDepth={setDepth} selectedLocations={selectedLocations} setSelectedLocations={setSelectedLocations} locationOpen={locationOpen} setLocationOpen={setLocationOpen} locationQuery={locationQuery} setLocationQuery={setLocationQuery} locations={locations} projects={projects} projectId={projectId} setProjectId={setProjectId} loading={loading} runResearch={runResearch} rows={rows} kpis={kpis} intents={intents} columns={columns} selectedRows={selectedRows} tracking={tracking} addTracking={addTracking} campaignName={campaignName} setCampaignName={setCampaignName} cadence={cadence} setCadence={setCadence} replayed={replayed} sites={sites} trackingSiteId={trackingSiteId} setTrackingSiteId={setTrackingSiteId} />}
     {view === "projects" && <ProjectsView projects={projects} newProject={newProject} setNewProject={setNewProject} createProject={createProject} open={(id) => { setProjectId(id); setView("discover"); }} />}
     {view === "saved" && <SavedScans scans={scans} loading={scansLoading} activeId={activeScanId} busyId={busyScanId} onOpen={openScan} onDelete={deleteScan} />}

@@ -103,7 +103,7 @@ export function DataTable<T>({
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2 px-1 pb-3">
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           {searchKeys && (
             <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
@@ -134,7 +134,7 @@ export function DataTable<T>({
       <div className="overflow-x-auto rounded-md border border-border" tabIndex={0} role="region" aria-label="Data table; scroll horizontally for more columns">
         <table className="w-full min-w-[640px] border-collapse text-sm">
           <thead className="sticky top-0 z-10">
-            <tr className="border-b border-border bg-workspace/70">
+            <tr className="border-b border-border bg-workspace">
               {columns.map((c) => (
                 <th
                   key={c.key}
@@ -142,7 +142,7 @@ export function DataTable<T>({
                   aria-sort={sortKey === c.key ? sortDir === "asc" ? "ascending" : "descending" : c.sortValue ? "none" : undefined}
                   style={{ width: c.width }}
                   className={cn(
-                    "px-3 py-2.5 text-2xs font-semibold uppercase tracking-wide text-muted",
+                    "px-3 py-2.5 text-xs font-semibold text-muted",
                     c.align === "right" ? "text-right" : c.align === "center" ? "text-center" : "text-left",
                   )}
                 >

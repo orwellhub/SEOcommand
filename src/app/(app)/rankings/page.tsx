@@ -1,5 +1,6 @@
 "use client";
 
+import { ReportTabs, useReportView } from "@/components/reports/report-layout";
 import { useMemo, useState } from "react";
 import {
   ArrowUpRight,
@@ -115,6 +116,7 @@ const RANK_COLUMNS: Column<RankRow>[] = [
 ];
 
 export default function RankingsPage() {
+  const [view, setView] = useReportView(["overview", "positions", "opportunities"] as const, "overview");
   const domain = useResolvedDomain();
   const { scope } = useDomain();
   const { data: bundle, loading, error, isPortfolio, scopeLabel, scopeHost, scopeId } = useScopedLive();
@@ -223,7 +225,7 @@ export default function RankingsPage() {
     return (
       <div className="animate-in space-y-5">
         <PageHeader
-          title="Rankings"
+          title="Position Tracking"
           description={`Keyword positions and measured search trend for ${scopeHost}.`}
           lastSync={null}
         />
@@ -236,7 +238,7 @@ export default function RankingsPage() {
     return (
       <div className="animate-in space-y-5">
         <PageHeader
-          title="Rankings"
+          title="Position Tracking"
           description={`Keyword positions and measured search trend for ${scopeHost}.`}
           lastSync={null}
           loading
@@ -259,7 +261,7 @@ export default function RankingsPage() {
     return (
       <div className="animate-in space-y-5">
         <PageHeader
-          title="Rankings"
+          title="Position Tracking"
           description={`Keyword positions and measured search trend for ${scopeHost}.`}
           lastSync={null}
           loading={loading}
@@ -275,12 +277,13 @@ export default function RankingsPage() {
   return (
     <div className="animate-in space-y-5">
       <PageHeader
-        title="Rankings"
+        title="Position Tracking"
         description={`Keyword positions, measured search trend and page-one opportunities for ${scopeHost}.`}
         lastSync={bundle.lastSync ?? null}
         loading={loading}
       />
 
+      <ReportTabs items={[{id:"overview",label:"Overview"},{id:"positions",label:"Rankings overview"},{id:"opportunities",label:"Opportunities"}]} value={view} onChange={setView} />
       <ScopeNote isPortfolio={isPortfolio} noun="ranking data" />
 
       {/* KPI row */}
@@ -313,6 +316,7 @@ export default function RankingsPage() {
         />
       </div>
 
+      {view === "overview" && <>
       {/* Position distribution + visibility */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Card>
@@ -392,6 +396,8 @@ export default function RankingsPage() {
         </div>
       </Card>
 
+      </>}
+      {view !== "opportunities" && <>
       {/* Position tracking table */}
       <Card className="p-4">
         <div className="mb-3 flex items-center justify-between">
@@ -416,6 +422,7 @@ export default function RankingsPage() {
         )}
       </Card>
 
+      </>}
       {/* Striking distance */}
       <Card className="p-4">
         <div className="mb-3 flex items-center gap-2">

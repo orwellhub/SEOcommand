@@ -22,9 +22,9 @@ export function KpiCard({
   accent?: boolean;
 }) {
   return (
-    <Card className="surface-lift overflow-hidden p-5">
+    <Card className="overflow-hidden p-4">
       <div className="flex items-start justify-between gap-2">
-        <span className="text-2xs font-medium uppercase tracking-wide text-muted">
+        <span className="text-xs font-medium text-muted">
           {label}
         </span>
         {delta !== undefined && <DeltaPill value={delta} invert={invertDelta} />}
@@ -32,7 +32,7 @@ export function KpiCard({
       <div className="mt-2 flex items-end justify-between gap-2">
         <span
           className={cn(
-            "text-[28px] font-bold tabular-nums tracking-[-0.035em] text-ink tnum",
+            "text-[26px] font-semibold tabular-nums tracking-[-0.035em] text-ink tnum",
             accent && "text-[color:var(--accent)]",
           )}
         >

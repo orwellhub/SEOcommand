@@ -6,13 +6,13 @@ import { useJson } from "@/lib/use-live";
 import type { SiteCommand } from "@/lib/command-model";
 import { metric, stamp } from "./shared";
 
-export function WebsitePageCoverage({ site }: { site: string }) {
+export function WebsitePageCoverage({ site, compact = false }: { site: string; compact?: boolean }) {
   const state = useJson<SiteCommand>(`/api/command?site=${encodeURIComponent(site)}`, 0);
-  return <PageCoverage data={state.data} loading={state.loading} error={Boolean(state.error)} refresh={state.refresh} />;
+  return <PageCoverage compact={compact} data={state.data} loading={state.loading} error={Boolean(state.error)} refresh={state.refresh} />;
 }
 
-export function PageCoverage({ data, loading = false, error = false, refresh }: {
-  data: SiteCommand | null; loading?: boolean; error?: boolean; refresh?: () => void;
+export function PageCoverage({ data, loading = false, error = false, refresh, compact = false }: {
+  compact?: boolean; data: SiteCommand | null; loading?: boolean; error?: boolean; refresh?: () => void;
 }) {
   const stats = data?.pageStats;
   const site = encodeURIComponent(data?.site.id ?? "");
@@ -21,6 +21,7 @@ export function PageCoverage({ data, loading = false, error = false, refresh }: 
     { label: "Pages crawled by Google", value: stats?.crawled, icon: ScanSearch, color: "#E27A25", detail: stats?.inspected ? `Google crawl confirmed · ${metric(stats.inspected)} URLs checked` : "No saved Google crawl checks", note: stats?.lastGoogleCrawl ? `Latest Google crawl ${stamp(stats.lastGoogleCrawl)}` : "No Google crawl date reported yet.", href: `/health?site=${site}&view=indexing`, action: "View Google crawl dates" },
     { label: "Pages indexed by Google", value: stats?.indexed, icon: SearchCheck, color: "#238765", detail: stats?.inspected ? `Among ${metric(stats.inspected)} inspected URLs${stats.unknownVerdicts ? ` · ${metric(stats.unknownVerdicts)} unknown` : ""}` : "No saved Google index checks", note: stats?.inspectedAt ? `Last inspected ${stamp(stats.inspectedAt)}` : "Inspect pages to check their Google status.", href: `/health?site=${site}&view=indexing`, action: "View indexing" },
   ];
+  if (compact) return <section aria-label="Page coverage" aria-busy={loading} className="overflow-hidden rounded-md border border-border bg-card"><div className="grid divide-y divide-border md:grid-cols-3 md:divide-x md:divide-y-0">{cards.map(({label,value,href,icon: Icon,color,detail,note,action}) => <div key={label} className="px-4 py-3"><div className="flex items-center gap-2 text-xs font-semibold"><Icon className="h-3.5 w-3.5" style={{color}} />{label}</div><div className="mt-1 flex items-baseline justify-between gap-2"><span className="text-2xl font-semibold tnum">{metric(value)}</span>{data && <Link href={href} title={action} className="text-xs text-purple">View evidence →</Link>}</div><details className="mt-1 text-[11px] text-muted"><summary className="cursor-pointer">{loading && !data ? "Loading…" : stats ? detail : "Saved counts unavailable"}</summary><p className="mt-1 leading-4">{note}</p></details></div>)}</div>{error && <p role="alert" className="border-t border-border px-4 py-2 text-xs text-critical">Counts could not refresh. <button onClick={refresh} className="underline">Retry</button></p>}<p className="border-t border-border px-4 py-2 text-[11px] text-muted">Google counts cover inspected URLs only; unchecked pages are unknown.</p></section>;
   return <section aria-label="Page coverage" aria-busy={loading} className="rounded-lg border border-border bg-card p-4 sm:p-5">
     <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
       <div><h2 className="text-lg font-bold">Page coverage</h2><p className="mt-1 text-xs text-muted">{data ? `${data.site.host} · ` : ""}Your pages, crawl coverage and Google index checks in one place.</p></div>

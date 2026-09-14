@@ -23,7 +23,6 @@ import {
 import { MultiLine } from "@/components/charts/charts";
 import { useDomain, useResolvedDomain } from "@/components/shell/domain-context";
 import { useLiveDomain } from "@/lib/use-live";
-import { getDomain } from "@/data/domains";
 import { compactNumber, fullNumber, percent } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import type { GscMover, Severity } from "@/lib/types";
@@ -98,7 +97,7 @@ export default function DomainOverviewPage() {
   const onpage = ds?.onpage?.data ?? null;
   const som = ds?.share_of_market?.data ?? null;
   const movers = ds?.gsc_movers?.data ?? null;
-  const ga4Unmapped = !ds?.ga4_overview && getDomain(domain.id).ga4PropertyId == null;
+  const ga4Unmapped = !ds?.ga4_overview && domain.ga4PropertyId == null;
 
   const trendData = useMemo(
     () =>

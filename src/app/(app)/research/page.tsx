@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useReportView } from "@/components/reports/report-layout";
 import { useSearchParams } from "next/navigation";
 import { ArrowRight, Bot, Building2, Globe2, Link2, Search, Sparkles, Users, ListOrdered, Target, GitCompareArrows } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
@@ -135,7 +136,7 @@ function GlobalResearchHome() {
 function SearchPerformancePage() {
   const { data: bundle, loading, error, isPortfolio, scopeLabel, scopeHost, scopeId } = useScopedLive();
 
-  const [tab, setTab] = useState<SubTab>("ranked");
+  const [tab, setTab] = useReportView<SubTab>(["ranked", "queries", "competitors", "gaps", "striking"], "ranked");
   const [selected, setSelected] = useState<Keyword | null>(null);
 
   // Ranked-keyword filters
@@ -399,7 +400,7 @@ function SearchPerformancePage() {
   return (
     <div className="animate-in space-y-5">
       <PageHeader
-        title="Search performance"
+        title={tab === "gaps" ? "Keyword Gap" : tab === "competitors" ? "Organic Competitors" : "Organic Traffic Insights"}
         description={`Live keyword universe for ${scopeHost} — ranked terms, first-party search queries, organic rivals and page-one opportunities.`}
         lastSync={bundle?.lastSync ?? null}
         loading={loading}

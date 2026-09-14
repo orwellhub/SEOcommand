@@ -3,7 +3,7 @@
   overflow: hidden;
   border: 1px solid rgb(var(--section-color) / 0.23);
   border-top: 3px solid rgb(var(--section-color));
-  border-radius: 12px;
+  border-radius: 6px;
   box-shadow: 0 3px 12px rgb(40 30 20 / 0.045), 0 1px 2px rgb(40 30 20 / 0.04);
 }
 
@@ -16,11 +16,11 @@
 
 .heading {
   display: flex;
-  min-height: 64px;
+  min-height: 54px;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 11px 20px;
+  padding: 10px 16px;
   border-bottom: 1px solid rgb(var(--section-color) / 0.14);
   background: linear-gradient(110deg, rgb(var(--section-color) / 0.13), rgb(var(--section-color) / 0.045));
 }
@@ -34,8 +34,8 @@
 
 .icon {
   display: grid;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
   place-items: center;
   border-radius: 9px;
@@ -46,7 +46,7 @@
 
 .title {
   color: rgb(var(--section-color));
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 800;
   line-height: 1.4;
   letter-spacing: -0.025em;
@@ -55,7 +55,7 @@
 .subtitle {
   margin-top: 3px;
   color: rgb(var(--muted));
-  font-size: 13px;
+  font-size: 11px;
   line-height: 1.5;
 }
 

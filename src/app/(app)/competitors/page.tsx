@@ -1,4 +1,6 @@
 "use client";
+import { useSearchParams } from "next/navigation";
+import { ReportTabs, useReportView, UnavailableReport } from "@/components/reports/report-layout";
 import { ResearchEvidencePanel } from "@/components/research/evidence-panel";
 
 import { useEffect, useMemo, useState } from "react";
@@ -28,7 +30,8 @@ export default function CompetitorsPage() {
   const [target, setTarget] = useState("");
   const [result, setResult] = useState<ExplorerResult | null>(null);
   const [recent, setRecent] = useState<RecentRun[]>([]);
-  const [tab, setTab] = useState<"keywords" | "pages">("keywords");
+  const params = useSearchParams();
+  const [tab, setTab] = useReportView(["keywords", "pages", "research"] as const, "keywords");
   const [busy, setBusy] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyRevision, setHistoryRevision] = useState(0);
@@ -74,8 +77,9 @@ export default function CompetitorsPage() {
   ], []);
 
   return <div className="animate-in space-y-5">
-    <PageHeader title="Competitor explorer" description={`Reverse-engineer any competitor against ${domain.name}'s approved market and budget.`} />
-      <ResearchEvidencePanel features={["footprint", "history"]} />
+    <PageHeader title="Organic Rankings" description={`Reverse-engineer any competitor against ${domain.name}'s approved market and budget.`} />
+    <ReportTabs items={[{id:"keywords",label:"Positions"},{id:"pages",label:"Pages"},{id:"research",label:"Competitive research"}]} value={tab} onChange={setTab} />
+    {(tab === "research" || params.has("feature")) && <ResearchEvidencePanel features={["footprint", "history"]} />}
     <Card className="overflow-hidden">
       <div className="grid lg:grid-cols-[1fr_auto]">
         <div className="p-5"><div className="text-2xs font-medium uppercase tracking-wide text-muted">Competitor domain</div><div className="mt-2 flex gap-2"><div className="relative flex-1"><Search className="absolute left-3 top-2.5 h-4 w-4 text-muted" /><input aria-label="Competitor domain" value={target} onChange={(event) => setTarget(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void explore()} placeholder="competitor.com" className="h-9 w-full rounded-md border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-purple" /></div><Button variant="primary" onClick={explore} disabled={busy || !target.trim()}>{busy ? "Scanning…" : "Explore"}<ArrowRight className="h-4 w-4" /></Button></div>{error && <div role="alert" className="mt-2"><EvidenceMessage detail={error} /><Button size="sm" onClick={() => setHistoryRevision((value) => value + 1)}>Retry saved history</Button></div>}<p className="mt-2 text-2xs text-muted">Estimated new scan cost ≤ ${DOMAIN_RESEARCH_ESTIMATE_USD.toFixed(2)}. Four DataForSEO datasets; reopening saved results is free. A new scan, including a retry, can incur provider costs.</p></div>
@@ -90,7 +94,7 @@ export default function CompetitorsPage() {
         <KpiCard label="Referring domains" value={result.backlinks.referringDomains == null ? "—" : fullNumber(result.backlinks.referringDomains)} />
         <KpiCard label="Domain rank" value={result.backlinks.rank == null ? "—" : String(result.backlinks.rank)} />
       </div>
-      <Card><CardHeader title={result.targetHost} subtitle={`Collected ${new Date(result.capturedAt).toLocaleString()} · saved keyword, page and link evidence`} action={<Building2 className="h-4 w-4 text-purple" />} /><div className="flex gap-1 border-b border-border px-4 py-2">{(["keywords", "pages"] as const).map((item) => <button key={item} onClick={() => setTab(item)} className={`rounded-md px-3 py-1.5 text-xs font-medium ${tab === item ? "bg-purple text-white" : "text-muted hover:bg-workspace"}`}>{item === "keywords" ? `Ranking keywords (${result.keywords.length})` : `Top pages (${result.pages.length})`}</button>)}</div>{tab === "keywords" ? <DataTable<ExplorerResult["keywords"][number]> rows={result.keywords} columns={keywordColumns} searchPlaceholder="Search competitor keywords…" rowKey={(row) => `${row.keyword}:${row.url}`} /> : <DataTable<ExplorerResult["pages"][number]> rows={result.pages} columns={pageColumns} searchPlaceholder="Search pages…" rowKey={(row) => row.url} />}</Card>
-    </> : <EmptyState icon={<Swords className="h-6 w-6" />} title="Choose a competitor to inspect" description="SEOcommand will capture its keyword footprint, strongest pages, paid visibility and backlink authority." />}
+      <Card><CardHeader title={result.targetHost} subtitle={`Collected ${new Date(result.capturedAt).toLocaleString()} · saved keyword, page and link evidence`} action={<Building2 className="h-4 w-4 text-purple" />} />{tab === "keywords" ? <DataTable<ExplorerResult["keywords"][number]> rows={result.keywords} columns={keywordColumns} searchPlaceholder="Search competitor keywords…" searchKeys={(row) => `${row.keyword} ${row.url}`} exportName="competitor-keywords" rowKey={(row) => `${row.keyword}:${row.url}`} /> : <DataTable<ExplorerResult["pages"][number]> rows={result.pages} columns={pageColumns} searchPlaceholder="Search pages…" searchKeys={(row) => row.url} exportName="competitor-pages" rowKey={(row) => row.url} />}</Card>
+    </> : <UnavailableReport title="Organic rankings" description="Open a saved competitor or collect one above to populate ranking keywords and strongest pages." metrics={["Organic keywords", "Estimated organic traffic", "Traffic value", "Referring domains"]} />}
   </div>;
 }

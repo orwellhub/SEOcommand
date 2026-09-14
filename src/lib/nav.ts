@@ -3,6 +3,7 @@ import {
   Link2, ListChecks, ListTodo, MapPinned, Radar, Search, Settings, ScanLine,
   ShieldCheck, Sparkles, Swords, TrendingUp, Trophy, Waypoints, type LucideIcon,
 } from "lucide-react";
+import { TOOLKIT_FEATURES } from "./toolkits";
 import { hrefWithScope } from "./site-context";
 
 export interface NavItem {
@@ -132,7 +133,7 @@ export function navigationHref(entry: Pick<NavItem, "href" | "group">, scope: st
 }
 export function searchFeatures(query: string): NavItem[] {
   const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
-  const entries = FEATURE_NAV.filter((entry, index, all) => all.findIndex((other) => other.href === entry.href && other.label === entry.label) === index);
+  const entries = [...TOOLKIT_FEATURES, ...FEATURE_NAV].filter((entry, index, all) => all.findIndex((other) => other.href === entry.href && other.label === entry.label) === index);
   return entries.filter((entry) => terms.every((term) => `${entry.label} ${entry.section ?? ""} ${(entry.aliases ?? []).join(" ")}`.toLowerCase().includes(term)))
     .sort((a, b) => Number(b.label.toLowerCase().includes(query.toLowerCase())) - Number(a.label.toLowerCase().includes(query.toLowerCase()))).slice(0, 14);
 }

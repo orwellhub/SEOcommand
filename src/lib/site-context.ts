@@ -5,6 +5,7 @@
  */
 const SITE_CONTEXT_ROUTES = [
   "/domain",
+  "/traffic-analytics",
   "/pages",
   "/questions",
   "/health",
