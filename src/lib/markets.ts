@@ -1,3 +1,5 @@
+import countryNames from "./dataforseo-country-names.json";
+
 /**
  * SERP markets selectable for a keyword-research scan. Codes are DataForSEO
  * location codes; UAE leads the list as the portfolio's priority market.
@@ -27,5 +29,6 @@ export function marketByCode(code: number): Market | undefined {
 }
 
 export function marketLabel(code: number): string {
-  return marketByCode(code)?.label ?? `Location ${code}`;
+  // Official Labs catalogue: https://cdn.dataforseo.com/v3/locations/locations_and_languages_dataforseo_labs_2026_09_01.csv
+  return marketByCode(code)?.label ?? (countryNames as Record<string, string>)[String(code)] ?? `Location ${code}`;
 }

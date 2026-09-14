@@ -1,3 +1,4 @@
+import { marketLabel } from "./markets";
 /** Shared, serialisable research contracts. Provider credentials never enter this module. */
 export const RESEARCH_FEATURES = [
   { id: "autocomplete", title: "Autocomplete suggestions", home: "/keyword-research?view=autocomplete", description: "Google's suggested searches, with their seed, language, market and collection date.", input: "keywords" },
@@ -24,7 +25,18 @@ export type ResearchPayload = { input: ResearchInput; market: { locationCode: nu
 export type ResearchRun = { id: string; siteSlug: string; feature: ResearchFeature; status: string; createdAt: string; updatedAt: string; nextRunAt: string | null; payload: ResearchPayload };
 export const researchFeature = (id: string) => RESEARCH_FEATURES.find((feature) => feature.id === id);
 export const researchKind = (feature: ResearchFeature) => `research_${feature}`;
-export const money = (value: number) => `$${value.toFixed(value < .01 ? 4 : 2)}`;
+export const money = (value: number) => `$${value.toFixed(value < .1 ? 4 : 2)}`;
+
+/** Resolve labels on read so earlier saved evidence needs no rewrite or paid recollection. */
+export function researchReportLabels(feature: ResearchFeature, report: EvidenceReport | undefined): EvidenceReport | undefined {
+  if (!report || !["countries", "autocomplete"].includes(feature)) return report;
+  return { ...report, tables: report.tables.map(table => ({ ...table, rows: table.rows.map(row => {
+    const code = row.values[feature === "countries" ? "Location code" : "Location"];
+    if (typeof code !== "number") return row;
+    if (feature === "countries") return { ...row, label: !row.label || row.label === String(code) ? marketLabel(code) : row.label };
+    return { ...row, values: { ...row.values, Location: marketLabel(code), "Location code": code } };
+  }) })) };
+}
 export function safeEvidenceUrl(value: unknown): string | undefined {
   if (typeof value !== "string") return;
   try { const url = new URL(value); if (["http:", "https:"].includes(url.protocol) && !url.username && !url.password) return url.toString(); } catch { /* Missing links stay unavailable. */ }

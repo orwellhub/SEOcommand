@@ -4,12 +4,14 @@ import { hasDatabase } from "@/sync/store";
 import { BudgetExceededError } from "@/providers/dataforseo/errors";
 import { getDataForSeoClient } from "@/providers/dataforseo";
 import { normalizeResearch } from "@/providers/dataforseo/research-normalizers";
-import { clusterSearchResults, researchKind, type EvidenceReport, type ResearchFeature, type ResearchPayload, type ResearchRun } from "@/lib/research-evidence";
+import { clusterSearchResults, researchKind, researchReportLabels, type EvidenceReport, type ResearchFeature, type ResearchPayload, type ResearchRun } from "@/lib/research-evidence";
 import { getManagedSite } from "./site-store";
 
 const records = schema.commandRecords;
 function serialize(row: typeof records.$inferSelect): ResearchRun {
-  return { id: row.id, siteSlug: row.siteSlug, feature: row.kind.replace(/^research_/, "") as ResearchFeature, status: row.status, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(), nextRunAt: row.nextRunAt?.toISOString() ?? null, payload: row.payload as ResearchPayload };
+  const feature = row.kind.replace(/^research_/, "") as ResearchFeature;
+  const payload = row.payload as ResearchPayload;
+  return { id: row.id, siteSlug: row.siteSlug, feature, status: row.status, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(), nextRunAt: row.nextRunAt?.toISOString() ?? null, payload: { ...payload, report: researchReportLabels(feature, payload.report), units: payload.units.map(unit => ({ ...unit, report: researchReportLabels(feature, unit.report) })) } };
 }
 export async function researchRuns(siteSlug: string, feature: ResearchFeature) {
   if (!hasDatabase()) return [];

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clusterSearchResults, safeEvidenceUrl, trendSummary, type ResearchUnit } from "./research-evidence";
+import { clusterSearchResults, money, researchReportLabels, safeEvidenceUrl, trendSummary, type EvidenceReport, type ResearchUnit } from "./research-evidence";
 import { normalizeResearch } from "@/providers/dataforseo/research-normalizers";
 import { requestCostEstimate } from "@/providers/dataforseo/config";
 import { analyseContent, benchmarkHtml } from "./content-analysis";
@@ -10,6 +10,26 @@ import { mailMessage } from "@/providers/google/mail";
 import { findAcquiredLink } from "@/platform/outreach-monitor";
 const unit = (endpoint: string): ResearchUnit => ({ id: "1", endpoint, path: "/unused", body: {}, estimateUsd: .03, label: "example.com" });
 describe("research evidence accuracy", () => {
+  it("resolves saved numeric country labels without rewriting evidence or merging languages", () => {
+    const original: EvidenceReport = { series: [], notes: [], tables: [{ title: "countries", columns: ["Location code", "Language"], total: 3, rows: [
+      { id: "a", label: "2124", values: { "Location code": 2124, Language: "en", "Organic traffic": 0 } },
+      { id: "b", label: "2124", values: { "Location code": 2124, Language: "fr", "Organic traffic": null } },
+      { id: "c", label: "2404", values: { "Location code": 2404, Language: "en", "Organic traffic": 3.905999 } },
+    ] }] };
+    const saved = JSON.stringify(original);
+    const result = researchReportLabels("countries", original)!;
+    expect(result.tables[0].rows.map(row => row.label)).toEqual(["Canada", "Canada", "Kenya"]);
+    expect(result.tables[0].rows.map(row => row.values["Organic traffic"])).toEqual([0, null, 3.905999]);
+    expect(JSON.stringify(original)).toBe(saved);
+    expect(researchReportLabels("history", original)).toBe(original);
+  });
+  it("labels autocomplete markets while retaining the exact provider code", () => {
+    const report = normalizeResearch(unit("serpAutocomplete"), [{ location_code: 2826, items: [{ type: "autocomplete", suggestion: "bus rental", rank_absolute: 1 }] }]);
+    expect(researchReportLabels("autocomplete", report)?.tables[0].rows[0].values).toMatchObject({ Location: "United Kingdom", "Location code": 2826 });
+  });
+  it("shows sub-cent costs accurately after a real collection", () => {
+    expect(money(.0156)).toBe("$0.0156"); expect(money(.002)).toBe("$0.0020"); expect(money(.15)).toBe("$0.15");
+  });
   it("does not turn missing data into zeros", () => { const result = normalizeResearch(unit("labsRankedKeywords"), [{ items: [{ keyword_data: { keyword: "bus hire", keyword_info: { search_volume: 0 } }, ranked_serp_element: { serp_item: { rank_group: 4, url: "https://example.com/" } } }] }]); expect(result.tables[0]!.rows[0]!.values).toEqual({ Position: 4, "Google monthly searches": 0, Difficulty: null, "Estimated traffic": null }); });
   it("normalizes provider monthly AI estimates, not Google volume", () => { const result = normalizeResearch(unit("aiKeywordDemand"), [{ items: [{ keyword: "bus hire", search_volume: 1000, ai_search_volume: 25, ai_monthly_searches: [{ year: 2026, month: 8, ai_search_volume: 20 }] }] }]); expect(result.tables[0]!.rows[0]!.values["Estimated monthly demand"]).toBe(25); expect(result.series[0]!.points).toEqual([{ date: "2026-08-01", value: 20 }]); });
   it("keeps history chronological and missing ranking buckets unavailable", () => { const report = normalizeResearch(unit("labsHistoricalRankOverview"), [{ items: [{ year: 2026, month: 8, metrics: { organic: { etv: 22, pos_1: 2, pos_2_3: 3 } } }, { year: 2026, month: 7, metrics: { organic: { etv: 20 } } }] }]); expect(report.series[0]!.points.map((r) => r.value)).toEqual([20, 22]); expect(report.tables[0]!.rows[1]!.values["Top 10"]).toBeNull(); });
