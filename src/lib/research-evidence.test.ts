@@ -11,15 +11,16 @@ import { findAcquiredLink } from "@/platform/outreach-monitor";
 const unit = (endpoint: string): ResearchUnit => ({ id: "1", endpoint, path: "/unused", body: {}, estimateUsd: .03, label: "example.com" });
 describe("research evidence accuracy", () => {
   it("resolves saved numeric country labels without rewriting evidence or merging languages", () => {
-    const original: EvidenceReport = { series: [], notes: [], tables: [{ title: "countries", columns: ["Location code", "Language"], total: 3, rows: [
+    const original: EvidenceReport = { series: [], notes: [], tables: [{ title: "countries", columns: ["Location code", "Language"], total: 4, rows: [
       { id: "a", label: "2124", values: { "Location code": 2124, Language: "en", "Organic traffic": 0 } },
       { id: "b", label: "2124", values: { "Location code": 2124, Language: "fr", "Organic traffic": null } },
       { id: "c", label: "2404", values: { "Location code": 2404, Language: "en", "Organic traffic": 3.905999 } },
+      { id: "d", label: "2344", values: { "Location code": 2344, Language: "zh-TW", "Organic traffic": 0.146999 } },
     ] }] };
     const saved = JSON.stringify(original);
     const result = researchReportLabels("countries", original)!;
-    expect(result.tables[0].rows.map(row => row.label)).toEqual(["Canada", "Canada", "Kenya"]);
-    expect(result.tables[0].rows.map(row => row.values["Organic traffic"])).toEqual([0, null, 3.905999]);
+    expect(result.tables[0].rows.map(row => row.label)).toEqual(["Canada", "Canada", "Kenya", "Hong Kong"]);
+    expect(result.tables[0].rows.map(row => row.values["Organic traffic"])).toEqual([0, null, 3.905999, 0.146999]);
     expect(JSON.stringify(original)).toBe(saved);
     expect(researchReportLabels("history", original)).toBe(original);
   });
