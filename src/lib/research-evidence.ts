@@ -1,5 +1,7 @@
 /** Shared, serialisable research contracts. Provider credentials never enter this module. */
 export const RESEARCH_FEATURES = [
+  { id: "autocomplete", title: "Autocomplete suggestions", home: "/keyword-research?view=autocomplete", description: "Google's suggested searches, with their seed, language, market and collection date.", input: "keywords" },
+  { id: "countries", title: "Domain country comparison", home: "/domain-research?view=countries", description: "Organic and paid search estimates by country and language from the provider index.", input: "domains" },
   { id: "footprint", title: "Deeper keyword and page research", home: "/competitors", description: "Up to 1,000 ranking keywords and 100 leading pages per selected domain.", input: "domains" },
   { id: "history", title: "Competitor performance history", home: "/competitors", description: "Monthly ranking distribution and estimated search traffic over the last year.", input: "domains" },
   { id: "links", title: "Deeper backlink evidence", home: "/backlinks", description: "Up to 1,000 linking-page records per domain, with anchors and collection dates.", input: "domains" },
@@ -12,7 +14,7 @@ export const RESEARCH_FEATURES = [
   { id: "reviews", title: "Customer review analysis", home: "/local-seo", description: "Review text, ratings, owner replies and evidence-backed themes for a selected business.", input: "business" },
 ] as const;
 export type ResearchFeature = typeof RESEARCH_FEATURES[number]["id"];
-export type ResearchInput = { feature: ResearchFeature; keywords: string[]; domains: string[]; businessId?: string; platform: "google" | "chat_gpt"; device: "desktop" | "mobile"; path?: string; pathMode?: "page" | "folder" };
+export type ResearchInput = { market?: { locationCode: number; languageCode: string; label: string }; feature: ResearchFeature; keywords: string[]; domains: string[]; businessId?: string; platform: "google" | "chat_gpt"; device: "desktop" | "mobile"; path?: string; pathMode?: "page" | "folder" };
 export type EvidenceRow = { id: string; label: string; url?: string; keywords?: string[]; values: Record<string, string | number | null>; detail?: string; evidence?: Record<string, unknown> };
 export type EvidenceTable = { title: string; columns: string[]; rows: EvidenceRow[]; total: number | null; note?: string };
 export type EvidenceSeries = { label: string; unit: string; points: { date: string; value: number | null }[] };

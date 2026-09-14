@@ -49,7 +49,7 @@ export function AreaTrend({
   height = 220,
   color = "var(--accent)",
 }: {
-  data: Record<string, number | string>[];
+  data: Record<string, number | string | null>[];
   dataKey: string;
   height?: number;
   color?: string;
@@ -91,7 +91,7 @@ export function MultiLine({
   series,
   height = 240,
 }: {
-  data: Record<string, number | string>[];
+  data: Record<string, number | string | null>[];
   series: { key: string; name: string; color: string }[];
   height?: number;
 }) {
@@ -133,7 +133,7 @@ export function BarSeries({
   height = 220,
   colors,
 }: {
-  data: Record<string, number | string>[];
+  data: Record<string, number | string | null>[];
   xKey: string;
   yKey: string;
   height?: number;

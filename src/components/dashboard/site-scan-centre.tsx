@@ -38,7 +38,7 @@ export function SiteScanCentre({ siteId }: { siteId: string }) {
     ? [running ? `${running} running` : null, queued ? `${queued} queued` : null].filter(Boolean).join(" · ")
     : "Latest scan";
 
-  return <Card role="region" aria-label="Website Scan Centre" className="border-purple/25 border-l-4 border-l-purple bg-card px-4 py-2.5">
+  return <Card id="website-scan-centre" role="region" aria-label="Website Scan Centre" className="border-purple/25 border-l-4 border-l-purple bg-card px-4 py-2.5">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex min-w-0 items-center gap-3">
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-purple/10 text-purple"><ScanLine className="h-4 w-4" aria-hidden="true" /></span>

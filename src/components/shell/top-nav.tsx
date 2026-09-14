@@ -88,11 +88,11 @@ export function TopNav() {
     .split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("");
 
   return (
-    <div className="relative flex min-h-14 flex-nowrap items-center gap-1.5 sm:gap-3 border-b border-border bg-card px-4 py-2 sm:flex-nowrap sm:px-6">
+    <div className="relative flex h-[53px] flex-nowrap items-center gap-1.5 sm:gap-3 border-b border-border bg-card px-4 py-2 sm:flex-nowrap sm:px-6">
       <button
         type="button"
         onClick={() => setSearchOpen(true)}
-        className="flex h-10 w-10 shrink-0 items-center justify-center gap-3 sm:w-auto sm:min-w-0 sm:flex-1 sm:justify-start rounded-md border border-border bg-card px-3 text-left text-xs text-muted transition-colors hover:border-purple/40"
+        className="flex h-8 w-8 shrink-0 items-center justify-center gap-3 sm:w-auto sm:min-w-0 sm:flex-1 sm:max-w-[550px] sm:justify-start rounded-md border border-border bg-card px-3 text-left text-xs text-muted transition-colors hover:border-purple/40"
         aria-label="Search websites, groups and modules"
       >
         <Search className="h-4 w-4 shrink-0" />

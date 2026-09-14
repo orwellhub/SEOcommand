@@ -8,6 +8,7 @@ import type { ManagedSite } from "./types";
 
 const hostSchema = z.string().trim().toLowerCase().transform((value) => value.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "")).pipe(z.string().max(253).regex(/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,63}$/, "Enter a domain without a path."));
 export const researchInputSchema = z.object({
+  market: z.object({ locationCode: z.number().int().positive(), languageCode: z.string().min(2).max(8), label: z.string().min(1).max(200) }).optional(),
   feature: z.enum(RESEARCH_FEATURES.map((feature) => feature.id) as [ResearchFeature, ...ResearchFeature[]]),
   keywords: z.array(z.string().trim().min(1).max(250)).max(100).default([]),
   domains: z.array(hostSchema).max(4).default([]),
@@ -28,7 +29,7 @@ export async function researchDefaults(site: ManagedSite) {
 }
 
 export async function buildResearchPlan(site: ManagedSite, input: ResearchInput, now = new Date()): Promise<ResearchPayload> {
-  const location = locationForSite(site), feature = RESEARCH_FEATURES.find((row) => row.id === input.feature)!;
+  const location = input.market ? {location_code:input.market.locationCode, language_code:input.market.languageCode} : locationForSite(site), feature = RESEARCH_FEATURES.find((row) => row.id === input.feature)!;
   const clean: ResearchInput = { ...input, keywords: [...new Set(input.keywords)], domains: [...new Set(input.domains)] };
   if (feature.input === "keywords" && !clean.keywords.length) throw new Error("Add at least one keyword.");
   if (feature.input === "domains" && !clean.domains.length) throw new Error("Choose at least one domain.");
@@ -40,6 +41,8 @@ export async function buildResearchPlan(site: ManagedSite, input: ResearchInput,
   const historyEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0));
   const historyStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 12, 1));
   switch (clean.feature) {
+    case "autocomplete": for (const keyword of clean.keywords) add("serpAutocomplete", "serp/google/autocomplete/live/advanced", { keyword, ...location, client: "gws-wiz-serp" }, .003, keyword); break;
+    case "countries": for (const target of clean.domains) add("labsDomainCountries", "dataforseo_labs/google/domain_rank_overview/live", { target, limit: 1000 }, .15, target); notes.push("Country and language rows are separate provider markets. They must not be summed as unique visitors."); break;
     case "footprint": for (const target of clean.domains) {
       const escaped = (clean.path ?? "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const filters = clean.path ? clean.pathMode === "folder" ? ["ranked_serp_element.serp_item.relative_url", "regex", `^${escaped.replace(/\/$/, "")}(?:/|$)`] : ["ranked_serp_element.serp_item.relative_url", "=", clean.path] : undefined;
@@ -66,5 +69,5 @@ export async function buildResearchPlan(site: ManagedSite, input: ResearchInput,
       notes.push("Collects up to 100 newest reviews, including text and owner replies. Older reviews remain outside this sample."); break;
     }
   }
-  return { input: clean, market: { locationCode: location.location_code, languageCode: location.language_code, label: site.primaryMarket }, units, estimateUsd: Math.round(units.reduce((sum, unit) => sum + unit.estimateUsd, 0) * 1000000) / 1000000, notes };
+  return { input: clean, market: { locationCode: location.location_code, languageCode: location.language_code, label: input.market?.label ?? site.primaryMarket }, units, estimateUsd: Math.round(units.reduce((sum, unit) => sum + unit.estimateUsd, 0) * 1000000) / 1000000, notes };
 }

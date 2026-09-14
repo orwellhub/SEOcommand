@@ -27,8 +27,8 @@ export function MissingChart({ message, height = "h-52" }: { message: string; he
 }
 
 export function ReportMetric({ label, value, note, href }: { label: string; value?: string | number | null; note?: string; href?: string }) {
-  const content = <><span className="block text-xs text-muted">{label}</span><span className="mt-1 flex items-center gap-1 text-[26px] font-semibold leading-9 tracking-tight tnum">{value ?? "—"}{href && <ArrowUpRight className="h-3.5 w-3.5 text-muted" />}</span><span className="mt-0.5 block text-[11px] leading-4 text-muted">{value == null ? "Unavailable" : note ?? "Saved evidence"}</span></>;
-  return href ? <Link href={href} className="block min-w-0 p-4 transition-colors hover:bg-workspace">{content}</Link> : <div className="min-w-0 p-4">{content}</div>;
+  const content = <><span className="block text-xs text-muted">{label}</span><span className="mt-1 flex items-center gap-1 text-[26px] font-semibold leading-9 tracking-tight tnum">{value ?? "—"}{href && <ArrowUpRight className="h-3.5 w-3.5 text-muted" />}</span><span className="mt-0.5 block text-[11px] leading-4 text-muted">{value == null ? note ?? "Unavailable" : note ?? ""}</span></>;
+  return href ? <Link href={href} className="report-metric block min-w-0 p-4 transition-colors hover:bg-workspace">{content}</Link> : <div className="report-metric min-w-0 p-4">{content}</div>;
 }
 
 export function UnavailableReport({ title, description, metrics }: { title: string; description: string; metrics: string[] }) {

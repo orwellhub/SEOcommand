@@ -132,6 +132,8 @@ export const COST_ESTIMATE_USD: Record<string, number> = {
   labsHistoricalRankOverview: 0.15,
   backlinksBrokenPages: 0.07,
   researchSerp: 0.003,
+  serpAutocomplete: 0.003,
+  labsDomainCountries: 0.15,
   aiMentions: 0.22,
   aiKeywordDemand: 0.01,
   searchTrends: 0.03,

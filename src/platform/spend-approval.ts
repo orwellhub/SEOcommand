@@ -29,6 +29,8 @@ const ENDPOINT_CATEGORY: Record<string, SpendCategory> = {
   searchTrends: "competitors",
   backlinksBrokenPages: "backlinks",
   researchSerp: "rankings",
+  serpAutocomplete: "rankings",
+  labsDomainCountries: "competitors",
   aiMentions: "ai",
   aiKeywordDemand: "ai",
   googleReviews: "local_seo",

@@ -1,4 +1,5 @@
 "use client";
+import { ResearchHandoff } from "./research-handoff";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -14,7 +15,7 @@ import { RESEARCH_FEATURES, compareEvidenceDates, money, researchFeature, safeEv
 import styles from "@/components/command/command.module.css";
 
 type Payload = { runs: ResearchRun[]; defaults: { keywords: string[]; domains: string[]; businesses: { id: string; name: string; identified: boolean }[]; market: { label: string; location_code: number; language_code: string } }; canScan: boolean; canEdit: boolean; configured: boolean };
-export function ResearchEvidencePanel({ features, title = "Research and opportunities" }: { features: ResearchFeature[]; title?: string }) {
+export function ResearchEvidencePanel({ features, title = "Research and opportunities", targetDomain, targetMarket }: { features: ResearchFeature[]; title?: string; targetDomain?: string; targetMarket?: ResearchInput["market"] }) {
   const { activeDomain } = useDomain();
   const params = useSearchParams(), pathname = usePathname(), router = useRouter();
   const requested = params.get("feature") as ResearchFeature;
@@ -24,10 +25,10 @@ export function ResearchEvidencePanel({ features, title = "Research and opportun
     router.push(`${pathname}?${query}#research`, { scroll: false });
   }
   if (!activeDomain) return null;
-  return <section id="research" className="min-w-0 scroll-mt-6">{features.length > 1 && <div className="mb-3 flex flex-wrap items-center justify-between gap-3"><h2 className="text-base font-bold text-ink">{title}</h2><nav aria-label={title} className="flex flex-wrap gap-1">{features.map((id) => <button key={id} onClick={() => setFeature(id)} aria-pressed={feature === id} className={`min-h-9 rounded-full border px-3 py-1 text-xs font-semibold ${feature === id ? "border-purple/30 bg-purple/10 text-purple" : "border-border bg-card text-muted"}`}>{researchFeature(id)?.title}</button>)}</nav></div>}<ResearchTool key={`${activeDomain.id}:${feature}`} site={activeDomain.id} siteName={activeDomain.name} siteHost={activeDomain.host} feature={feature} /></section>;
+  return <section id="research" className="min-w-0 scroll-mt-6">{features.length > 1 && <div className="mb-3 flex flex-wrap items-center justify-between gap-3"><h2 className="text-base font-bold text-ink">{title}</h2><nav aria-label={title} className="flex flex-wrap gap-1">{features.map((id) => <button key={id} onClick={() => setFeature(id)} aria-pressed={feature === id} className={`min-h-9 rounded-full border px-3 py-1 text-xs font-semibold ${feature === id ? "border-purple/30 bg-purple/10 text-purple" : "border-border bg-card text-muted"}`}>{researchFeature(id)?.title}</button>)}</nav></div>}<ResearchTool key={`${activeDomain.id}:${feature}`} site={activeDomain.id} siteName={activeDomain.name} siteHost={activeDomain.host} feature={feature} targetDomain={targetDomain} targetMarket={targetMarket} /></section>;
 }
 
-function ResearchTool({ site, siteName, siteHost, feature }: { site: string; siteName: string; siteHost: string; feature: ResearchFeature }) {
+function ResearchTool({ site, siteName, siteHost, feature, targetDomain, targetMarket }: { site: string; siteName: string; siteHost: string; feature: ResearchFeature; targetDomain?: string; targetMarket?: ResearchInput["market"] }) {
   const state = useJson<Payload>(`/api/research?site=${encodeURIComponent(site)}&feature=${feature}`, 0);
   const info = researchFeature(feature)!;
   const [open, setOpen] = useState(false), [keywords, setKeywords] = useState(""), [domains, setDomains] = useState(""), [businessId, setBusinessId] = useState(""), [platform, setPlatform] = useState<ResearchInput["platform"]>("google"), [device, setDevice] = useState<ResearchInput["device"]>("desktop");
@@ -38,7 +39,7 @@ function ResearchTool({ site, siteName, siteHost, feature }: { site: string; sit
   const pending = state.data?.runs.some((row) => ["queued", "running", "waiting"].includes(row.status));
   const refresh = state.refresh;
   useEffect(() => { if (!pending) return; const timer = window.setInterval(() => { if (document.visibilityState === "visible") refresh(); }, 7000); return () => clearInterval(timer); }, [pending, refresh]);
-  const input = (): ResearchInput => ({ feature, keywords: keywords.split("\n").map((v) => v.trim()).filter(Boolean), domains: domains.split("\n").map((v) => v.trim()).filter(Boolean), businessId: businessId || undefined, platform, device, path: path || undefined, pathMode });
+  const input = (): ResearchInput => ({ feature, market: targetMarket, keywords: keywords.split("\n").map((v) => v.trim()).filter(Boolean), domains: domains.split("\n").map((v) => v.trim()).filter(Boolean), businessId: businessId || undefined, platform, device, path: path || undefined, pathMode });
   async function action(action: string, extra: Record<string, unknown> = {}) {
     if (busy) return;
     setBusy(true); setError(""); setMessage("");
@@ -51,11 +52,11 @@ function ResearchTool({ site, siteName, siteHost, feature }: { site: string; sit
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not complete this request."); }
     finally { setBusy(false); }
   }
-  function configure() { const defaults = state.data?.defaults; setKeywords(defaults?.keywords.join("\n") ?? ""); setDomains(defaults?.domains.join("\n") ?? siteHost); setBusinessId(defaults?.businesses.find((b) => b.identified)?.id ?? ""); setPlan(null); setError(""); setOpen(true); }
+  function configure() { const defaults = state.data?.defaults; setKeywords(defaults?.keywords.join("\n") ?? ""); setDomains(targetDomain ?? defaults?.domains.join("\n") ?? siteHost); setBusinessId(defaults?.businesses.find((b) => b.identified)?.id ?? ""); setPlan(null); setError(""); setOpen(true); }
   function work(row: EvidenceRow, table: EvidenceTable) {
     if (!run) return;
     const ownUrl = safeEvidenceUrl(row.url), isOwn = ownUrl && (new URL(ownUrl).hostname.replace(/^www\./, "") === siteHost.replace(/^www\./, ""));
-    setFinding({ key: `research:${feature}:${table.title}:${row.label}`.slice(0, 230), title: `${feature === "recovery" ? "Recover links to" : feature === "reviews" ? "Review customer feedback:" : "Plan improvement:"} ${row.label}`.slice(0, 200), module: info.title, executionType: feature === "recovery" ? "technical_task" : feature === "links" ? "link_prospect_list" : feature === "clusters" ? "keyword_page_map" : "content_brief", priorityScore: feature === "recovery" ? 80 : 65, pageMode: isOwn ? "existing_page" : "site_wide", targetUrl: isOwn ? ownUrl : null, targetKeywords: row.keywords, sourceUrl: `${info.home}?site=${encodeURIComponent(site)}&feature=${feature}#research`, evidenceLabel: `DataForSEO · ${stamp(run.updatedAt)}`, sourceEvidence: { provider: "DataForSEO", feature, collectedAt: run.updatedAt, market: run.payload.market, row, caveat: table.note } });
+    setFinding({ key: `research:${feature}:${table.title}:${row.label}`.slice(0, 230), title: `${feature === "recovery" ? "Recover links to" : feature === "reviews" ? "Review customer feedback:" : "Plan improvement:"} ${row.label}`.slice(0, 200), module: info.title, executionType: feature === "recovery" ? "technical_task" : feature === "links" ? "link_prospect_list" : feature === "clusters" ? "keyword_page_map" : "content_brief", priorityScore: feature === "recovery" ? 80 : 65, pageMode: isOwn ? "existing_page" : "site_wide", targetUrl: isOwn ? ownUrl : null, targetKeywords: row.keywords, sourceUrl: `${info.home}${info.home.includes("?") ? "&" : "?"}site=${encodeURIComponent(site)}&feature=${feature}#research`, evidenceLabel: `DataForSEO · ${stamp(run.updatedAt)}`, sourceEvidence: { provider: "DataForSEO", runId: run.id, feature, collectedAt: run.updatedAt, market: run.payload.market, row, caveat: table.note } });
   }
   const report = run?.payload.report;
   return <><Panel title={info.title} description={info.description} actions={<div className="flex gap-2"><Button size="sm" aria-label="Reload saved research" disabled={state.loading} onClick={refresh}><RefreshCw className="h-3.5 w-3.5" /></Button><Button size="sm" variant="primary" disabled={!state.data?.canScan || !!pending} onClick={configure}>{pending ? "Collection active" : "Collect evidence"}</Button></div>}>
@@ -68,13 +69,14 @@ function ResearchTool({ site, siteName, siteHost, feature }: { site: string; sit
     {run.status === "queued" && <p role="status" className="p-4 text-sm text-muted">Queued for collection. Completed requests are saved as the worker progresses.</p>}
     {run.payload.error && <p role="alert" className="p-4 text-sm text-critical">{run.payload.error} Completed evidence is retained. An uncertain request is not retried automatically.</p>}
     {report?.notes.map((note, i) => <p key={i} className="px-4 py-2 text-xs text-muted">{note}</p>)}
+    {report && state.data?.canEdit && <div className="flex justify-end p-3"><ResearchHandoff keywords={[...new Set(report.tables.flatMap(t=>t.rows.flatMap(r=>r.keywords??[])))].slice(0,100)} evidence={{runId:run.id,feature,market:run.payload.market,collectedAt:run.updatedAt}} sourceUrl={`${info.home}${info.home.includes("?")?"&":"?"}site=${site}&feature=${feature}#research`}/></div>}
     {!!report?.series.length && <SeriesView series={report.series} />}
     {report?.tables.map((table, index) => <EvidenceTableView key={`${run.id}:${index}`} table={table} onWork={state.data?.canEdit ? (row) => work(row, table) : undefined} />)}
     {run.status === "completed" && !report?.tables.some((table) => table.rows.length) && <Empty>No matching records were returned for this collection. Try a different query or inspect coverage; missing evidence is not treated as zero performance.</Empty>}
     </>}
   </Panel>
   <Drawer open={open} onClose={() => setOpen(false)} title={`Collect ${info.title.toLowerCase()}`} subtitle={siteName} footer={<div className="flex justify-end gap-2"><Button onClick={() => setOpen(false)}>Cancel</Button>{plan ? <Button variant="primary" disabled={busy || !state.data?.configured} onClick={() => void action("collect", { input: plan.input, approvedEstimate: plan.estimateUsd })}>{busy ? "Queuing…" : `Collect · estimated ${money(plan.estimateUsd)}`}</Button> : <Button variant="primary" disabled={busy} onClick={() => void action("preview", { input: input() })}>{busy ? "Checking…" : "Review cost"}</Button>}</div>}>
-    <div className="space-y-4"><p className="text-sm text-muted">{state.data?.defaults.market.label} · {state.data?.defaults.market.language_code}. Website and $200 monthly portfolio limits apply.</p>
+    <div className="space-y-4"><p className="text-sm text-muted">{targetMarket?.label ?? state.data?.defaults.market.label} · {targetMarket?.languageCode ?? state.data?.defaults.market.language_code}. Website and $200 monthly portfolio limits apply.</p>
     {info.input === "keywords" && <label className={styles.label}>Keywords, one per line (maximum 100)<textarea className={styles.field} rows={8} value={keywords} onChange={(event) => { setKeywords(event.target.value); setPlan(null); }} /></label>}
     {info.input === "domains" && <label className={styles.label}>Domains, one per line (maximum 4)<textarea className={styles.field} rows={4} value={domains} onChange={(event) => { setDomains(event.target.value); setPlan(null); }} /></label>}
     {feature === "footprint" && <label className={styles.label}>Optional page or subfolder path<input className={styles.field} placeholder="/guides" value={path} onChange={(e) => { setPath(e.target.value); setPlan(null); }} /><select className={styles.field} value={pathMode} onChange={(e) => { setPathMode(e.target.value as "page" | "folder"); setPlan(null); }}><option value="folder">This folder and its pages</option><option value="page">This exact page</option></select><span className="text-xs text-muted">Path research collects ranking keywords for that path; leading-page totals are available for full-domain research.</span></label>}
@@ -111,4 +113,4 @@ function EvidenceTableView({ table, onWork }: { table: EvidenceTable; onWork?: (
 }
 function download(name: string, data: string, type: string) { const url = URL.createObjectURL(new Blob([data], { type })), link = document.createElement("a"); link.href = url; link.download = name; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
 function toCsv(rows: (string | number)[][]) { return rows.map((row) => row.map((v) => { let text = String(v); if (/^[\s]*[=+@-]/.test(text)) text = `'${text}`; return `"${text.replace(/"/g, '""')}"`; }).join(",")).join("\r\n"); }
-export function ResearchDirectory() { const { activeDomain } = useDomain(); if (!activeDomain) return null; return <Panel title="Additional research" description="Deeper tools live in their relevant website sections. Collection is optional and uses existing budgets."><div className="grid gap-2 p-4 sm:grid-cols-2 lg:grid-cols-3">{RESEARCH_FEATURES.map((item) => <Link key={item.id} href={`${item.home}?site=${activeDomain.id}#research`} className="rounded-lg border border-border p-3 text-xs font-semibold hover:border-purple/40 hover:bg-purple/5">{item.title}<ArrowUpRight className="ml-1 inline h-3 w-3" /></Link>)}</div></Panel>; }
+export function ResearchDirectory() { const { activeDomain } = useDomain(); if (!activeDomain) return null; return <Panel title="Additional research" description="Deeper tools live in their relevant website sections. Collection is optional and uses existing budgets."><div className="grid gap-2 p-4 sm:grid-cols-2 lg:grid-cols-3">{RESEARCH_FEATURES.map((item) => <Link key={item.id} href={`${item.home}${item.home.includes("?") ? "&" : "?"}site=${activeDomain.id}&feature=${item.id}#research`} className="rounded-lg border border-border p-3 text-xs font-semibold hover:border-purple/40 hover:bg-purple/5">{item.title}<ArrowUpRight className="ml-1 inline h-3 w-3" /></Link>)}</div></Panel>; }

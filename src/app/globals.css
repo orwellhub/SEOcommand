@@ -232,3 +232,12 @@ table :is(th, td) {
     break-before: auto;
   }
 }
+
+@media print {
+  #analytics-report, #analytics-report * { visibility: visible !important; }
+  #analytics-report { position: absolute !important; inset: 0 auto auto 0 !important; width: 210mm !important; max-width: 210mm !important; padding: 10mm !important; color: #191919 !important; background: white !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  #analytics-report button, #analytics-report select, #analytics-report input, #analytics-report nav { display: none !important; }
+  #analytics-report table { font-size: 9px !important; }
+  #analytics-report :is(th, td) { white-space: normal !important; overflow-wrap: anywhere !important; }
+  #analytics-report svg { break-inside: avoid; }
+}

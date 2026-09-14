@@ -1,0 +1,8 @@
+"use client";
+import { useDomain } from "@/components/shell/domain-context";
+import { useJson } from "@/lib/use-live";
+import type { AiVisibilityDashboard } from "@/platform/ai-read-model";
+import { Card } from "@/components/ui/primitives";
+import { ReportMetric } from "./report-layout";
+export function DomainAiSummary({host}:{host:string}){const {sites,range}=useDomain();const site=sites.find(r=>r.host.replace(/^www\./,"")===host.replace(/^www\./,""));return site?<MeasuredDomainAi site={site.id} days={parseInt(range)}/>:<Card><div className="border-b border-border px-4 py-3 font-bold">AI Search</div><div className="grid grid-cols-2"><ReportMetric label="AI mention rate"/><ReportMetric label="Mentions"/></div><p className="px-4 py-3 text-xs text-muted">No tracked website matches this research domain. Indexed AI research is available from AI Visibility.</p></Card>;}
+function MeasuredDomainAi({site,days}:{site:string;days:number}){const state=useJson<AiVisibilityDashboard>(`/api/ai-visibility?scope=${encodeURIComponent(site)}&days=${days}`);const measured=Boolean(state.data?.summary.checks);return <Card><div className="border-b border-border px-4 py-3 font-bold">AI Search</div><div className="grid grid-cols-2"><ReportMetric label="AI mention rate" value={measured?`${state.data!.summary.mentionRate}%`:null}/><ReportMetric label="Mentions" value={measured?state.data!.summary.mentions:null}/></div><p className="px-4 py-3 text-xs text-muted">Tracked responses · last {days} days · {state.data?.summary.checks??0} checks. This is a separate evidence period from the SEO snapshot.</p>{state.error&&<button className="p-4 text-xs text-critical" onClick={state.refresh}>AI evidence could not load. Retry</button>}</Card>;}

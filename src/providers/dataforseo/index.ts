@@ -450,6 +450,9 @@ export async function fetchAiPromptResults(
           competitors,
           costUsd,
         });
+        if (platform === "google_ai_overview" || platform === "google_ai_mode") {
+          observation.raw = { ...(observation.raw as Record<string, unknown>), collection: { locationCode: p.locationCode ?? site.dataForSeoLocationCode, languageCode: p.languageCode || site.dataForSeoLanguageCode } };
+        }
         observations.push(observation);
         out.push({
           id: `${domainId}-ai-${i + 1}-${platform}-${sampleIndex}`,

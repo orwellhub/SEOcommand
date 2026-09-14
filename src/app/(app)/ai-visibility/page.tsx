@@ -1,22 +1,22 @@
 "use client";
-import { useSearchParams } from "next/navigation";
-import { ReportTabs, ReportMetric, MissingChart, useReportView } from "@/components/reports/report-layout";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ReportTabs, useReportView } from "@/components/reports/report-layout";
 import { AiComparison } from "@/components/research/ai-comparison";
 import { ResearchEvidencePanel } from "@/components/research/evidence-panel";
 
 import { useEffect, useState } from "react";
 import {
-  Bot, CheckCircle2, CircleAlert, ExternalLink, FileSearch, FolderSearch, Lightbulb,
+  Bot, CheckCircle2, CircleAlert, ExternalLink, FileSearch, FolderSearch,
   Link2, Loader2, MessageSquareText, Plus, Radar, Sparkles, Target, Users,
 } from "lucide-react";
 import { useDomain } from "@/components/shell/domain-context";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button, Card, EmptyState, Skeleton, StatusBadge } from "@/components/ui/primitives";
 import { Drawer, DrawerField } from "@/components/ui/drawer";
-import { MultiLine } from "@/components/charts/charts";
+import { AiOverview } from "@/components/reports/ai-overview";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import type { AiVisibilityDashboard } from "@/platform/ai-read-model";
-import { formatDate } from "@/lib/dates";
+
 import { cn } from "@/lib/cn";
 
 type Tab = "overview" | "prompts" | "sources" | "competitors" | "crawlers" | "comparison" | "research";
@@ -38,12 +38,15 @@ const platformLabel = (value: string) => ({chatgpt:"ChatGPT",google_ai_overview:
 const pct = (value: number) => `${Math.round(value)}%`;
 
 export default function AiVisibilityPage() {
-  const { scope, activeDomain, activeGroup, sites } = useDomain();
+  const { scope, activeDomain, activeGroup, sites, range } = useDomain();
   const [data, setData] = useState<AiVisibilityDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const params = useSearchParams();
+  const router = useRouter();
   const [view, setTab] = useReportView<Tab>(["overview", "prompts", "sources", "competitors", "crawlers", "comparison", "research"], "overview", {"#platform-comparison":"comparison"});
+  const days = parseInt(range);
+  const platform = params.get("platform") ?? "";
   const tab = params.has("feature") ? "research" : view;
   const [selected, setSelected] = useState<Observation | null>(null);
   const [reload, setReload] = useState(0);
@@ -51,7 +54,7 @@ export default function AiVisibilityPage() {
   useEffect(() => {
     let active = true;
     setLoading(true); setData(null); setError(null);
-    fetch(`/api/ai-visibility?scope=${encodeURIComponent(scope)}&days=90`)
+    fetch(`/api/ai-visibility?scope=${encodeURIComponent(scope)}&days=${days}${platform ? `&platform=${encodeURIComponent(platform)}` : ""}`)
       .then(async (response) => {
         const body = await response.json();
         if (!response.ok) throw new Error(body.error ?? `Request failed (${response.status})`);
@@ -61,24 +64,24 @@ export default function AiVisibilityPage() {
       .catch((reason) => { if (active) setError(reason instanceof Error ? reason.message : String(reason)); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [scope, reload]);
+  }, [scope, reload, days, platform]);
 
   const scopeLabel = scope === "portfolio" ? "Portfolio" : scope.startsWith("group:") ? activeGroup?.name ?? "Portfolio group" : activeDomain?.name ?? String(scope);
-  const subtitle = scope === "portfolio" ? `Across ${sites.length} websites` : scope.startsWith("group:") ? "Includes directly assigned websites and nested subgroups" : activeDomain?.host ?? "Selected website";
+
 
   return (
-    <div className="animate-in space-y-5">
+    <div id="analytics-report" className="animate-in space-y-4">
       <PageHeader
-        title={`${tab === "overview" ? "AI Visibility Overview" : TABS.find((item) => item.id === tab)?.label ?? "AI Visibility"}: ${scopeLabel}`}
-        description={`${subtitle}. Measure answers, citations, competitors and crawler readiness from one evidence trail.`}
+        title={`${tab === "overview" ? "Visibility Overview" : TABS.find((item) => item.id === tab)?.label ?? "AI Visibility"}: ${activeDomain?.host ?? scopeLabel}`}
         loading={loading}
       />
 
-      <ReportTabs items={TABS} value={tab} onChange={setTab} label="AI visibility views" />
+      <div className="flex flex-wrap items-center gap-3 border-b border-border pb-3"><select aria-label="AI platform" value={platform} onChange={e=>{ const query=new URLSearchParams(window.location.search); if(e.target.value) query.set("platform",e.target.value); else query.delete("platform"); router.push(`/ai-visibility?${query}`, {scroll:false}); }} className="h-8 rounded border border-border bg-card px-3 text-sm"><option value="">All AI platforms</option>{AI_PLATFORMS.map(p=><option key={p} value={p}>{platformLabel(p)}</option>)}</select><span className="text-xs text-muted">Last {days} days · saved observations</span><Button size="sm" className="ml-auto" onClick={()=>window.print()}>Export PDF</Button></div>
+      {tab !== "overview" && <ReportTabs items={TABS} value={tab} onChange={setTab} label="AI visibility views" />}
 
       {loading && !data ? <LoadingState /> : error ? <EmptyState title="AI visibility could not load" description={error} icon={<CircleAlert className="h-5 w-5" />} /> : !data ? null : (
         <>
-          {tab === "overview" && <Overview data={data} onSelect={setSelected} />}
+          {tab === "overview" && <AiOverview data={data} onSelect={setSelected} />}
           {tab === "prompts" && <Prompts data={data} scope={scope} onAccepted={() => setReload((value) => value + 1)} />}
           {tab === "sources" && <Sources data={data} />}
           {tab === "competitors" && <Competitors data={data} />}
@@ -93,31 +96,6 @@ export default function AiVisibilityPage() {
   );
 }
 
-function Overview({ data, onSelect }: { data: AiVisibilityDashboard; onSelect: (row: Observation) => void }) {
-  const measured = data.summary.checks > 0;
-  const columns: Column<Observation>[] = [
-    { key: "prompt", header: "Latest measured answer", sortValue: (row) => row.prompt, render: (row) => <div className="max-w-md"><div className="truncate font-medium text-ink">{row.prompt}</div><div className="text-2xs text-muted">{row.siteName} · {row.topic}</div></div> },
-    { key: "platform", header: "Platform", sortValue: (row) => row.platform, render: (row) => <StatusBadge label={platformLabel(row.platform)} tone="info" /> },
-    { key: "mention", header: "Mention", sortValue: (row) => row.mentioned ? 1 : 0, render: (row) => <StatusBadge label={row.mentioned ? "Mentioned" : "Absent"} tone={row.mentioned ? "success" : "warning"} /> },
-    { key: "citation", header: "Citation", sortValue: (row) => row.cited ? 1 : 0, render: (row) => <StatusBadge label={row.cited ? "Cited" : "Not cited"} tone={row.cited ? "success" : "neutral"} /> },
-    { key: "position", header: "Rec. position", align: "right", sortValue: (row) => row.recommendationPosition ?? 999, render: (row) => row.recommendationPosition ? `#${row.recommendationPosition}` : "—" },
-    { key: "date", header: "Checked", align: "right", sortValue: (row) => row.capturedOn, render: (row) => <span className="text-xs text-muted">{formatDate(row.capturedOn)}</span> },
-  ];
-  return <div className="space-y-5">
-    <div className="grid gap-4 xl:grid-cols-[260px_minmax(0,1fr)]">
-      <Card className="p-4"><h2 className="text-[15px] font-bold">AI mention rate</h2><p className="mt-1 text-xs text-muted">Measured responses mentioning your brand</p><div className="relative mx-auto my-5 flex h-40 w-40 items-center justify-center"><svg viewBox="0 0 120 120" className="absolute inset-0 h-full w-full -rotate-90" aria-hidden="true"><circle cx="60" cy="60" r="50" fill="none" stroke="rgb(var(--border))" strokeWidth="9" /><circle cx="60" cy="60" r="50" fill="none" stroke="var(--chart-orange)" strokeWidth="9" pathLength="100" strokeDasharray={`${measured ? data.summary.mentionRate : 0} 100`} strokeLinecap="round" /></svg><span className="text-4xl font-semibold tnum">{measured ? pct(data.summary.mentionRate) : "—"}</span></div><p className="text-center text-xs text-muted">{measured ? `${data.summary.checks} response checks · 90 days` : "No AI observations collected yet"}</p><div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-xs"><span className="text-muted">Positive sentiment</span><span className="font-semibold">{measured ? pct(data.summary.positiveSentimentRate) : "—"}</span></div></Card>
-      <Card className="overflow-hidden"><div className="border-b border-border px-4 py-3"><h2 className="text-[15px] font-bold">Visibility movement</h2><p className="text-xs text-muted">Saved response evidence · last 90 days</p></div><div className="grid grid-cols-3 divide-x divide-border"><ReportMetric label="Citation rate" value={measured ? pct(data.summary.citationRate) : null} note="Responses citing your website" /><ReportMetric label="AI share of voice" value={measured ? pct(data.summary.shareOfVoice) : null} note="Share of detected brand entities" /><ReportMetric label="Average recommendation" value={data.summary.avgRecommendationPosition ? `#${data.summary.avgRecommendationPosition}` : null} note="Ranked answers only" /></div>{data.trend.length > 1 ? <div className="px-3 pb-3"><MultiLine data={data.trend} height={180} series={[{ key: "mentionRate", name: "Mention rate", color: "var(--chart-orange)" }, { key: "citationRate", name: "Citation rate", color: "var(--chart-blue)" }, { key: "shareOfVoice", name: "Share of voice", color: "var(--chart-lilac)" }]} /></div> : <MissingChart height="h-36" message={measured ? "A second measurement date is needed to show a trend." : "Trend history appears after prompt checks have completed."} />}</Card>
-    </div>
-    <div className="grid gap-4 xl:grid-cols-2">
-      <Card><div className="border-b border-border px-4 py-3"><h2 className="text-[15px] font-bold">Distribution by AI platform</h2><p className="text-xs text-muted">Mention rate within each platform’s measured responses</p></div><div className="space-y-4 p-4">{AI_PLATFORMS.map((name) => { const platform = data.platforms.find((entry) => entry.platform === name); return <div key={name} className="grid grid-cols-[130px_minmax(0,1fr)_45px] items-center gap-3 text-xs"><span>{platformLabel(name)}</span><div className="h-2 rounded bg-workspace"><div className="h-full rounded bg-purple" style={{ width: `${platform?.mentionRate ?? 0}%` }} /></div><span className="text-right tnum" title={platform ? `${platform.checks} checks` : "Not measured"}>{platform ? pct(platform.mentionRate) : "—"}</span></div>; })}</div></Card>
-      <Card><div className="border-b border-border px-4 py-3"><h2 className="text-[15px] font-bold">Mentions by country</h2><p className="text-xs text-muted">Geographical distribution</p></div><MissingChart message="Country-level AI mention data is not available from the saved observations." /></Card>
-    </div>
-
-    {data.recommendations.length > 0 && <Card className="p-4"><div className="mb-3 flex items-center gap-2"><Lightbulb className="h-4 w-4 text-warning" /><div><h2 className="text-sm font-semibold text-ink">Evidence-led next actions</h2><p className="text-2xs text-muted">Suggestions stay review-only; no website change is published automatically.</p></div></div><div className="grid gap-2 md:grid-cols-2">{data.recommendations.map((item, index) => <div key={`${item.kind}-${index}`} className="rounded-md border border-border p-3"><div className="flex items-start justify-between gap-3"><div><div className="text-sm font-medium text-ink">{item.title}</div><p className="mt-1 text-xs leading-relaxed text-muted">{item.detail}</p></div><span className="rounded-full bg-purple/10 px-2 py-1 text-2xs font-semibold text-purple">{item.priority}</span></div></div>)}</div></Card>}
-
-    <Card className="p-4"><div className="mb-3"><h2 className="text-sm font-semibold text-ink">Latest response evidence</h2><p className="text-2xs text-muted">Open a row to inspect the answer, citations and detected entities.</p></div><DataTable rows={data.observations} columns={columns} searchKeys={(row) => `${row.prompt} ${row.topic} ${row.siteName} ${row.platform}`} onRowClick={onSelect} pageSize={12} exportName="ai-observations" /></Card>
-  </div>;
-}
 
 function Prompts({ data, scope, onAccepted }: { data: AiVisibilityDashboard; scope: string; onAccepted: () => void }) {
   const [busy, setBusy] = useState<string | null>(null);

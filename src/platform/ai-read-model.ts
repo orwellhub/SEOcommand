@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, lte, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { listManagedSites } from "./site-store";
 
@@ -12,15 +12,19 @@ function rate(numerator: number, denominator: number): number {
   return denominator ? Math.round((numerator / denominator) * 1000) / 10 : 0;
 }
 
-export async function buildAiVisibilityDashboard(scope: AiDashboardScope, days = 90) {
+export async function buildAiVisibilityDashboard(scope: AiDashboardScope, days = 90, filters: { platform?: string; country?: string } = {}) {
+  days = Number.isFinite(days) ? Math.min(Math.max(Math.floor(days), 7), 365) : 90;
   const since = new Date();
-  since.setUTCDate(since.getUTCDate() - Math.min(Math.max(days, 7), 365));
+  since.setUTCDate(since.getUTCDate() - (days - 1));
   const sinceDate = since.toISOString().slice(0, 10);
   if (!scope.siteSlugs.length) return emptyDashboard(scope, days);
 
   const observationFilter = and(
     inArray(schema.aiResponseObservations.siteSlug, scope.siteSlugs),
     gte(schema.aiResponseObservations.capturedOn, sinceDate),
+    lte(schema.aiResponseObservations.capturedOn, new Date().toISOString().slice(0, 10)),
+    filters.platform ? eq(schema.aiResponseObservations.platform, filters.platform) : undefined,
+    filters.country ? sql`coalesce(${schema.aiResponseObservations.raw}->>'location_code', ${schema.aiResponseObservations.raw}->'collection'->>'locationCode') = ${filters.country}` : undefined,
   );
   const entityFilter = and(
     observationFilter,
@@ -40,6 +44,8 @@ export async function buildAiVisibilityDashboard(scope: AiDashboardScope, days =
     crawlerRows,
     trackedPrompts,
     sites,
+    citationPages,
+    countries,
   ] = await Promise.all([
     db().select().from(schema.aiResponseObservations)
       .where(observationFilter)
@@ -50,7 +56,7 @@ export async function buildAiVisibilityDashboard(scope: AiDashboardScope, days =
       sitesMeasured: sql<number>`count(distinct ${schema.aiResponseObservations.siteSlug})::int`,
       mentions: sql<number>`coalesce(sum(case when ${schema.aiResponseObservations.mentioned} then 1 else 0 end), 0)::int`,
       citations: sql<number>`coalesce(sum(case when ${schema.aiResponseObservations.cited} then 1 else 0 end), 0)::int`,
-      positives: sql<number>`coalesce(sum(case when ${schema.aiResponseObservations.sentiment} = 'positive' then 1 else 0 end), 0)::int`,
+      positives: sql<number>`coalesce(sum(case when ${schema.aiResponseObservations.mentioned} and ${schema.aiResponseObservations.sentiment} = 'positive' then 1 else 0 end), 0)::int`,
       avgPosition: sql<number | null>`avg(${schema.aiResponseObservations.recommendationPosition})::float`,
     }).from(schema.aiResponseObservations).where(observationFilter),
     db().select({
@@ -123,6 +129,15 @@ export async function buildAiVisibilityDashboard(scope: AiDashboardScope, days =
       .orderBy(desc(schema.aiTrackingPrompts.priority))
       .limit(5000),
     listManagedSites(),
+    db().select({ platform: schema.aiResponseObservations.platform, date: schema.aiResponseObservations.capturedOn,
+      urls: sql<string[]>`array_agg(distinct ${schema.aiResponseCitations.url})`,
+    }).from(schema.aiResponseCitations).innerJoin(schema.aiResponseObservations, eq(schema.aiResponseCitations.observationId, schema.aiResponseObservations.id))
+      .where(and(observationFilter, eq(schema.aiResponseCitations.owned, true)))
+      .groupBy(schema.aiResponseObservations.platform, schema.aiResponseObservations.capturedOn),
+    db().select({ locationCode: sql<string | null>`coalesce(${schema.aiResponseObservations.raw}->>'location_code', ${schema.aiResponseObservations.raw}->'collection'->>'locationCode')`,
+      checks: sql<number>`count(*)::int`, mentions: sql<number>`sum(case when ${schema.aiResponseObservations.mentioned} then 1 else 0 end)::int`,
+    }).from(schema.aiResponseObservations).where(observationFilter)
+      .groupBy(sql`coalesce(${schema.aiResponseObservations.raw}->>'location_code', ${schema.aiResponseObservations.raw}->'collection'->>'locationCode')`),
   ]);
 
   const observationIds = observations.map((item) => item.id);
@@ -136,6 +151,9 @@ export async function buildAiVisibilityDashboard(scope: AiDashboardScope, days =
 
   const summary = {
     checks: observationSummary.checks,
+    mentions: observationSummary.mentions,
+    citedResponses: observationSummary.citations,
+    citedPages: new Set(citationPages.flatMap((row) => row.urls)).size,
     sitesMeasured: observationSummary.sitesMeasured,
     mentionRate: rate(observationSummary.mentions, observationSummary.checks),
     citationRate: rate(observationSummary.citations, observationSummary.checks),
@@ -147,13 +165,19 @@ export async function buildAiVisibilityDashboard(scope: AiDashboardScope, days =
   const entityTrend = new Map(entityTrendRows.map((item) => [item.date, item]));
   const trend = trendRows.map((item) => ({
     date: item.date,
+    citedPages: new Set(citationPages.filter((row) => row.date === item.date).flatMap((row) => row.urls)).size,
+    mentions: item.mentions,
+    citedResponses: item.citations,
     mentionRate: rate(item.mentions, item.checks),
     citationRate: rate(item.citations, item.checks),
     shareOfVoice: rate(entityTrend.get(item.date)?.owned ?? 0, entityTrend.get(item.date)?.total ?? 0),
   }));
   const platforms = platformRows.map((item) => ({
     platform: item.platform,
+    citedPages: new Set(citationPages.filter((row) => row.platform === item.platform).flatMap((row) => row.urls)).size,
     checks: item.checks,
+    mentions: item.mentions,
+    citedResponses: item.citations,
     mentionRate: rate(item.mentions, item.checks),
     citationRate: rate(item.citations, item.checks),
     avgPosition: item.avgPosition == null ? null : Math.round(item.avgPosition * 10) / 10,
@@ -213,15 +237,15 @@ export async function buildAiVisibilityDashboard(scope: AiDashboardScope, days =
 
   return {
     scope: { ...scope, days }, summary, trend, platforms, observations: latestObservations,
-    sources, competitors, opportunities, crawlerAudit, trackedPrompts, recommendations,
+    sources, competitors, opportunities, crawlerAudit, trackedPrompts, recommendations, countries,
   };
 }
 
 function emptyDashboard(scope: AiDashboardScope, days: number) {
   return {
     scope: { ...scope, days },
-    summary: { checks: 0, sitesMeasured: 0, mentionRate: 0, citationRate: 0, avgRecommendationPosition: null, positiveSentimentRate: 0, shareOfVoice: 0 },
-    trend: [], platforms: [], observations: [], sources: [], competitors: [], opportunities: [], crawlerAudit: [], trackedPrompts: [], recommendations: [],
+    summary: { checks: 0, mentions: 0, citedResponses: 0, citedPages: 0, sitesMeasured: 0, mentionRate: 0, citationRate: 0, avgRecommendationPosition: null, positiveSentimentRate: 0, shareOfVoice: 0 },
+    countries: [], trend: [], platforms: [], observations: [], sources: [], competitors: [], opportunities: [], crawlerAudit: [], trackedPrompts: [], recommendations: [],
   };
 }
 
