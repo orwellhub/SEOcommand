@@ -23,10 +23,10 @@ describe("keyword query contract",()=>{
     expect(providerKeywordQuery("bus rental",{...DEFAULT_KEYWORD_QUERY,group:["c++"]}).filters).toEqual(["keyword","regex",expect.stringContaining("c\\\\+\\\\+")]);
     expect(providerKeywordQuery("bus rental",{...DEFAULT_KEYWORD_QUERY,match:"exact"}).filters).toBeUndefined();
   });
-  it("preserves question boundaries through the provider's extra escape layer",()=>{
+  it("matches complete question strings without ambiguous backslash escapes",()=>{
     const wire=providerKeywordQuery("bus rental",{...DEFAULT_KEYWORD_QUERY,questions:true}).filters as string[];
-    expect(wire[2]).toContain("\\\\b");
-    const expression=new RegExp(wire[2]!.replace(/\\\\/g,"\\"));
+    expect(wire[2]).not.toContain("\\");
+    const expression=new RegExp(wire[2]!.replaceAll("[[:space:]]", "[ \t]"));
     expect(expression.test("how much is bus rental")).toBe(true);
     expect(expression.test("island bus rental")).toBe(false);
     expect(expression.test("bus rental cost?")).toBe(true);

@@ -30,8 +30,8 @@ export function queryFromFilters(filters: KeywordFilters, query?: KeywordQuery):
 
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const terms = (value: string) => value.split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
-const wordPattern = (value: string) => `(^|[^\\p{L}\\p{N}])${escapeRegex(value)}([^\\p{L}\\p{N}]|$)`;
-export const QUESTION_PATTERN = "^(who|what|when|where|why|how|which|can|could|should|is|are|do|does|will|would)\\b|\\?";
+const wordPattern = (value: string) => `(^|.*[[:space:][:punct:]])${escapeRegex(value)}($|[[:space:][:punct:]].*)`;
+export const QUESTION_PATTERN = "^(who|what|when|where|why|how|which|can|could|should|is|are|do|does|will|would)([[:space:]].*)?$|.*[?].*";
 type Clause = [string, string, string | number | string[]];
 
 /** Filters run in Labs before limit/offset. Never accept raw provider expressions from clients. */
@@ -43,7 +43,7 @@ export function providerKeywordQuery(seed: string, query: KeywordQuery, nested =
   const add = (field: string, operator: string, value: Clause[2]) => clauses.push([prefix + field, operator, typeof value === "string" && (operator === "regex" || operator === "not_regex") ? value.replace(/\\/g, "\\\\") : value]);
   if (query.match === "phrase") for (const term of new Set(keywordWords(seed))) add("keyword", "regex", wordPattern(term));
   if (query.questions) {
-    const patterns: Record<string,string> = {en:QUESTION_PATTERN, ar:"^(كيف|ما|ماذا|متى|أين|اين|من|لماذا|هل|كم) |[؟?]", fr:"^(comment|pourquoi|quand|où|ou|quel|quelle|combien|est-ce)\\b|\\?", es:"^(cómo|como|qué|que|cuándo|cuando|dónde|donde|cuánto|cuanto|por qué)\\b|[¿?]", de:"^(wie|was|wann|wo|wer|warum|welche|kann|ist)\\b|\\?"};
+    const patterns: Record<string,string> = {en:QUESTION_PATTERN, ar:"^(كيف|ما|ماذا|متى|أين|اين|من|لماذا|هل|كم)([[:space:]].*)?$|.*[؟?].*", fr:"^(comment|pourquoi|quand|où|ou|quel|quelle|combien|est-ce)([[:space:]].*)?$|.*[?].*", es:"^(cómo|como|qué|que|cuándo|cuando|dónde|donde|cuánto|cuanto|por qué)([[:space:]].*)?$|.*[¿?].*", de:"^(wie|was|wann|wo|wer|warum|welche|kann|ist)([[:space:]].*)?$|.*[?].*"};
     const pattern = patterns[language];
     if (!pattern) throw new Error("Question matching currently supports English, Arabic, French, Spanish and German. Use Include keywords to search question phrases in another language.");
     add("keyword", "regex", pattern);
@@ -64,7 +64,7 @@ export function providerKeywordQuery(seed: string, query: KeywordQuery, nested =
   }
   if (query.minWords || query.maxWords) {
     const min = Math.max(1, Math.floor(Number(query.minWords) || 1)), max = query.maxWords ? Math.floor(Number(query.maxWords)) : null;
-    add("keyword", "regex", max === 0 ? "^$" : `^\\s*\\S+(\\s+\\S+){${min - 1},${max == null ? "" : max - 1}}\\s*$`);
+    add("keyword", "regex", max === 0 ? "^$" : `^[[:space:]]*[^[:space:]]+([[:space:]]+[^[:space:]]+){${min - 1},${max == null ? "" : max - 1}}[[:space:]]*$`);
   }
   if (clauses.length > 8) throw new Error("DataForSEO supports eight conditions per search. Remove a condition or a group level before applying these filters.");
   const fields = {keyword:"keyword", volume:"keyword_info.search_volume", difficulty:"keyword_properties.keyword_difficulty", cpc:"keyword_info.cpc", competition:"keyword_info.competition", intent:"search_intent_info.main_intent", updated:"keyword_info.last_updated_time", results:"serp_info.se_results_count"};

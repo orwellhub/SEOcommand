@@ -68,6 +68,10 @@ export default function KeywordResearchPage() {
           const body=await response.json();
           if(!response.ok||!body.ok)throw new Error(body.message??"Research could not complete.");
           result=body.result;
+          // Global demand is independent of the selected country. Retain paid
+          // evidence for this keyword when refreshing its country overview.
+          const previousGlobal=results.find(item=>item.seed.toLowerCase()===result.seed.toLowerCase())?.report?.global;
+          if(nextView==="overview"&&previousGlobal)result={...result,report:{...result.report,global:previousGlobal}};
           if(version!==requestVersion.current)return;
           collected.push(result);setResults([...collected]);
           id=await saveResult(result,undefined,false,chosenSource);

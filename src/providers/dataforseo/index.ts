@@ -155,7 +155,7 @@ export async function researchKeywords(opts: {
   }
   const {result} = await client.post<Record<string, unknown>>(endpoint, ENDPOINTS[endpoint], [task], {domainSlug:opts.siteSlug ?? null});
   // Some Labs responses put seed metadata in a separate result object.
-  const root = result.find(part => Array.isArray(part.items) || part.total_count === 0);
+  const root = result.find(part => Array.isArray(part.items) || part.total_count === 0 || part.items === null && part.items_count === 0);
   if (!root) {
     console.warn("Keyword provider response missing report", {endpoint, reports:result.map(part => ({keys:Object.keys(part), total:part.total_count, count:part.items_count, itemsType:part.items === null ? "null" : typeof part.items}))});
     throw new Error("The provider did not return a valid keyword report. Your previous collection is still available.");

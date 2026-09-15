@@ -32,3 +32,9 @@ it("retains an unassigned clickstream country without making reports unsaveable"
  const result=await keywordGlobalVolume("bus rental","test");
  expect(result.volume).toBe(3679);expect(result.countries).toEqual([{code:"US",volume:1049,percentage:28.5},{code:"ZZ",volume:3,percentage:0.08}]);
 });
+
+it("accepts the live provider's explicit empty page with unknown total",async()=>{
+ state.post.mockResolvedValue({result:[{total_count:null,items_count:0,items:null}]});
+ const page=vi.fn();expect(await researchKeywords({seed:"bus rental",locationCode:2826,languageCode:"en",onPagination:page})).toEqual([]);
+ expect(page).toHaveBeenCalledWith(expect.objectContaining({total:null,hasMore:false,nextOffset:0}));
+});
