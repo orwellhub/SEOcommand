@@ -300,44 +300,44 @@ function SearchPerformancePage() {
         key: "common",
         header: "Common keywords",
         align: "right",
-        sortValue: (r) => r.commonKeywords,
-        render: (r) => fullNumber(r.commonKeywords),
+        sortValue: (r) => r.commonKeywords ?? -1,
+        render: (r) => r.commonKeywords == null ? "—" : fullNumber(r.commonKeywords),
       },
       {
         key: "keywords",
         header: "Total keywords",
         align: "right",
-        sortValue: (r) => r.keywords,
-        render: (r) => fullNumber(r.keywords),
+        sortValue: (r) => r.keywords ?? -1,
+        render: (r) => r.keywords == null ? "—" : fullNumber(r.keywords),
       },
       {
         key: "authority",
         header: "Authority",
         align: "right",
-        sortValue: (r) => r.authority,
-        render: (r) => String(r.authority),
+        sortValue: (r) => r.authority ?? -1,
+        render: (r) => r.authority == null ? "—" : String(r.authority),
       },
       {
         key: "traffic",
         header: "Est. traffic",
         align: "right",
-        sortValue: (r) => r.estTraffic,
-        render: (r) => compactNumber(r.estTraffic),
+        sortValue: (r) => r.estTraffic ?? -1,
+        render: (r) => r.estTraffic == null ? "—" : compactNumber(r.estTraffic),
       },
       {
         key: "overlap",
-        header: "Overlap",
+        header: "Share of competitor keywords",
         align: "right",
-        sortValue: (r) => r.overlapPct,
-        render: (r) => percent(r.overlapPct, 0),
+        sortValue: (r) => r.overlapPct ?? -1,
+        render: (r) => r.overlapPct == null ? "—" : percent(r.overlapPct, 0),
       },
       {
         key: "trend",
         header: "Trend",
-        sortValue: (r) => r.trend,
+        sortValue: (r) => r.trend ?? "",
         render: (r) => (
           <StatusBadge
-            label={r.trend}
+            label={r.trend ?? "Unknown"}
             tone={r.trend === "up" ? "success" : r.trend === "down" ? "critical" : "neutral"}
           />
         ),

@@ -3,7 +3,7 @@ import { normalizeSavedSnapshot } from "./snapshot-quality";
 import { analyticsPeriod, searchPeriod } from "./reporting";
 import { sourceHealth } from "./source-health";
 import { aggregateBundles } from "@/sync/aggregate";
-import { normalizeBacklinks, normalizeReferringDomains, normalizeRankedKeywords, normalizeDomainOverview } from "@/providers/dataforseo/normalizers";
+import { normalizeBacklinks, normalizeReferringDomains, normalizeRankedKeywords, normalizeDomainOverview, normalizeCompetitors } from "@/providers/dataforseo/normalizers";
 import type { DomainLiveBundle } from "./live";
 import type { Provenance } from "./types";
 import { shiftDate } from "./dashboard-data";
@@ -14,6 +14,23 @@ function bundle(domainId: string, datasets: DomainLiveBundle["datasets"]): Domai
 function ds<T>(data: T, p = provenance) { return { data, provenance: p, capturedOn: "2026-09-10" }; }
 
 describe("production accuracy regressions", () => {
+  it("uses competitor-wide metrics, preserving zero and withholding unsupported scores and trends", () => {
+    const rows = normalizeCompetitors([{items:[
+      {domain:"competitor.example",intersections:45,metrics:{organic:{count:45,etv:30}},full_domain_metrics:{organic:{count:900,etv:1234.4}}},
+      {domain:"zero.example",intersections:0,full_domain_metrics:{organic:{count:0,etv:0}}},
+      {domain:"unknown.example",metrics:{organic:{count:45,etv:30}}},
+    ]}], "a");
+    expect(rows[0]).toMatchObject({commonKeywords:45,keywords:900,estTraffic:1234,overlapPct:5,authority:null,trend:null,metricsVersion:2});
+    expect(rows[1]).toMatchObject({commonKeywords:0,keywords:0,estTraffic:0,overlapPct:null});
+    expect(rows[2]).toMatchObject({commonKeywords:null,keywords:null,estTraffic:null,authority:null,trend:null});
+  });
+  it("withholds incorrect legacy competitor totals on read without modifying saved evidence", () => {
+    const old = {host:"competitor.example",commonKeywords:45,keywords:45,estTraffic:30,authority:0,overlapPct:100,trend:"flat"};
+    const saved = {dataset:"competitors",payload:[old,{...old,metricsVersion:2}],provenance:{...provenance,source:"dataforseo"} as Provenance};
+    expect(normalizeSavedSnapshot(saved).payload[0]).toMatchObject({commonKeywords:45,keywords:null,estTraffic:null,authority:null,overlapPct:null,trend:null});
+    expect(normalizeSavedSnapshot(saved).payload[1]).toEqual(saved.payload[1]);
+    expect(saved.payload[0]).toEqual(old);
+  });
   it("corrects only the known historical Search Console date signature without changing stored records", () => {
     const saved = { dataset: "gsc_totals", payload: { clicks: 212 }, provenance };
     expect(normalizeSavedSnapshot(saved).provenance).toMatchObject({ rangeStart: "2026-08-12", rangeEnd: "2026-09-08" });

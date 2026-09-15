@@ -128,7 +128,7 @@ export default function DomainOverviewPage() {
   const competitors = useMemo(
     () =>
       [...(bundle?.datasets.competitors?.data ?? [])].sort(
-        (a, b) => b.commonKeywords - a.commonKeywords,
+        (a, b) => (b.commonKeywords ?? -1) - (a.commonKeywords ?? -1),
       ),
     [bundle],
   );
@@ -518,10 +518,10 @@ export default function DomainOverviewPage() {
                         {c.host}
                       </span>
                     </td>
-                    <td className="py-2 text-right text-ink tnum">{fullNumber(c.commonKeywords)}</td>
-                    <td className="py-2 text-right text-muted tnum">{fullNumber(c.keywords)}</td>
-                    <td className="py-2 text-right text-muted tnum">{c.authority}</td>
-                    <td className="py-2 text-right text-muted tnum">{compactNumber(c.estTraffic)}</td>
+                    <td className="py-2 text-right text-ink tnum">{c.commonKeywords == null ? "—" : fullNumber(c.commonKeywords)}</td>
+                    <td className="py-2 text-right text-muted tnum">{c.keywords == null ? "—" : fullNumber(c.keywords)}</td>
+                    <td className="py-2 text-right text-muted tnum">{c.authority ?? "—"}</td>
+                    <td className="py-2 text-right text-muted tnum">{c.estTraffic == null ? "—" : compactNumber(c.estTraffic)}</td>
                   </tr>
                 ))}
               </tbody>

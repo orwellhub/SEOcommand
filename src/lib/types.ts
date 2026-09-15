@@ -191,12 +191,13 @@ export interface Competitor {
   id: string;
   domainId: DomainId;
   host: string;
-  commonKeywords: number;
-  keywords: number;
-  authority: number;
-  estTraffic: number;
-  overlapPct: number;
-  trend: Trend;
+  commonKeywords: number | null;
+  keywords: number | null;
+  authority: number | null;
+  estTraffic: number | null;
+  overlapPct: number | null;
+  trend: Trend | null;
+  metricsVersion?: 2;
 }
 
 /* ------------------------------ Site Audit ------------------------------ */

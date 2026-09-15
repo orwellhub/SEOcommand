@@ -229,17 +229,24 @@ export function normalizeDomainOverview(rows: Row[]): {
 export function normalizeCompetitors(rows: Row[], domainId: DomainId): Competitor[] {
   const items: Row[] = resultItems(rows);
   return items.map((it, i) => {
-    const m = it?.metrics?.organic ?? {};
+    // `metrics` describes the target on intersecting keywords. Only
+    // `full_domain_metrics` contains the competitor's whole-domain totals.
+    const m = it?.full_domain_metrics?.organic ?? {};
+    const known = (value: unknown): number | null => typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
+    const commonKeywords = known(it?.intersections);
+    const keywords = known(m?.count);
+    const traffic = known(m?.etv);
     return {
       id: `${domainId}-dfs-comp-${i + 1}`,
       domainId,
       host: str(it?.domain),
-      commonKeywords: num(it?.intersections ?? it?.full_domain_metrics?.organic?.count),
-      keywords: num(m?.count),
-      authority: num(it?.rank),
-      estTraffic: Math.round(num(m?.etv)),
-      overlapPct: num(it?.intersections) && num(m?.count) ? Math.round((num(it?.intersections) / num(m?.count)) * 1000) / 10 : 0,
-      trend: "flat",
+      commonKeywords,
+      keywords,
+      authority: null, // This endpoint does not supply an authority score.
+      estTraffic: traffic === null ? null : Math.round(traffic),
+      overlapPct: commonKeywords !== null && keywords !== null && keywords > 0 ? Math.round(commonKeywords / keywords * 1000) / 10 : null,
+      trend: null, // One observation cannot establish a trend.
+      metricsVersion: 2,
     };
   });
 }

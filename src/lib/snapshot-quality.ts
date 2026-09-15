@@ -31,7 +31,9 @@ export function normalizeSavedSnapshot<T extends { dataset: string; payload: unk
     else if (snapshot.dataset === "keywords") payload = payload.filter((row) => row?.keyword?.trim()).map((row) => !provenance?.normalizationVersion && row.prevPosition === row.position ? { ...row, prevPosition: null } : row);
     else if (snapshot.dataset === "rank_snapshots") payload = payload.map((row) => !provenance?.normalizationVersion && row.prevPosition === row.position ? { ...row, prevPosition: null } : row);
     else if (snapshot.dataset === "position_buckets" && !provenance?.normalizationVersion) payload = payload.map((row) => ({ ...row, prevCount: null }));
-    else if (snapshot.dataset === "competitors") payload = payload.filter((row) => row?.host?.trim());
+    else if (snapshot.dataset === "competitors") payload = payload.filter((row) => row?.host?.trim()).map((row) => provenance?.source === "dataforseo" && row.metricsVersion !== 2
+      ? { ...row, keywords: null, estTraffic: null, authority: null, overlapPct: null, trend: null }
+      : row);
   }
   return { ...snapshot, payload, provenance };
 }
