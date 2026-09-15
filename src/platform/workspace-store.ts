@@ -30,6 +30,6 @@ export async function updateWorkspace(current:CommandRecord,payload:Record<strin
   if(latest?.updatedAt!==current.updatedAt)return null;
   return saveCommandRecord(current.siteSlug,current.kind,current.recordKey,payload,{status});
  }
- const [row]=await db().update(schema.commandRecords).set({payload,status,updatedAt:now}).where(and(eq(schema.commandRecords.id,current.id),eq(schema.commandRecords.siteSlug,current.siteSlug),sql`date_trunc('milliseconds', ${schema.commandRecords.updatedAt}) = ${new Date(current.updatedAt)}`)).returning();
+ const [row]=await db().update(schema.commandRecords).set({payload,status,updatedAt:now}).where(and(eq(schema.commandRecords.id,current.id),eq(schema.commandRecords.siteSlug,current.siteSlug),sql`date_trunc('milliseconds', ${schema.commandRecords.updatedAt}) = ${new Date(current.updatedAt).toISOString()}::timestamptz`)).returning();
  return row?{...row,createdAt:row.createdAt.toISOString(),updatedAt:row.updatedAt.toISOString(),nextRunAt:row.nextRunAt?.toISOString()??null}:null;
 }

@@ -65,8 +65,8 @@ function toRows(payload: any): GscRow[] {
     key: (r.keys ?? []).join(" | "),
     clicks: r.clicks ?? 0,
     impressions: r.impressions ?? 0,
-    ctr: Math.round((r.ctr ?? 0) * 1000) / 10,
-    position: Math.round((r.position ?? 0) * 10) / 10,
+    ctr: (r.ctr ?? 0) * 100,
+    position: r.position ?? 0,
   }));
 }
 
@@ -89,8 +89,8 @@ export async function gscTotals(domainId: DomainId, days = 28): Promise<GscTotal
   return {
     clicks: r.clicks ?? 0,
     impressions: r.impressions ?? 0,
-    ctr: Math.round((r.ctr ?? 0) * 1000) / 10,
-    position: Math.round((r.position ?? 0) * 10) / 10,
+    ctr: (r.ctr ?? 0) * 100,
+    position: r.position ?? 0,
   };
 }
 
@@ -133,8 +133,8 @@ export async function gscQueryPages(
     page: row.keys?.[1] ?? "",
     clicks: row.clicks ?? 0,
     impressions: row.impressions ?? 0,
-    ctr: Math.round((row.ctr ?? 0) * 1000) / 10,
-    position: Math.round((row.position ?? 0) * 10) / 10,
+    ctr: (row.ctr ?? 0) * 100,
+    position: row.position ?? 0,
   }));
 }
 
@@ -157,8 +157,8 @@ export async function gscTimeseries(
       date: (r.keys ?? [])[0] ?? "",
       clicks: r.clicks ?? 0,
       impressions: r.impressions ?? 0,
-      ctr: Math.round((r.ctr ?? 0) * 1000) / 10,
-      position: Math.round((r.position ?? 0) * 10) / 10,
+      ctr: (r.ctr ?? 0) * 100,
+      position: r.position ?? 0,
     }))
     .sort((a: { date: string }, b: { date: string }) => a.date.localeCompare(b.date));
 }

@@ -443,7 +443,7 @@ export async function queueBrowserCrawl(siteSlug: string, maxPages?: number, url
   return db().transaction(async tx => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`browser-crawl:${siteSlug}`}))`);
     const now = new Date(), cutoff = now.getTime() - 30 * 60000;
-    await tx.update(schema.platformJobs).set({ status: "failed", completedAt: now, lastError: "Browser worker interrupted. Saved evidence is retained; a replacement crawl was requested." }).where(and(eq(schema.platformJobs.siteSlug, siteSlug), eq(schema.platformJobs.kind, "browser_crawl"), eq(schema.platformJobs.status, "running"), sql`${schema.platformJobs.startedAt} < ${new Date(cutoff)}`, sql`coalesce((${schema.platformJobs.progress}->>'heartbeatAt')::numeric, 0) < ${cutoff}`));
+    await tx.update(schema.platformJobs).set({ status: "failed", completedAt: now, lastError: "Browser worker interrupted. Saved evidence is retained; a replacement crawl was requested." }).where(and(eq(schema.platformJobs.siteSlug, siteSlug), eq(schema.platformJobs.kind, "browser_crawl"), eq(schema.platformJobs.status, "running"), sql`${schema.platformJobs.startedAt} < ${new Date(cutoff).toISOString()}::timestamptz`, sql`coalesce((${schema.platformJobs.progress}->>'heartbeatAt')::numeric, 0) < ${cutoff}`));
     const [active] = await tx.select().from(schema.platformJobs).where(and(eq(schema.platformJobs.siteSlug, siteSlug), eq(schema.platformJobs.kind, "browser_crawl"), inArray(schema.platformJobs.status, ["queued", "running"]))).limit(1);
     if (active) return active;
     const [job] = await tx.insert(schema.platformJobs).values({ siteSlug, kind: "browser_crawl", progress: { maxPages: url ? 1 : maxPages ?? null, ...(url ? { url } : {}) } }).returning();
