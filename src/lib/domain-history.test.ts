@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { matchingDomainHistory } from "./domain-history";
+import { domainHistoryPoints, matchingDomainHistory } from "./domain-history";
 import type { ResearchRun } from "./research-evidence";
 
 function saved(patch: Partial<ResearchRun> = {}): ResearchRun {
@@ -21,4 +21,12 @@ it("keeps site, target, country, language, status and actual history boundaries"
 it("selects the newest matching historical collection across both research entry points", () => {
   const old = saved({ id: "old", feature: "history", updatedAt: "2026-09-12" }), newest = saved();
   expect(matchingDomainHistory([old, newest], "one", "example.com", 2826, "en")?.id).toBe("traffic");
+});
+it("uses saved month labels when collection has replaced provider dates with row numbers", () => {
+  const points = domainHistoryPoints({ title: "example.com: monthly history", columns: [], total: 3, rows: [
+    { id: "0", label: "2026-08", values: { "Estimated traffic": 0 } },
+    { id: "1", label: "2026-07", values: { "Estimated traffic": null } },
+    { id: "2", label: "Unknown", values: { "Estimated traffic": 9 } },
+  ] });
+  expect(points.map(row => [row.date, row.traffic])).toEqual([["2026-07-01", null], ["2026-08-01", 0]]);
 });
