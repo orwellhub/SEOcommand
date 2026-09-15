@@ -4,6 +4,7 @@ import { ReportTabs, useReportView } from "@/components/reports/report-layout";
 import { ResearchEvidencePanel } from "@/components/research/evidence-panel";
 
 import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ExternalLink, Link2, Network, ShieldAlert } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { KpiCard } from "@/components/ui/kpi-card";
@@ -92,7 +93,9 @@ function ToxicityMeter({ value }: { value: number }) {
 export default function BacklinksPage() {
   const { data: bundle, loading, error, isPortfolio, scopeLabel, scopeHost, scopeId } = useScopedLive();
 
-  const [tab, setTab] = useReportView<SubTab>(TABS.map(item=>item.key), "overview");
+  const params = useSearchParams();
+  const featureView = ({ links: "research", recovery: "recovery", link_pages: "pages", link_bulk: "bulk" } as Record<string, SubTab>)[params.get("feature") ?? ""] ?? "overview";
+  const [tab, setTab] = useReportView<SubTab>(TABS.map(item=>item.key), featureView);
   const [statusFilter,setStatusFilter]=useState("all"),[followFilter,setFollowFilter]=useState("all"),[typeFilter,setTypeFilter]=useState("all"),[countryFilter,setCountryFilter]=useState("all"),[domainStatus,setDomainStatus]=useState("all");
   const [selected, setSelected] = useState<Backlink | null>(null);
 
