@@ -70,8 +70,13 @@ export async function POST(request: Request) {
     if (["speed", "indexing", "watch_add", "watch_remove", "watch_check"].includes(input.action) && !url) return NextResponse.json({ error: "Enter a page URL on the selected website." }, { status: 400 });
     const records = await commandRecords(site.id);
     if (input.action === "crawl_settings") {
-      await saveCommandRecord(site.id, "settings", "preferences", { crawlExclusions: [...new Set(input.exclusions ?? [])] }, { actor: session.email });
-      return NextResponse.json({ ok: true, message: "Path exclusions saved for future rendered crawls. Existing evidence is retained." });
+      await saveCommandRecord(site.id, "settings", "preferences", {
+        crawlExclusions: [...new Set(input.exclusions ?? [])],
+        ...(input.crawlPageLimit !== undefined ? { crawlPageLimit: input.crawlPageLimit } : {}),
+        ...(input.crawlMaxDepth !== undefined ? { crawlMaxDepth: input.crawlMaxDepth } : {}),
+        ...(input.crawlDelayMs !== undefined ? { crawlDelayMs: input.crawlDelayMs } : {}),
+      }, { actor: session.email });
+      return NextResponse.json({ ok: true, message: "Crawl limits, timing and exclusions saved. Existing evidence is retained." });
     }
     if (input.action === "brand" || input.action === "business_settings") {
       if (input.action === "business_settings" && Object.keys(input.businessEvents ?? {}).length > 20) return NextResponse.json({ error: "Choose at most 20 business events." }, { status: 400 });

@@ -27,7 +27,7 @@ export default function TechnicalCrawlerPage() {
     const body = await response.json();
     if (response.ok) setData(body); else setError(body.error ?? "Rendered crawl could not be loaded.");
   }, [domain.id]);
-  useEffect(() => { setData(null); void load(); }, [load]);
+  useEffect(() => { setData(null); void load(); const timer = setInterval(() => void load(), 15000); return () => clearInterval(timer); }, [load]);
   const queue = async () => {
     setBusy(true); setError(null);
     try {
@@ -35,6 +35,7 @@ export default function TechnicalCrawlerPage() {
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Crawl could not be queued.");
       setError("Crawl queued. The hourly browser runner will process it without blocking the dashboard.");
+      await load();
     } catch (err) { setError(err instanceof Error ? err.message : "Crawl could not be queued."); }
     finally { setBusy(false); }
   };
@@ -53,22 +54,22 @@ export default function TechnicalCrawlerPage() {
   const diff = data?.run?.diffSummary ?? {};
 
   return <div className="animate-in space-y-5">
-    <PageHeader title="Rendered technical crawler" description="Browser-rendered evidence layered over the full DataForSEO crawl: JavaScript parity, internal link graph, schema, hreflang and change detection." actions={<Button variant="primary" onClick={queue} disabled={busy}><Play className="h-4 w-4" />{busy ? "Queuing…" : "Queue rendered crawl"}</Button>} />
+    <PageHeader title="Rendered technical crawler" description="Browser-rendered evidence layered over the full DataForSEO crawl: JavaScript parity, internal link graph, schema, hreflang and change detection." actions={<><Button onClick={() => void load()}>Refresh crawl</Button><Button variant="primary" onClick={queue} disabled={busy}><Play className="h-4 w-4" />{busy ? "Queuing…" : "Queue rendered crawl"}</Button></>} />
     {inspect && <PageInspector key={`${domain.id}:${inspect}`} site={domain.id} url={inspect} onClose={() => setInspect(null)} />}
     {data?.pages && <CrawlStructure pages={data.pages} onInspect={setInspect} />}
     <CrawlSettings key={domain.id} site={domain.id} />
     {error && <div role="status" className={`rounded-md border p-3 text-xs ${error.startsWith("Crawl queued") ? "border-success/20 bg-success/5 text-success" : "border-critical/20 bg-critical/5 text-critical"}`}>{error}</div>}
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
       <KpiCard label="Rendered pages" value={data?.run ? fullNumber(data.run.pagesCrawled) : "—"} accent />
-      <KpiCard label="JS-dependent" value={data?.run ? String(data.run.issueCounts.javascript_dependent_content ?? 0) : "—"} />
-      <KpiCard label="Orphan candidates" value={data?.run ? String(data.orphanUrls.length) : "—"} />
-      <KpiCard label="Changed pages" value={data?.run ? String(diff.contentChanged ?? 0) : "—"} />
-      <KpiCard label="Indexability changes" value={data?.run ? String(diff.indexabilityChanged ?? 0) : "—"} />
+      <KpiCard label="JS-dependent" value={data?.run?.pagesCrawled ? String(data.run.issueCounts.javascript_dependent_content ?? 0) : "—"} />
+      <KpiCard label="Orphan candidates" value={data?.run?.status === "completed" ? String(data.orphanUrls.length) : "—"} />
+      <KpiCard label="Changed pages" value={diff.contentChanged == null ? "—" : String(diff.contentChanged)} />
+      <KpiCard label="Indexability changes" value={diff.indexabilityChanged == null ? "—" : String(diff.indexabilityChanged)} />
     </div>
-    {data?.run ? <><div className="rounded-lg border border-purple/20 bg-purple/5 p-4 text-xs text-muted">{diff.interrupted ? "Interrupted crawl; saved pages are retained. " : diff.timeLimited ? "Time-limited crawl. " : ""}Coverage: {data.run.pagesCrawled} inspected · {diff.discovered ?? "unknown"} discovered · {diff.excluded ?? "unknown"} excluded · {diff.unvisited ?? "unknown"} left unvisited. Hreflang: {diff.hreflangChecked ?? "unknown"} relationships checked; {diff.hreflangOutsideCrawl ?? "unknown"} outside this crawl. Cross-page checks only cover inspected pages. Structured-data checks cover JSON-LD syntax and selected common properties; confirm rich-result eligibility in Google’s Rich Results Test.</div>
+    {data?.run ? <><p className="text-xs text-muted">Started {new Date(data.run.startedAt).toLocaleString()} · {data.run.completedAt ? `Finished ${new Date(data.run.completedAt).toLocaleString()}` : data.run.status}{data.run.lastError ? ` · ${data.run.lastError}` : ""}</p><div className="rounded-lg border border-purple/20 bg-purple/5 p-4 text-xs text-muted">{diff.interrupted ? "Interrupted crawl; saved pages are retained. " : diff.timeLimited ? "Time-limited crawl. " : ""}Coverage: {data.run.pagesCrawled} inspected · {diff.discovered ?? "unknown"} discovered · {diff.excluded ?? "unknown"} excluded · {diff.unvisited ?? "unknown"} left unvisited. Hreflang: {diff.hreflangChecked ?? "unknown"} relationships checked; {diff.hreflangOutsideCrawl ?? "unknown"} outside this crawl. Cross-page checks only cover inspected pages. Structured-data checks cover JSON-LD syntax and selected common properties; confirm rich-result eligibility in Google’s Rich Results Test.</div>
       <div className="grid gap-4 xl:grid-cols-5">
         <Card className="xl:col-span-3"><CardHeader title="Crawl comparison" subtitle="Changes against the previous browser-rendered run" action={<GitCompareArrows className="h-4 w-4 text-purple" />} /><div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-3">{[{ label: "Added", value: diff.added }, { label: "Removed", value: diff.removalComparisonComplete === 0 ? null : diff.removed }, { label: "Content", value: diff.contentChanged }, { label: "Titles", value: diff.titleChanged }, { label: "Canonicals", value: diff.canonicalChanged }, { label: "Indexability", value: diff.indexabilityChanged }].map((item) => <div key={item.label} className="bg-card p-4"><div className="text-2xs uppercase tracking-wide text-muted">{item.label}</div><div className="mt-1 text-xl font-semibold text-ink">{item.value ?? "—"}</div></div>)}</div></Card>
-        <Card className="xl:col-span-2"><CardHeader title="Issue fingerprint" subtitle="Affected rendered pages by rule" action={<ScanLine className="h-4 w-4 text-purple" />} /><div className="max-h-64 divide-y divide-border overflow-y-auto">{issues.length ? issues.map(([issue, count]) => <div key={issue} className="flex items-center justify-between gap-3 px-4 py-2.5"><div className="text-xs text-ink">{issue.replace(/_/g, " ")}</div><span className="tnum text-xs font-semibold text-critical">{count}</span></div>) : <div className="p-4 text-xs text-muted">No rendered issues detected.</div>}</div></Card>
+        <Card className="xl:col-span-2"><CardHeader title="Issue fingerprint" subtitle="Affected rendered pages by rule" action={<ScanLine className="h-4 w-4 text-purple" />} /><div className="max-h-64 divide-y divide-border overflow-y-auto">{issues.length ? issues.map(([issue, count]) => <div key={issue} className="flex items-center justify-between gap-3 px-4 py-2.5"><div className="text-xs text-ink">{issue.replace(/_/g, " ")}</div><span className="tnum text-xs font-semibold text-critical">{count}</span></div>) : <div className="p-4 text-xs text-muted">{data.run.pagesCrawled ? "No rendered issues detected in inspected pages." : "No pages inspected yet; issue status is unknown."}</div>}</div></Card>
       </div>
       <Card><CardHeader title="Rendered page inventory" subtitle={`${data.run.status} · ${data.run.pagesCrawled.toLocaleString()} of ${data.run.maxPages.toLocaleString()} page allowance`} action={<div className="flex items-center gap-2"><Network className="h-4 w-4 text-purple" /><Braces className="h-4 w-4 text-muted" /></div>} /><DataTable<CrawlPage> rows={data.pages} columns={columns} searchPlaceholder="Search URLs, titles or issues…" rowKey={(row) => row.id} /></Card>
     </> : <EmptyState icon={<ScanLine className="h-6 w-6" />} title="No rendered crawl yet" description="Queue the first crawl. The browser worker will inspect rendered pages without slowing the dashboard." />}
