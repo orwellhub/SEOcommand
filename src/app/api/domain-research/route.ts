@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db, schema } from "@/db";
@@ -47,7 +47,16 @@ function qaEvidence(targetHost = "competitor.example", locationCode = 2840, lang
 
 export async function GET(request: Request) {
   if (!await hasPermission(request, "research")) return NextResponse.json({ error: "Research permission required." }, { status: 403 });
-  const id = new URL(request.url).searchParams.get("id")?.trim();
+  const params = new URL(request.url).searchParams;
+  const id = params.get("id")?.trim();
+  const historyPage=params.get("historyPage");
+  if(historyPage){
+    const domain=params.get("domain")??"",location=Number(params.get("location")),language=params.get("language")??"";
+    let page:URL;try{page=new URL(historyPage);if(!["https:","http:"].includes(page.protocol)||!(page.hostname===domain||page.hostname.endsWith(`.${domain}`))||!Number.isInteger(location)||location<=0||!language)throw new Error();}catch{return NextResponse.json({error:"Choose a page and matching research database."},{status:400});}
+    if(process.env.QA_SYNTHETIC!=="true"&&!hasDatabase())return NextResponse.json({error:"Saved history requires a database."},{status:503});
+    const reports=process.env.QA_SYNTHETIC==="true"?qaRuns.filter(row=>row.sourceValue===domain&&row.locationCode===location&&row.languageCode===language):await db().select({capturedAt:schema.researchEvidence.capturedAt,evidence:schema.researchEvidence.evidence}).from(schema.researchEvidence).where(and(eq(schema.researchEvidence.kind,"domain"),eq(schema.researchEvidence.sourceValue,domain),eq(schema.researchEvidence.locationCode,location),eq(schema.researchEvidence.languageCode,language))).orderBy(desc(schema.researchEvidence.capturedAt)).limit(50);
+    return NextResponse.json({history:reports.map(row=>({date:new Date(row.capturedAt).toISOString(),traffic:((row.evidence as {pages?:{url:string;traffic:number|null}[]}).pages??[]).find(item=>item.url===page.href)?.traffic??null})).reverse()});
+  }
   if (process.env.QA_SYNTHETIC === "true") {
     if (!qaRuns.length) qaRuns.push(qaEvidence());
     return id ? NextResponse.json({ evidence: qaRuns.find(row => row.id === id) ?? null, synthetic: true }) : NextResponse.json({ evidence: qaRuns, estimateUsd: DOMAIN_RESEARCH_ESTIMATE_USD, synthetic: true });

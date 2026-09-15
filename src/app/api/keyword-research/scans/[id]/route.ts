@@ -101,3 +101,24 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     );
   }
 }
+
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const body = await request.json().catch(() => null);
+  if (!UUID_RE.test(id) || typeof body?.label !== "string" || !body.label.trim() || body.label.trim().length > 160 || !(body.expectedLabel === null || typeof body.expectedLabel === "string")) return NextResponse.json({ error: "Enter a list name and reload the saved version before renaming." }, { status: 400 });
+  if (process.env.QA_SYNTHETIC === "true") {
+    const row = (await previewScans()).find(row => row.id === id && row.kind === "qa_keyword_scan" && row.status !== "deleted");
+    if (!row || (row.siteSlug !== "__qa_research__" && !await canAccessSite(request, row.siteSlug))) return NextResponse.json({ error: "Saved search not found." }, { status: 404 });
+    if (!await hasPermission(request, "research", row.siteSlug === "__qa_research__" ? null : row.siteSlug)) return NextResponse.json({ error: "Research permission required." }, { status: 403 });
+    if ((row.payload.label ?? null) !== body.expectedLabel) return NextResponse.json({ error: "This list was renamed in another session. Reload before saving." }, { status: 409 });
+    await saveCommandRecord(row.siteSlug, row.kind, row.recordKey, { ...row.payload, label: body.label.trim() });
+    return NextResponse.json({ ok: true });
+  }
+  if (!hasDatabase()) return unavailable();
+  const [row] = await db().select().from(schema.keywordScans).where(eq(schema.keywordScans.id, id)).limit(1);
+  if (!row || (row.siteSlug && !await canAccessSite(request, row.siteSlug))) return NextResponse.json({ error: "Saved search not found." }, { status: 404 });
+  if (!await hasPermission(request, "research", row.siteSlug)) return NextResponse.json({ error: "Research permission required." }, { status: 403 });
+  const { and, isNull } = await import("drizzle-orm");
+  const changed = await db().update(schema.keywordScans).set({ label: body.label.trim() }).where(and(eq(schema.keywordScans.id, id), body.expectedLabel === null ? isNull(schema.keywordScans.label) : eq(schema.keywordScans.label, body.expectedLabel))).returning({ id: schema.keywordScans.id });
+  return changed.length ? NextResponse.json({ ok: true }) : NextResponse.json({ error: "This list was renamed in another session. Reload before saving." }, { status: 409 });
+}

@@ -40,3 +40,8 @@ yarn-error.log*
 
 # Isolated local audit builds
 /.next-deep-audit/
+
+/.next-audit-completion/
+/.next-audit-release/
+
+/public/audit-responsive.html

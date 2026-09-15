@@ -1,3 +1,4 @@
+import { reportDefinition, reportWidgetSites } from "@/reports/definition";
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { and, eq, sql } from "drizzle-orm";
@@ -27,7 +28,10 @@ export async function POST(request: Request) {
   if (!await canAccessSite(request, body.site) || !await hasPermission(request, "manage_reports", body.site)) return NextResponse.json({ error: "Report management access required." }, { status: 403 });
   if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ error: "Report delivery is disabled in preview." }, { status: 409 });
   try {
-    if (body.action === "generate") { const report = await archiveReport(body.site, session.email, body.templateId, body.definition); return NextResponse.json({ id: report.id, message: report.status === "ready" ? "PDF generated and archived." : "Report snapshot saved. PDF queued for the next hourly browser worker; client sharing is available now." }); }
+    if (body.action === "generate") {
+      const definition = reportDefinition(body.templateId, body.definition);
+      if (!(await Promise.all(reportWidgetSites(definition).map(async site => await canAccessSite(request, site) && await hasPermission(request, "manage_reports", site)))).every(Boolean)) return NextResponse.json({ error: "Report widget website access required." }, { status: 403 });
+      const report = await archiveReport(body.site, session.email, body.templateId, body.definition); return NextResponse.json({ id: report.id, message: report.status === "ready" ? "PDF generated and archived." : "Report snapshot saved. PDF queued for the next hourly browser worker; client sharing is available now." }); }
     const report = body.id ? await reportById(body.site, body.id) : null;
     if (!report) throw new Error("Choose an archived report.");
     if (body.action === "retry") {

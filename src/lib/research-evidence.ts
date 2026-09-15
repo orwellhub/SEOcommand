@@ -8,6 +8,8 @@ export const RESEARCH_FEATURES = [
   { id: "footprint", title: "Deeper keyword and page research", home: "/competitors", description: "Up to 1,000 ranking keywords and 100 leading pages per selected domain.", input: "domains" },
   { id: "history", title: "Competitor performance history", home: "/competitors", description: "Monthly ranking distribution and estimated search traffic over the last year.", input: "domains" },
   { id: "links", title: "Deeper backlink evidence", home: "/backlinks", description: "Up to 1,000 linking-page records per domain, with anchors and collection dates.", input: "domains" },
+  { id: "link_pages", title: "Indexed backlink pages", home: "/backlinks?view=pages", description: "Pages in the backlink index, HTTP status, links and referring domains.", input: "domains" },
+  { id: "link_bulk", title: "Bulk backlink comparison", home: "/backlinks?view=bulk", description: "Compare full backlink profiles and referring domains for up to four targets.", input: "domains" },
   { id: "clusters", title: "Search-result keyword clusters", home: "/keyword-strategy", description: "Group keywords that share at least three of their top ten ranking URLs.", input: "keywords" },
   { id: "mentions", title: "AI mention research", home: "/ai-visibility", description: "Prompts and citations from the provider's AI response index, by domain and platform.", input: "domains" },
   { id: "demand", title: "Estimated AI search demand", home: "/ai-visibility", description: "Modelled demand and monthly trends. These are estimates derived from search questions.", input: "keywords" },

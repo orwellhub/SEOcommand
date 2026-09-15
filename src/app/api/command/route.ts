@@ -1,3 +1,4 @@
+import { googleConfigured } from "@/providers/google/auth";
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { createHash } from "node:crypto";
@@ -25,6 +26,7 @@ export async function GET(request: Request) {
     if (!await canAccessSite(request, site)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
     if (!await getManagedSite(site)) return NextResponse.json({ error: "Website not found." }, { status: 404 });
     const data = await buildSiteCommand(site);
+    data.connections = { indexing: { configured: googleConfigured(), property: (await getManagedSite(site))?.gscSite ?? null } };
     data.permissions = { edit: await hasPermission(request, "manage_content", site), scan: await hasPermission(request, "run_scans", site), settings: await hasPermission(request, "manage_connectors", site) };
     return NextResponse.json(data);
   } catch (error) { console.error("[command-read]", error instanceof Error ? error.message : "Failed"); return NextResponse.json({ error: "Saved evidence could not be loaded. Retry shortly." }, { status: 503 }); }
@@ -84,6 +86,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, message: "Preferences saved." });
     }
     if (["speed", "indexing", "business", "watch_check"].includes(input.action)) {
+      if(input.action === "indexing" && (!googleConfigured() || !site.gscSite) && process.env.QA_SYNTHETIC !== "true") return NextResponse.json({error:"Connect Google Search Console and grant access to this website’s property before inspecting URLs."},{status:409});
       const kind = input.action === "watch_check" ? "watch_run" : input.action;
       const row = await queueCommandCheck(site.id, kind, { ...(url ? { url } : {}), ...(kind === "speed" ? { device: input.device ?? "mobile", provider: input.speedProvider ?? "google" } : {}) }, session.email);
       after(() => processCommandChecks(row.id));

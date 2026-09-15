@@ -1,0 +1,9 @@
+"use client";
+import Link from "next/link";
+import { Card, CardHeader } from "@/components/ui/primitives";
+import { MissingChart, ReportMetric } from "./report-layout";
+import { TRAFFIC_REPORTS, type ExtendedTrafficView } from "@/lib/traffic-report-catalog";
+export function ExtendedTrafficReport({view,site}:{view:ExtendedTrafficView;site:string}) {
+  const report=TRAFFIC_REPORTS[view];
+  return <div className="space-y-4"><div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded border border-warning/30 bg-warning/5 p-3 text-sm"><span><strong>{report.title} connection required.</strong> {report.requirement}. Existing search estimates remain available.</span><Link className="font-semibold text-purple" href={`/sites/${encodeURIComponent(site)}/settings`}>Review website connections →</Link></div><Card className="grid grid-cols-2 divide-x divide-border lg:grid-cols-4">{report.metrics.map(label=><ReportMetric key={label} label={label} note="Required dataset not connected"/>)}</Card><div className="grid gap-4 lg:grid-cols-2">{report.sections.map(title=><Card key={title}><CardHeader title={title}/><MissingChart height="h-40" message={`${title} needs ${report.requirement.toLowerCase()}.`}/></Card>)}</div><Card className="p-4"><CardHeader title={report.title} subtitle="The selected reporting period and market apply once a compatible source is connected."/><div className="overflow-auto"><table className="w-full text-left text-sm"><thead><tr>{report.columns.map(label=><th key={label} className="border-b border-border bg-workspace p-3">{label}</th>)}</tr></thead><tbody><tr><td colSpan={report.columns.length} className="p-8 text-center text-muted">No compatible report has been collected. No values have been inferred from unrelated datasets.</td></tr></tbody></table></div></Card></div>;
+}

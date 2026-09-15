@@ -27,6 +27,7 @@ export function DataTable<T>({
   exportName,
   toolbar,
   rowKey,
+  columnControls = true,
 }: {
   rows: T[];
   columns: Column<T>[];
@@ -38,11 +39,15 @@ export function DataTable<T>({
   exportName?: string;
   toolbar?: React.ReactNode;
   rowKey?: (row: T) => string;
+  columnControls?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState(0);
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [rowsPerPage, setRowsPerPage] = useState(pageSize);
+  const visibleColumns = columns.filter((column, index) => index === 0 || !hidden.has(column.key));
 
   const filtered = useMemo(() => {
     let out = rows;
@@ -65,9 +70,9 @@ export function DataTable<T>({
     return out;
   }, [rows, query, sortKey, sortDir, columns, searchKeys]);
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageCount = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
   const clampedPage = Math.min(page, pageCount - 1);
-  const pageRows = filtered.slice(clampedPage * pageSize, clampedPage * pageSize + pageSize);
+  const pageRows = filtered.slice(clampedPage * rowsPerPage, (clampedPage + 1) * rowsPerPage);
 
   function toggleSort(key: string) {
     if (sortKey === key) {
@@ -80,10 +85,10 @@ export function DataTable<T>({
   }
 
   function exportCsv() {
-    const header = columns.map((c) => csvCell(c.header)).join(",");
+    const header = visibleColumns.map((c) => csvCell(c.header)).join(",");
     const body = filtered
       .map((r) =>
-        columns
+        visibleColumns
           .map((c) => {
             const v = c.exportValue ? c.exportValue(r) : cellText(c.render(r)) || c.sortValue?.(r) || "";
             return csvCell(v);
@@ -122,7 +127,8 @@ export function DataTable<T>({
           {toolbar}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-2xs text-muted tnum">{filtered.length ? `${clampedPage * pageSize + 1}–${Math.min((clampedPage + 1) * pageSize, filtered.length)} of ` : ""}{filtered.length} rows</span>
+          <span className="text-2xs text-muted tnum">{filtered.length ? `${clampedPage * rowsPerPage + 1}–${Math.min((clampedPage + 1) * rowsPerPage, filtered.length)} of ` : ""}{filtered.length} rows</span>
+          {columnControls && columns.length > 3 && <details className="relative"><summary className="cursor-pointer rounded border border-border bg-card px-2.5 py-1.5 text-xs">Columns {visibleColumns.length}/{columns.length}</summary><div className="absolute right-0 z-30 mt-1 max-h-72 w-56 overflow-auto rounded border border-border bg-card p-3 shadow-pop">{columns.map((column, index) => <label key={column.key} className="flex gap-2 py-1.5 text-xs"><input type="checkbox" checked={index === 0 || !hidden.has(column.key)} disabled={index === 0} onChange={() => setHidden(current => { const next = new Set(current); if(next.has(column.key)) next.delete(column.key); else next.add(column.key); return next; })}/>{column.header || "Selection / actions"}</label>)}</div></details>}
           {exportName && (
             <Button size="sm" variant="secondary" onClick={exportCsv}>
               <Download className="h-3.5 w-3.5" /> Export
@@ -135,7 +141,7 @@ export function DataTable<T>({
         <table className="w-full min-w-[640px] border-collapse text-sm">
           <thead className="sticky top-0 z-10">
             <tr className="border-b border-border bg-workspace">
-              {columns.map((c) => (
+              {visibleColumns.map((c) => (
                 <th
                   key={c.key}
                   scope="col"
@@ -183,7 +189,7 @@ export function DataTable<T>({
                   onRowClick && "cursor-pointer hover:bg-workspace/60",
                 )}
               >
-                {columns.map((c, columnIndex) => (
+                {visibleColumns.map((c, columnIndex) => (
                   <td
                     key={c.key}
                     className={cn(
@@ -195,12 +201,12 @@ export function DataTable<T>({
                     {c.render(row)}
                   </td>
                 ))}
-                {onRowClick && <td className="px-3 py-2 text-right"><button className="min-h-9 rounded-md border border-border px-3 text-xs font-semibold text-purple hover:bg-workspace" aria-label={`Open details for ${cellText(columns[0]?.render(row)) || `row ${clampedPage * pageSize + i + 1}`}`} onClick={() => onRowClick(row)}>Open</button></td>}
+                {onRowClick && <td className="px-3 py-2 text-right"><button className="min-h-9 rounded-md border border-border px-3 text-xs font-semibold text-purple hover:bg-workspace" aria-label={`Open details for ${cellText(columns[0]?.render(row)) || `row ${clampedPage * rowsPerPage + i + 1}`}`} onClick={() => onRowClick(row)}>Open</button></td>}
               </tr>
             ))}
             {pageRows.length === 0 && (
               <tr>
-                <td colSpan={columns.length + (onRowClick ? 1 : 0)} className="px-3 py-10 text-center text-xs text-muted">
+                <td colSpan={visibleColumns.length + (onRowClick ? 1 : 0)} className="px-3 py-10 text-center text-xs text-muted">
                   {emptyLabel}
                 </td>
               </tr>
@@ -209,12 +215,13 @@ export function DataTable<T>({
         </table>
       </div>
 
-      {pageCount > 1 && (
-        <div className="flex items-center justify-between px-1 pt-3">
+      {filtered.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 px-1 pt-3">
           <span className="text-2xs text-muted tnum">
             Page {clampedPage + 1} of {pageCount}
           </span>
           <div className="flex gap-1.5">
+            <select aria-label="Rows per page" value={rowsPerPage} onChange={event => { setRowsPerPage(Number(event.target.value)); setPage(0); }} className="rounded border border-border bg-card px-2 text-xs">{[...new Set([pageSize,25,50,100])].sort((a,b)=>a-b).map(size=><option key={size} value={size}>{size} rows</option>)}</select>
             <Button size="sm" variant="secondary" disabled={clampedPage === 0} onClick={() => setPage(clampedPage - 1)}>
               Previous
             </Button>

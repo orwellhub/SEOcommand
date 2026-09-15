@@ -1,3 +1,4 @@
+import {validResearchProject} from "@/platform/research-projects";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -18,16 +19,17 @@ export async function GET(request: Request) {
   const keywords = snapshots.find((s) => s.dataset === "keywords");
   return NextResponse.json({ plans: records.map((r) => ({ id: r.recordKey, ...r.payload, updatedAt: r.updatedAt.toISOString() })), effort: keywordEffort(Array.isArray(keywords?.payload) ? keywords.payload as Keyword[] : []), collectedAt: keywords?.provenance.collectedAt ?? null });
 }
-const inputSchema = z.object({ site: z.string().min(1).max(120), id: z.string().uuid().optional(), label: z.string().trim().min(2).max(150), keywords: z.array(z.string().trim().min(1).max(250)).min(1).max(100), targetUrl: z.string().max(2000), sourceEvidence: z.record(z.string(), z.unknown()).optional(), updatedAt: z.string().datetime().optional() });
+const inputSchema = z.object({ projectId:z.string().uuid().optional(),site: z.string().min(1).max(120), id: z.string().uuid().optional(), label: z.string().trim().min(2).max(150), keywords: z.array(z.string().trim().min(1).max(250)).min(1).max(100), targetUrl: z.string().max(2000), sourceEvidence: z.record(z.string(), z.unknown()).optional(), updatedAt: z.string().datetime().optional() });
 export async function POST(request: Request) {
   const parsed = inputSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Add a topic, keywords and a destination on this website." }, { status: 400 });
   const body = parsed.data;
   if (!await canAccessSite(request, body.site) || !await hasPermission(request, "manage_content", body.site)) return NextResponse.json({ error: "Content access required." }, { status: 403 });
+  if(!await validResearchProject(body.projectId,body.site))return NextResponse.json({error:"Choose an active research project for this website."},{status:400});
   const site = await getManagedSite(body.site), url = site && siteUrl(body.targetUrl, site.host);
   if (!site || !url) return NextResponse.json({ error: "Use an existing or planned page on this website." }, { status: 400 });
   const id = body.id ?? crypto.randomUUID();
-  const payload = { ...(body.sourceEvidence ? {sourceEvidence:body.sourceEvidence} : {}), label: body.label, keywords: [...new Set(body.keywords)], targetUrl: url };
+  const payload = { ...(body.projectId?{projectId:body.projectId}:{}),...(body.sourceEvidence ? {sourceEvidence:body.sourceEvidence} : {}), label: body.label, keywords: [...new Set(body.keywords)], targetUrl: url };
   if (process.env.QA_SYNTHETIC === "true") {
     const previous=(await commandRecords(site.id)).find(r=>r.kind==="workspace_topic"&&r.recordKey===id);
     if(body.id&&(!previous||!body.updatedAt||previous.updatedAt!==body.updatedAt))return NextResponse.json({error:"This plan changed. Reload it before saving."},{status:409});

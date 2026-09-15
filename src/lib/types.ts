@@ -217,6 +217,9 @@ export interface TechnicalIssue {
   recommendedFix: string;
   potentialImpact: string;
   firstSeen: string;
+  linkType?: string | null;
+  firstSeenAt?: string | null;
+  lastSeenAt?: string | null;
   lastSeen: string;
   status: IssueStatus;
   taskId: string | null;
@@ -253,6 +256,9 @@ export interface Backlink {
   authority: number; // Orwell Authority Score of source
   follow: boolean;
   firstSeen: string;
+  linkType?: string | null;
+  firstSeenAt?: string | null;
+  lastSeenAt?: string | null;
   lastSeen: string;
   status: "new" | "active" | "lost";
   toxicity: number; // 0-100 risk
@@ -266,7 +272,11 @@ export interface ReferringDomain {
   backlinks: number;
   firstSeen: string;
   follow: boolean;
-  topicalRelevance: number; // 0-100
+  topicalRelevance: number; // Legacy field; current UI uses provider rank independently.
+  country?: string | null;
+  ip?: string | null;
+  lastSeen?: string | null;
+  status?: "new" | "lost" | "active" | null;
 }
 
 /* ----------------------------- AI Visibility ---------------------------- */

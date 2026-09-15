@@ -74,7 +74,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <ContextBar />
         </header>
         <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <div className="mx-auto max-w-[2000px] px-4 pb-8 pt-1 sm:px-5 lg:px-8"><SiteContextBoundary>{children}</SiteContextBoundary></div>
+          <div className="mx-auto max-w-[2000px] px-4 pb-8 pt-1 sm:px-5 lg:px-5"><SiteContextBoundary>{children}</SiteContextBoundary></div>
         </main>
       </div>
     </div>

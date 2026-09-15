@@ -3,7 +3,7 @@ import { db, schema } from "@/db";
 import { commandRecords, saveCommandRecord } from "./command-store";
 import { hasDatabase } from "@/sync/store";
 import type { CommandRecord } from "@/lib/command-model";
-export type WorkspaceKind="onpage"|"keyword_gap"|"backlink_decisions"|"topic_favorites"|"listing_inventory"|"writing_suggestions"|"organic_competitors"|"advertising"|"serp_evidence"|"comparisons"|"keyword_filters"|"serp_strategy"|"ad_history";
+export type WorkspaceKind="local_posts"|"review_campaigns"|"outbound_links"|"report_layouts"|"onpage"|"keyword_gap"|"backlink_decisions"|"topic_favorites"|"listing_inventory"|"writing_suggestions"|"organic_competitors"|"advertising"|"serp_evidence"|"comparisons"|"keyword_filters"|"serp_strategy"|"ad_history";
 export async function workspaceRecords(site:string,kind:WorkspaceKind):Promise<CommandRecord[]>{
  const name=`workspace_${kind}`;
  if(process.env.QA_SYNTHETIC==="true")return (await commandRecords(site)).filter(row=>row.kind===name);

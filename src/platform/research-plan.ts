@@ -65,6 +65,8 @@ export async function buildResearchPlan(site: ManagedSite, input: ResearchInput,
     } break;
     case "history": for (const target of clean.domains) add("labsHistoricalRankOverview", "dataforseo_labs/google/historical_rank_overview/live", { target, ...location, date_from: date(historyStart), date_to: date(historyEnd), correlate: true, include_clickstream_data: false }, .15, target); break;
     case "links": for (const target of clean.domains) add("backlinksList", "backlinks/backlinks/live", { target, limit: 1000, mode: "as_is", order_by: ["rank,desc"] }, .07, target); break;
+    case "link_pages": for (const target of clean.domains) add("backlinksDomainPages", "backlinks/domain_pages/live", { target, limit: 1000, order_by: ["page_summary.backlinks,desc"], backlinks_status_type: "live" }, .07, target); break;
+    case "link_bulk": for (const target of clean.domains) add("backlinksSummary", "backlinks/summary/live", { target, include_subdomains: true }, .02, target); break;
     case "recovery": add("backlinksBrokenPages", "backlinks/domain_pages_summary/live", { target: site.host, limit: 1000, filters: ["broken_pages", ">", 0], order_by: ["backlinks,desc"], backlinks_status_type: "live" }, .07, site.host); break;
     case "clusters": case "questions": for (const keyword of clean.keywords) add("researchSerp", "serp/google/organic/live/advanced", { keyword, ...location, device: clean.device, depth: 10 }, .003, keyword); break;
     case "mentions": for (const domain of clean.domains) add("aiMentions", "ai_optimization/llm_mentions/search/live", { target: [{ domain, search_filter: "include", search_scope: ["sources"], include_subdomains: true }], ...location, platform: clean.platform, limit: 100 }, .22, domain); break;

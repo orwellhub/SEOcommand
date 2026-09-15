@@ -1,0 +1,2577 @@
+{
+  "audit_date": "2026-09-15",
+  "target": "globalbusrental",
+  "data_policy": "Preserve records; no production seed/reset; additional provider subscriptions require approval.",
+  "baseline_commit": "61563d8",
+  "destinations": [
+    {
+      "id": 0,
+      "family": "Overview",
+      "screen": "SEO",
+      "app_url": "https://orwell-web.onrender.com/portfolio?site=globalbusrental&range=28d",
+      "app_evidence": "app-00.txt",
+      "semrush_equivalent": "SEO Dashboard",
+      "reference_access": "Project/setup",
+      "reference_files": [
+        "sem-seo-dashboard.txt"
+      ],
+      "assessment": "Partial comparison",
+      "finding": "SEO Command has priority tasks, Scan Centre, GSC/GA4 and backlink charts. Its larger navigation and taller cards differ materially. Semrush selected an existing unrelated project automatically; only dashboard structure was used.",
+      "acceptance": "Match the dashboard grid and density while retaining the requested task and scan sections. A populated Global Bus Rental project comparison remains unverified.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/components/dashboard/seo-dashboard-summary.tsx",
+        "src/components/dashboard/site-scan-centre.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [
+        "A populated Semrush Global Bus Rental project was not created, as instructed; dashboard result parity remains unverified."
+      ],
+      "implementation_summary": "Compact two-column dashboard; priority tasks and reduced-height Scan Centre retained. Full navigation labels fit in a 232px rail."
+    },
+    {
+      "id": 1,
+      "family": "AI",
+      "screen": "AI",
+      "app_url": "https://orwell-web.onrender.com/ai-visibility?site=globalbusrental&range=28d",
+      "app_evidence": "app-01.txt",
+      "semrush_equivalent": "Visibility Overview",
+      "reference_access": "Live domain",
+      "reference_files": [
+        "sem-ai-overview.txt",
+        "sem-ai-topic-opportunities.txt",
+        "sem-ai-cited-sources.txt"
+      ],
+      "assessment": "Partial implementation",
+      "finding": "Overview modules exist, but the layout is more spacious and the saved response table is much simpler than Semrush's topic/source opportunity reports. Global Bus Rental has no saved AI response sample in this scope.",
+      "acceptance": "Keep source-labelled mention rate; add equivalent topic, prompt, cited-source and cited-page report navigation. Show unavailable audience estimates honestly.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/components/reports/ai-overview.tsx",
+        "src/components/reports/ai-research-reports.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx",
+        "src/components/charts/charts.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Dedicated prompt/topic, competitor, source-domain, cited-page and source-opportunity navigation. Compact mention gauge, trend and distribution grids."
+    },
+    {
+      "id": 2,
+      "family": "Traffic",
+      "screen": "Traffic & Market",
+      "app_url": "https://orwell-web.onrender.com/traffic-analytics?site=globalbusrental&range=28d",
+      "app_evidence": "app-02.txt",
+      "semrush_equivalent": "Traffic Overview",
+      "reference_access": "Subscription gate",
+      "reference_files": [
+        "sem-traffic-overview.txt",
+        "sem-traffic-entry.txt"
+      ],
+      "assessment": "Navigation defect",
+      "finding": "Default entry displays DataForSEO search estimates. The all-traffic report is behind a manual source switch; this difference also breaks the intent of three report links.",
+      "acceptance": "Make the requested report primary, with an explicit source selector and a specific connection state inside that report.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/app/(app)/traffic-analytics/page.tsx",
+        "src/components/reports/traffic-extended.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [
+        "All-traffic results require the relevant licensed provider dataset and entitlement. DataForSEO search estimates remain available separately."
+      ],
+      "implementation_summary": "All-traffic overview is the primary destination. URL-selected sources and report-specific unavailable states replace unrelated search-estimate fallbacks."
+    },
+    {
+      "id": 3,
+      "family": "Local",
+      "screen": "Local",
+      "app_url": "https://orwell-web.onrender.com/local-seo?site=globalbusrental&range=28d",
+      "app_evidence": "app-03.txt",
+      "semrush_equivalent": "Local Dashboard",
+      "reference_access": "Setup/offer",
+      "reference_files": [
+        "sem-local-dashboard.txt"
+      ],
+      "assessment": "Configuration needed",
+      "finding": "No location is configured for Global Bus Rental. Both products present setup before useful local reports; complete result parity cannot be assessed.",
+      "acceptance": "Provide a clear location setup checklist, then compare the populated dashboard when a location is authorised.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/app/(app)/local-seo/page.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [
+        "An authorised Global Bus Rental business location is required to verify populated local reports."
+      ],
+      "implementation_summary": "Setup checklist uses saved locations and the actual Google Business connection and mapping."
+    },
+    {
+      "id": 4,
+      "family": "Content",
+      "screen": "Content",
+      "app_url": "https://orwell-web.onrender.com/content?site=globalbusrental&range=28d",
+      "app_evidence": "app-04.txt",
+      "semrush_equivalent": "Content Toolkit / My Content",
+      "reference_access": "Subscription gate",
+      "reference_files": [
+        "sem-content-toolkit.txt",
+        "sem-content-library.txt"
+      ],
+      "assessment": "Partial implementation",
+      "finding": "SEO Command combines briefs, site page inventory, decay and GA4. Current Semrush has distinct generator, optimiser, repurposing, topic finder, brief generator and content library destinations.",
+      "acceptance": "Separate the content library and creation/optimisation flows. Retain the useful measured page-performance dashboard as its own view.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/app/(app)/content/page.tsx",
+        "src/components/content/content-workflow-board.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch.",
+        "Browser actions: imported a local draft, saved and reloaded its exact text, followed it into repurposing without publishing or generating paid content."
+      ],
+      "remaining": [],
+      "implementation_summary": "Distinct library, editor, generator, optimiser, repurposing, brief and measured performance destinations."
+    },
+    {
+      "id": 5,
+      "family": "Reports",
+      "screen": "Reports",
+      "app_url": "https://orwell-web.onrender.com/reports?site=globalbusrental&range=28d",
+      "app_evidence": "app-05.txt",
+      "semrush_equivalent": "My Reports",
+      "reference_access": "Live builder/setup",
+      "reference_files": [
+        "sem-reports.txt",
+        "sem-report-template-gallery.txt"
+      ],
+      "assessment": "Partial implementation",
+      "finding": "Six report templates and scheduled delivery controls exist. Semrush has a larger template gallery, report ownership filters and a report-first workspace.",
+      "acceptance": "Use a report library with template previews and archive/share status; expose editing and scheduling from each report.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/app/(app)/reports/page.tsx",
+        "src/components/reports/report-canvas.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch.",
+        "Browser actions: saved/reopened a layout, retained widget order and 7-day override, opened the selected technical template at 90 days, rendered HTML preview, verified full definition in scheduling handoff."
+      ],
+      "remaining": [],
+      "implementation_summary": "Report library, six template choices, saved layouts, archive, sharing and schedule handoffs. Template links now open the chosen template."
+    },
+    {
+      "id": 6,
+      "family": "Operations",
+      "screen": "Needs Attention",
+      "app_url": "https://orwell-web.onrender.com/action-centre?site=globalbusrental&range=28d",
+      "app_evidence": "app-06.txt",
+      "semrush_equivalent": "Recommendations / alerts, no exact inspected counterpart",
+      "reference_access": "Custom",
+      "reference_files": [
+        "sem-seo-dashboard.txt"
+      ],
+      "assessment": "Retain custom feature",
+      "finding": "The action queue has severity, evidence links, snooze and resolve controls. It is a useful SEO Command addition, not evidence of Semrush parity.",
+      "acceptance": "Retain under a clearly named work area and preserve site scope in every evidence and notification-history link.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Tasks remain site-scoped with source and notification-history links."
+    },
+    {
+      "id": 7,
+      "family": "Operations",
+      "screen": "Settings",
+      "app_url": "https://orwell-web.onrender.com/settings?site=globalbusrental",
+      "app_evidence": "app-07.txt",
+      "semrush_equivalent": "Project/account settings",
+      "reference_access": "Not directly compared",
+      "reference_files": [],
+      "assessment": "Partial comparison",
+      "finding": "The settings route exposes domain and provider configuration. A Semrush settings workflow was not inspected, and global settings should not be counted as a matched report.",
+      "acceptance": "Separate site settings from workspace/provider settings. Verify ownership and access controls independently of the visual comparison.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Website settings and workspace/provider settings remain separate with server access checks."
+    },
+    {
+      "id": 8,
+      "family": "Technical",
+      "screen": "Site Audit",
+      "app_url": "https://orwell-web.onrender.com/site-audit?site=globalbusrental&range=28d",
+      "app_evidence": "app-08.txt",
+      "semrush_equivalent": "Site Audit",
+      "reference_access": "Project/setup",
+      "reference_files": [
+        "sem-site-audit-entry.txt"
+      ],
+      "assessment": "Project comparison blocked",
+      "finding": "Overview, issues, crawled pages, statistics, crawl comparison, progress and thematic reports exist. Live theme switching opened dedicated Crawlability and HTTPS workspaces with saved pages.",
+      "acceptance": "Retain working thematic reports. Compare populated severity counts, issue details and thematic layouts only after a Global Bus Rental Semrush project exists.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [
+        "Populated Semrush Site Audit comparison requires a reference project, which was not authorised."
+      ],
+      "implementation_summary": "Existing thematic reports, issue detail and severity counts retained."
+    },
+    {
+      "id": 9,
+      "family": "Technical",
+      "screen": "Position Tracking",
+      "app_url": "https://orwell-web.onrender.com/rankings?site=globalbusrental&range=28d",
+      "app_evidence": "app-09.txt",
+      "semrush_equivalent": "Position Tracking",
+      "reference_access": "Project/setup",
+      "reference_files": [
+        "sem-position-tracking-entry.txt"
+      ],
+      "assessment": "Project comparison blocked",
+      "finding": "Landscape, rankings, tags, pages, cannibalisation, competitor discovery, devices, snippets and campaign settings are present. Saved evidence is sparse; no equivalent Semrush campaign exists.",
+      "acceptance": "Do not call sparse results a missing feature. Validate campaign/device/location coverage and compare populated subreports after setup is authorised.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [
+        "Populated Semrush Position Tracking comparison requires a reference project/campaign."
+      ],
+      "implementation_summary": "Existing campaign, target, device, location and historical reports retained; direct campaign deep-links added."
+    },
+    {
+      "id": 10,
+      "family": "Research",
+      "screen": "Domain Overview",
+      "app_url": "https://orwell-web.onrender.com/domain-research?site=globalbusrental&range=28d",
+      "app_evidence": "app-10.txt",
+      "semrush_equivalent": "Domain Overview / Growth / Compare Countries",
+      "reference_access": "Live domain",
+      "reference_files": [
+        "sem-domain-overview.txt",
+        "sem-domain-growth.txt",
+        "sem-domain-countries.txt"
+      ],
+      "assessment": "Layout and report gaps",
+      "finding": "At the same 1225 px capture width, SEO Command stacks AI and SEO blocks while Semrush places them side by side. Semrush also has a platform mention/cited-page matrix and denser linked metric summaries.",
+      "acceptance": "Match the two-column summary, country/trend arrangement and compact toolbar. Keep market, date, device and source visible; use truthful unavailable states for unsupported metrics.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/app/(app)/domain-research/page.tsx",
+        "src/components/reports/domain-ai-summary.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Compact search/market/date/source toolbar and two-column AI/SEO summaries with country/trend layout. Unsupported metrics stay unavailable."
+    },
+    {
+      "id": 11,
+      "family": "Research",
+      "screen": "Organic Rankings",
+      "app_url": "https://orwell-web.onrender.com/competitors?site=globalbusrental&range=28d",
+      "app_evidence": "app-11.txt",
+      "semrush_equivalent": "Organic Rankings: Overview, Positions, Changes, Topics, Subdomains",
+      "reference_access": "Live domain / empty Topics",
+      "reference_files": [
+        "sem-organic-overview.txt",
+        "sem-organic-positions.txt",
+        "sem-organic-changes.txt",
+        "sem-organic-topics-final.txt",
+        "sem-organic-subdomains.txt"
+      ],
+      "assessment": "Report depth gap",
+      "finding": "Saved organic rankings do load. Semrush has richer overview modules, branded/non-branded and SERP-feature analysis, row drilldowns, column controls, Topics and Subdomains. SEO Command's overview and table remain much simpler. Semrush Topics returned a genuine No topics found state for Global Bus Rental in the UK; populated topic output is not verified.",
+      "acceptance": "Implement distinct report layouts with SERP-feature/type filters, column selection, keyword/URL drilldowns and contextual history; verify each against saved evidence.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/components/research/organic-rankings.tsx",
+        "src/components/research/organic-report-details.tsx",
+        "src/app/api/domain-research/route.ts",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Distinct organic subreports, SERP-feature filter, configurable columns, intent/subdomain/topic summaries, keyword handoffs and exact-page saved history."
+    },
+    {
+      "id": 12,
+      "family": "Research",
+      "screen": "Top Pages",
+      "app_url": "https://orwell-web.onrender.com/competitors?view=pages&site=globalbusrental&range=28d",
+      "app_evidence": "app-12.txt",
+      "semrush_equivalent": "Top Pages",
+      "reference_access": "Live domain",
+      "reference_files": [
+        "sem-top-pages.txt"
+      ],
+      "assessment": "Wrong page identity + depth gap",
+      "finding": "The Top Pages link retains the heading Organic Rankings and shows four columns. Semrush has a dedicated page report, page trend, All/New/Lost states, traffic change/share, LLM prompts, referring domains, top keyword/intent and brief action.",
+      "acceptance": "Give Top Pages its own heading, toolbar, trend and row drilldowns. Add supported columns and clearly label unavailable ones.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/components/research/organic-rankings.tsx",
+        "src/components/research/organic-report-details.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Dedicated Top Pages heading, page metrics, ranking-keyword drilldowns and exact-page historical trend."
+    },
+    {
+      "id": 13,
+      "family": "Research",
+      "screen": "Your Website Pages",
+      "app_url": "https://orwell-web.onrender.com/pages?site=globalbusrental&range=28d",
+      "app_evidence": "app-13.txt",
+      "semrush_equivalent": "Crawled Pages / owned landing pages",
+      "reference_access": "Project/setup",
+      "reference_files": [
+        "sem-site-audit-entry.txt"
+      ],
+      "assessment": "Partial comparison",
+      "finding": "Owned website pages are a separate inventory in SEO Command. This is different from Semrush's market-wide Top Pages report and should remain visibly distinct.",
+      "acceptance": "Label owned pages and estimated competitor pages consistently; retain page inspection and measured GSC data links.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Owned GSC pages and estimated competitor pages remain separate with page inspection."
+    },
+    {
+      "id": 14,
+      "family": "Research",
+      "screen": "Compare Domains",
+      "app_url": "https://orwell-web.onrender.com/compare-domains?site=globalbusrental&range=28d",
+      "app_evidence": "app-14.txt",
+      "semrush_equivalent": "Compare Domains",
+      "reference_access": "Entry form",
+      "reference_files": [
+        "sem-compare-domains.txt"
+      ],
+      "assessment": "Entry comparison only",
+      "finding": "SEO Command has domain inputs, database selection and Compare. Semrush's comparison entry was inspected; a multi-domain report was not generated under the one-website scope.",
+      "acceptance": "Align input order and market controls. Do not certify matrix, chart or export parity without a saved comparison result.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/components/research/domain-comparison-workspace.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Ordered comparison inputs, database/language selection, comparison matrix and scoped saved-result navigation."
+    },
+    {
+      "id": 15,
+      "family": "Research",
+      "screen": "Organic Competitors",
+      "app_url": "https://orwell-web.onrender.com/competitors?view=competitors&site=globalbusrental&range=28d",
+      "app_evidence": "app-15.txt",
+      "semrush_equivalent": "Organic Rankings: Competitors",
+      "reference_access": "Live domain",
+      "reference_files": [
+        "sem-organic-competitors.txt"
+      ],
+      "assessment": "Collection needed + report gap",
+      "finding": "The dedicated competitor table exists, but no discovery is saved for this domain/database. Semrush shows competitor rows and a competitive-positioning presentation.",
+      "acceptance": "Load existing matching discovery automatically where available; add the competitive map and link each common-keyword count to a scoped gap report.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/components/research/organic-competitors.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Automatically reopens matching saved discovery; competitive map and common-keyword links carry target and database into Keyword Gap."
+    },
+    {
+      "id": 16,
+      "family": "Research",
+      "screen": "Keyword Gap",
+      "app_url": "https://orwell-web.onrender.com/keyword-gap?site=globalbusrental&range=28d",
+      "app_evidence": "app-16.txt",
+      "semrush_equivalent": "Keyword Gap",
+      "reference_access": "Entry form",
+      "reference_files": [
+        "sem-keyword-gap.txt"
+      ],
+      "assessment": "Entry comparison only",
+      "finding": "SEO Command supports multiple targets, root/subdomain/folder/URL scopes and organic/paid types. The captured entry is broadly aligned. Neither an additional competitor run nor a populated gap comparison was performed.",
+      "acceptance": "Verify saved-result All/Missing/Weak/Shared/Strong/Unique states, overlap and handoffs when an authorised comparison exists; do not mark this feature absent.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Existing saved gap matrix, overlap and All/Missing/Weak/Shared/Strong/Unique filters retained."
+    },
+    {
+      "id": 17,
+      "family": "Backlinks",
+      "screen": "Backlink Gap",
+      "app_url": "https://orwell-web.onrender.com/link-building?view=gap&site=globalbusrental&range=28d#link-gap",
+      "app_evidence": "app-17.txt",
+      "semrush_equivalent": "Backlink Gap",
+      "reference_access": "Entry form",
+      "reference_files": [
+        "sem-backlink-gap.txt"
+      ],
+      "assessment": "Navigation/workflow defect",
+      "finding": "The navigation opens Link building and places inbox, follow-up and acquired-link verification before prospect research. It does not present Semrush's dedicated competitor backlink comparison entry.",
+      "acceptance": "Create a distinct Backlink Gap page with target-domain comparison and referring-domain opportunities, then hand selected prospects into outreach.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/app/(app)/link-building/page.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Separate Backlink Gap report with comparison and qualified referring-domain opportunities; selected prospects continue to outreach."
+    },
+    {
+      "id": 18,
+      "family": "Research",
+      "screen": "Advertising Research",
+      "app_url": "https://orwell-web.onrender.com/advertising?site=globalbusrental&range=28d",
+      "app_evidence": "app-18.txt",
+      "semrush_equivalent": "Advertising Research",
+      "reference_access": "Subscription gate",
+      "reference_files": [
+        "sem-advertising-positions.txt",
+        "sem-advertising-entry.txt"
+      ],
+      "assessment": "Access-limited comparison",
+      "finding": "SEO Command has Positions, Competitors, Ad Copies, Pages, Position Changes and Ads History. No paid report is saved. Semrush blocks report access with an Advertising subscription offer.",
+      "acceptance": "Retain the prepared report tabs; validate populated creatives, pages and history using saved/authorised paid evidence. Full live layout parity remains unverified.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [
+        "Complete populated Semrush ad creative/history layout comparison remains inaccessible in the reference account."
+      ],
+      "implementation_summary": "Existing paid keyword, competitor, creative, page and history report tabs retained."
+    },
+    {
+      "id": 19,
+      "family": "Traffic",
+      "screen": "Market Insights",
+      "app_url": "https://orwell-web.onrender.com/market-intelligence?site=globalbusrental&range=28d",
+      "app_evidence": "app-19.txt",
+      "semrush_equivalent": "Market Overview / Competitor Monitoring",
+      "reference_access": "Subscription gate",
+      "reference_files": [
+        "sem-market-overview.txt",
+        "sem-competitor-monitoring.txt"
+      ],
+      "assessment": "Different feature",
+      "finding": "SEO Command's Market intelligence is an opportunity/forecasting workspace using stored SEO evidence. It is not equivalent to market-wide total traffic, audience composition or competitive monitoring.",
+      "acceptance": "Separate SEO opportunities from market/audience research. Build distinct market reports only with suitable data and explicit coverage labels.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [
+        "All-traffic results require the relevant licensed provider dataset and entitlement. DataForSEO search estimates remain available separately."
+      ],
+      "implementation_summary": "SEO market opportunities remain separately named from all-traffic market/audience reports."
+    },
+    {
+      "id": 20,
+      "family": "Keywords",
+      "screen": "Keyword Overview",
+      "app_url": "https://orwell-web.onrender.com/keyword-research?site=globalbusrental&range=28d",
+      "app_evidence": "app-20.txt",
+      "semrush_equivalent": "Keyword Overview",
+      "reference_access": "Live keyword + partial widgets",
+      "reference_files": [
+        "sem-keyword-overview.txt"
+      ],
+      "assessment": "Partial implementation",
+      "finding": "Keyword ideas and a detailed result table exist. Entry has no selected seed/collection. Semrush adds compact national/global metrics, country distribution, intent/trend and a dedicated SERP analysis area.",
+      "acceptance": "Preserve seed and database from upstream keyword links, then present the keyword summary and SERP analysis as distinct, supported modules.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/components/keyword-research/keyword-workbench.tsx",
+        "src/app/(app)/keyword-research/page.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Keyword, database and language survive upstream links. Summary modules and SERP drilldown retain the saved evidence."
+    },
+    {
+      "id": 21,
+      "family": "Keywords",
+      "screen": "Keyword Magic Tool",
+      "app_url": "https://orwell-web.onrender.com/keyword-research?view=discover&site=globalbusrental&range=28d",
+      "app_evidence": "app-21.txt",
+      "semrush_equivalent": "Keyword Magic Tool",
+      "reference_access": "Live keyword",
+      "reference_files": [
+        "sem-keyword-magic-final.txt"
+      ],
+      "assessment": "Partial implementation",
+      "finding": "All/Questions, match modes, groups, filters, keyword selection, export and content/tracking actions exist. The live app entry is empty until a search or saved collection is selected.",
+      "acceptance": "Match the compact topic/group sidebar and filter/table hierarchy; preserve keyword, market and selected results across research-to-list-to-content handoffs.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/components/keyword-research/keyword-workbench.tsx",
+        "src/components/research/research-handoff.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Compact group/filter/table hierarchy, columns and bulk selection. Handoffs split selected markets so country/language evidence is not mixed."
+    },
+    {
+      "id": 22,
+      "family": "Keywords",
+      "screen": "Keyword Strategy Builder",
+      "app_url": "https://orwell-web.onrender.com/keyword-strategy?site=globalbusrental&range=28d",
+      "app_evidence": "app-22.txt",
+      "semrush_equivalent": "Keyword Strategy Builder",
+      "reference_access": "Entry form",
+      "reference_files": [
+        "sem-keyword-strategy.txt"
+      ],
+      "assessment": "Workflow gap",
+      "finding": "SEO Command clusters up to 50 supplied keywords using shared top-10 URLs and offers page ownership/cannibalisation. Semrush presents domain, seed-keyword and manual-list entry modes.",
+      "acceptance": "Add domain/seed entry and a clear pillar/subpage plan while retaining the disclosed clustering method; do not relabel it as Semrush's proprietary AI model.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/components/research/serp-strategy-workspace.tsx",
+        "src/app/api/keyword-strategy/serp/route.ts",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Topic/domain seed discovery, saved-SERP clustering and editable pillar/supporting-page assignments. Selected strategy persists in the URL."
+    },
+    {
+      "id": 23,
+      "family": "Keywords",
+      "screen": "Customer Questions",
+      "app_url": "https://orwell-web.onrender.com/questions?site=globalbusrental&range=28d",
+      "app_evidence": "app-23.txt",
+      "semrush_equivalent": "Keyword questions / Topic Research",
+      "reference_access": "Live keyword",
+      "reference_files": [
+        "sem-keyword-magic-final.txt",
+        "sem-topic-expanded.txt"
+      ],
+      "assessment": "Collection needed",
+      "finding": "The Customer Questions collector exists but has no saved collection. This is search/PAA evidence, distinct from Semrush's AI brand Questions report.",
+      "acceptance": "Connect selected questions directly to Keyword Overview, topic clusters and briefs. Keep search questions and AI-answer questions separately labelled.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/components/research/research-handoff.tsx",
+        "src/components/reports/ai-research-reports.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Selected search questions connect to keyword overview, saved lists, strategy, tracking and page plans. AI-answer questions have a separate report."
+    },
+    {
+      "id": 24,
+      "family": "Keywords",
+      "screen": "Autocomplete Suggestions",
+      "app_url": "https://orwell-web.onrender.com/keyword-research?view=autocomplete&site=globalbusrental&range=28d",
+      "app_evidence": "app-24.txt",
+      "semrush_equivalent": "Keyword discovery, no exact standalone autocomplete reference",
+      "reference_access": "Related live keyword",
+      "reference_files": [
+        "sem-keyword-magic-final.txt"
+      ],
+      "assessment": "Implemented, improve integration",
+      "finding": "Ten saved UK autocomplete suggestions for bus rental load with seed, position, market, language and collection time. Inspect/Create work actions are present.",
+      "acceptance": "Retain this working capability; add consistent bulk selection and explicit handoffs into lists, strategy and content.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/components/research/evidence-panel.tsx",
+        "src/components/research/research-handoff.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Existing collector retained with bulk selection and list, strategy, tracking and content handoffs."
+    },
+    {
+      "id": 25,
+      "family": "Keywords",
+      "screen": "Saved Keywords",
+      "app_url": "https://orwell-web.onrender.com/keyword-research?view=lists&site=globalbusrental&range=28d",
+      "app_evidence": "app-25.txt",
+      "semrush_equivalent": "Keyword lists / Strategy Builder library",
+      "reference_access": "Entry form",
+      "reference_files": [
+        "sem-keyword-strategy.txt"
+      ],
+      "assessment": "Collection needed",
+      "finding": "The Saved Keyword Lists page currently presents Saved searches with no entries. A saved query and a manually curated keyword list are different user concepts.",
+      "acceptance": "Make lists versus saved searches explicit and provide list-level rename, merge, duplicate removal, refresh and tracking/content handoffs where supported.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/components/keyword-research/saved-scans.tsx",
+        "src/lib/keyword-lists.ts",
+        "src/app/api/keyword-research/scans/route.ts",
+        "src/app/api/keyword-research/scans/[id]/route.ts",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch.",
+        "Browser actions: created a local project, collected sample research, saved/reopened/renamed/deduplicated lists, retained originals, saved a topic plan, built and reopened a page strategy with its assigned URL."
+      ],
+      "remaining": [],
+      "implementation_summary": "Separate lists/history, stale-safe rename, merge/deduplicate into a new list, original preservation and reopen/refresh/track/content. Missing volume is not zero."
+    },
+    {
+      "id": 26,
+      "family": "Keywords",
+      "screen": "Research Projects",
+      "app_url": "https://orwell-web.onrender.com/keyword-research?view=projects&site=globalbusrental&range=28d",
+      "app_evidence": "app-26.txt",
+      "semrush_equivalent": "Keyword Strategy Builder projects/lists",
+      "reference_access": "Entry form",
+      "reference_files": [
+        "sem-keyword-strategy.txt"
+      ],
+      "assessment": "Partial comparison",
+      "finding": "Research Projects has creation controls and no saved projects. It is a separate SEO Command workflow; populated Semrush strategy output was not generated.",
+      "acceptance": "Clarify how projects contain searches, lists, clusters and content plans; validate a complete saved workflow before claiming parity.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/components/keyword-research/project-overview.tsx",
+        "src/platform/research-projects.ts",
+        "src/app/api/keyword-projects/route.ts",
+        "src/app/api/topic-plans/route.ts",
+        "src/app/(app)/work/page.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch.",
+        "Browser actions: created a local project, collected sample research, saved/reopened/renamed/deduplicated lists, retained originals, saved a topic plan, built and reopened a page strategy with its assigned URL."
+      ],
+      "remaining": [],
+      "implementation_summary": "Project-scoped saved searches/lists, SERP strategies, topic plans and source-linked content/work overview. Server rejects cross-site and archived project assignments."
+    },
+    {
+      "id": 27,
+      "family": "Technical",
+      "screen": "Tracking Setup",
+      "app_url": "https://orwell-web.onrender.com/keyword-research?view=tracking&site=globalbusrental&range=28d",
+      "app_evidence": "app-27.txt",
+      "semrush_equivalent": "Position Tracking setup",
+      "reference_access": "Project/setup",
+      "reference_files": [
+        "sem-position-tracking-entry.txt"
+      ],
+      "assessment": "Project comparison blocked",
+      "finding": "Campaign setup and policy controls exist, but no tracking campaigns are listed. This differs from the legacy saved ranking observations shown elsewhere.",
+      "acceptance": "Make campaign ownership, keyword count, market/device and schedule explicit; distinguish tracked campaign history from occasional ranking snapshots.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/app/(app)/keyword-research/page.tsx",
+        "src/components/reports/position-tracking.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Campaign count, creator, country/language/device targets, cadence, update date and direct campaign-management links."
+    },
+    {
+      "id": 28,
+      "family": "Content",
+      "screen": "SEO Writing Assistant",
+      "app_url": "https://orwell-web.onrender.com/content?view=editor&site=globalbusrental&range=28d",
+      "app_evidence": "app-28.txt",
+      "semrush_equivalent": "SEO Writing Assistant",
+      "reference_access": "Live empty editor",
+      "reference_files": [
+        "sem-writing-assistant.txt",
+        "sem-writing-editor.txt"
+      ],
+      "assessment": "Entry workflow gap",
+      "finding": "The SEO Writing Assistant navigation opens a content-list empty state with Create brief. Semrush opens an editable document with rich-text controls and SEO recommendations setup.",
+      "acceptance": "Open a writing workspace or a clear document chooser directly. Preserve the existing editor behind briefs; verify recommendations and saved-draft continuity there.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/components/content/content-workflow-board.tsx",
+        "src/components/content/optimisation-editor.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch.",
+        "Browser actions: imported a local draft, saved and reloaded its exact text, followed it into repurposing without publishing or generating paid content."
+      ],
+      "remaining": [],
+      "implementation_summary": "Writing assistant opens the saved-document chooser/editor. Selected document survives navigation and reload."
+    },
+    {
+      "id": 29,
+      "family": "Content",
+      "screen": "Topic Research",
+      "app_url": "https://orwell-web.onrender.com/topic-research?site=globalbusrental&range=28d",
+      "app_evidence": "app-29.txt",
+      "semrush_equivalent": "Topic Research: Cards, Explorer, Overview, Mind Map",
+      "reference_access": "Live keyword",
+      "reference_files": [
+        "sem-topic-final.txt",
+        "sem-topic-expanded.txt",
+        "sem-topic-explorer.txt",
+        "sem-topic-overview.txt",
+        "sem-topic-mindmap.txt"
+      ],
+      "assessment": "Partial implementation",
+      "finding": "All four app views exist, but no topic collection is selected. Semrush's bus rental cards eventually loaded and expanded into headlines/questions; earlier captures show loading.",
+      "acceptance": "Match populated cards, prioritisation, topic detail and favourites, with a direct brief/content action. Use final/expanded evidence for populated reference.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Existing topic cards, prioritisation, favourites, expanded detail and brief action retained."
+    },
+    {
+      "id": 30,
+      "family": "Content",
+      "screen": "SEO Content Template",
+      "app_url": "https://orwell-web.onrender.com/content-template?site=globalbusrental&range=28d",
+      "app_evidence": "app-30.txt",
+      "semrush_equivalent": "SEO Content Template",
+      "reference_access": "Entry form",
+      "reference_files": [
+        "sem-content-template.txt"
+      ],
+      "assessment": "Entry workflow gap",
+      "finding": "SEO Command starts with Choose a saved analysis. Semrush starts with target keywords and location to generate recommendations.",
+      "acceptance": "Offer a clear new-template input alongside saved analyses, then show supported top-10 benchmarks and export/editor handoffs.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Existing new-template input, exact page/keyword benchmarks, top-10 evidence and editor handoff retained."
+    },
+    {
+      "id": 31,
+      "family": "Backlinks",
+      "screen": "Backlinks",
+      "app_url": "https://orwell-web.onrender.com/backlinks?site=globalbusrental&range=28d",
+      "app_evidence": "app-31.txt",
+      "semrush_equivalent": "Backlink Analytics Overview and Backlinks",
+      "reference_access": "Live domain",
+      "reference_files": [
+        "sem-backlink-overview.txt",
+        "sem-backlink-table.txt"
+      ],
+      "assessment": "Major report depth gap",
+      "finding": "The app starts with a backlink table and summary metrics. Semrush has a dedicated overview with rank/history, new/lost trends, categories, attributes, TLD/country and top-page modules, plus richer table filters.",
+      "acceptance": "Build the overview and report tabs from existing evidence where possible. Add first/last seen, link state/attribute/type filters and contextual source/target details.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/app/(app)/backlinks/page.tsx",
+        "src/components/reports/backlink-details.tsx",
+        "src/providers/dataforseo/normalizers.ts",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Backlink overview/history and distinct tabs, link state/follow/type controls, first/last seen, source/target details."
+    },
+    {
+      "id": 32,
+      "family": "Backlinks",
+      "screen": "Referring Domains",
+      "app_url": "https://orwell-web.onrender.com/backlinks?view=referring&site=globalbusrental&range=28d",
+      "app_evidence": "app-32.txt",
+      "semrush_equivalent": "Referring Domains",
+      "reference_access": "Live domain",
+      "reference_files": [
+        "sem-referring-domains.txt"
+      ],
+      "assessment": "Report depth gap",
+      "finding": "The app changes table columns but retains Backlink Analytics as its heading; host/rank/backlinks/relevance/first seen are shown. Semrush has a dedicated report with more domain attributes and filters.",
+      "acceptance": "Give the report its own title and controls; add available country/IP, new/lost/state and last-seen context without inventing missing fields.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/app/(app)/backlinks/page.tsx",
+        "src/providers/dataforseo/normalizers.ts",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Dedicated referring-domain title, country/IP search, state/country filters and first/last-seen columns where the provider supplies them."
+    },
+    {
+      "id": 33,
+      "family": "Backlinks",
+      "screen": "Backlink Audit",
+      "app_url": "https://orwell-web.onrender.com/backlink-audit?site=globalbusrental&range=28d",
+      "app_evidence": "app-33.txt",
+      "semrush_equivalent": "Backlink Audit",
+      "reference_access": "Project/setup",
+      "reference_files": [
+        "sem-backlink-audit.txt"
+      ],
+      "assessment": "Project comparison blocked",
+      "finding": "Audit review rows and bulk management are implemented. No Global Bus Rental Semrush audit project exists for the full comparison.",
+      "acceptance": "Keep spam/risk metrics source-labelled. Compare review, removal/disavow and history flows only with suitable project evidence; do not send outreach or submit disavow files during visual QA.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Provider-labelled link risk, review decisions and disavow export retained; no submission or outreach during QA."
+    },
+    {
+      "id": 34,
+      "family": "Backlinks",
+      "screen": "Deeper Backlink Research",
+      "app_url": "https://orwell-web.onrender.com/backlinks?feature=links&site=globalbusrental&range=28d#research",
+      "app_evidence": "app-34.txt",
+      "semrush_equivalent": "Backlink detail, network, indexed/outbound/bulk reports",
+      "reference_access": "Live domain, tabs observed",
+      "reference_files": [
+        "sem-backlink-overview.txt",
+        "sem-backlink-indexed-pages.txt"
+      ],
+      "assessment": "Buried feature + missing reports",
+      "finding": "Deeper evidence is a panel below the normal backlink table. Semrush exposes distinct report destinations, including Network Graph, Indexed Pages, Outbound Domains and Bulk Analysis; not every result tab was inspected.",
+      "acceptance": "Give deeper evidence clear report identities. Treat network/outbound/bulk output as separate implementation and verification work, not completed parity.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/components/reports/backlink-details.tsx",
+        "src/app/api/backlinks/outbound/route.ts",
+        "src/platform/advanced-crawler.ts",
+        "src/platform/research-plan.ts",
+        "src/providers/dataforseo/research-normalizers.ts",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [
+        "Network graph covers direct saved referring domains, not Semrush\u2019s proprietary multi-hop network index.",
+        "Outbound domains cover pages returned by the browser crawl; they are not an internet-wide outbound index."
+      ],
+      "implementation_summary": "Distinct direct-link network, indexed pages, outbound-domain crawl evidence and bulk-summary reports. Added DataForSEO domain_pages and bounded summary collection."
+    },
+    {
+      "id": 35,
+      "family": "Backlinks",
+      "screen": "Broken Backlink Recovery",
+      "app_url": "https://orwell-web.onrender.com/backlinks?feature=recovery&site=globalbusrental&range=28d#research",
+      "app_evidence": "app-35.txt",
+      "semrush_equivalent": "Indexed Pages \u2192 Broken Pages",
+      "reference_access": "Live domain",
+      "reference_files": [
+        "sem-backlink-indexed-pages.txt",
+        "sem-backlink-broken-pages.txt"
+      ],
+      "assessment": "Implemented but buried",
+      "finding": "Broken Backlink Recovery correctly selects Recover links to broken pages, but appears beneath the standard backlink table and has no saved recovery collection.",
+      "acceptance": "Lead with broken target URLs and backlink/referring-domain impact, then repair actions and evidence. Retain the existing collector.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/components/reports/backlink-details.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Broken-target report remains directly discoverable under Backlinks, with the existing provider collector and repair workflow."
+    },
+    {
+      "id": 36,
+      "family": "Backlinks",
+      "screen": "Link Building & Outreach",
+      "app_url": "https://orwell-web.onrender.com/link-building?site=globalbusrental&range=28d",
+      "app_evidence": "app-36.txt",
+      "semrush_equivalent": "Link Building Tool",
+      "reference_access": "Project/setup",
+      "reference_files": [
+        "sem-link-building-entry.txt"
+      ],
+      "assessment": "Workflow gap, result comparison blocked",
+      "finding": "Inbox, follow-up, verification and prospect controls exist. Empty/disabled controls reflect no selected prospect/inbox, not proof of broken handlers.",
+      "acceptance": "Lead with prospect discovery and clear setup prerequisites, then outreach/replies/acquired links. Compare populated Semrush project stages later.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/app/(app)/link-building/page.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Prospect discovery leads the workflow; existing outreach/reply/acquisition stages remain below it."
+    },
+    {
+      "id": 37,
+      "family": "Technical",
+      "screen": "Issues & Root Causes",
+      "app_url": "https://orwell-web.onrender.com/health?view=issues&site=globalbusrental&range=28d",
+      "app_evidence": "app-37.txt",
+      "semrush_equivalent": "Site Audit issue groups, plus custom root-cause analysis",
+      "reference_access": "Project/setup",
+      "reference_files": [
+        "sem-site-audit-entry.txt"
+      ],
+      "assessment": "Retain custom feature",
+      "finding": "Suspected underlying causes and source health are present. The root-cause grouping is an SEO Command addition; keyword/backlink health still reports earlier failed scans while saved data is retained.",
+      "acceptance": "Keep issue evidence grouped by suspected cause, with affected pages and one investigation. Show last successful data separately from latest failed attempt.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/platform/command-read.ts",
+        "src/components/command/health-view.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Root-cause grouping retained. Last successful evidence and latest attempted job/status are separately labelled."
+    },
+    {
+      "id": 38,
+      "family": "Technical",
+      "screen": "Website Speed Test",
+      "app_url": "https://orwell-web.onrender.com/health?view=speed&site=globalbusrental&range=28d",
+      "app_evidence": "app-38.txt",
+      "semrush_equivalent": "Site Audit performance, plus standalone speed test",
+      "reference_access": "Project/setup",
+      "reference_files": [
+        "sem-site-audit-entry.txt"
+      ],
+      "assessment": "Implemented, reference limited",
+      "finding": "A saved mobile speed result, opportunities, history and separate real-user-data state are displayed. No real visitor measurements were returned.",
+      "acceptance": "Retain the speed test and lab/field distinction. Compare performance-report layout when the Semrush project is available; do not imply a lab run proves field Core Web Vitals.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Speed test retains separate lab results, field data and collection date."
+    },
+    {
+      "id": 39,
+      "family": "Technical",
+      "screen": "Google Indexing",
+      "app_url": "https://orwell-web.onrender.com/health?view=indexing&site=globalbusrental&range=28d",
+      "app_evidence": "app-39.txt",
+      "semrush_equivalent": "Site Audit indexability; no exact URL Inspection counterpart inspected",
+      "reference_access": "Custom",
+      "reference_files": [
+        "sem-site-audit-entry.txt"
+      ],
+      "assessment": "Connection issue observed",
+      "finding": "Google Indexing displays a missing-Google-credentials message even though other screens show saved GSC data. This can reflect different services/scopes and is not proof all Google data is disconnected.",
+      "acceptance": "Make the URL Inspection connection status specific and provide a nontechnical setup action. Verify this connection separately; it was not repaired during the comparison.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/app/api/command/route.ts",
+        "src/platform/command-jobs.ts",
+        "src/components/command/health-view.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Specific Search Console/property readiness, early setup response, and no unconfigured worker claiming URL-inspection jobs. Manual checks use the configured web process."
+    },
+    {
+      "id": 40,
+      "family": "Technical",
+      "screen": "Browser Crawl",
+      "app_url": "https://orwell-web.onrender.com/technical-crawler?site=globalbusrental&range=28d",
+      "app_evidence": "app-40.txt",
+      "semrush_equivalent": "Site Audit rendered crawling",
+      "reference_access": "Project/setup",
+      "reference_files": [
+        "sem-site-audit-entry.txt"
+      ],
+      "assessment": "Partial comparison",
+      "finding": "Rendered crawl inventory and issue/crawl comparison exist. Worker reliability cannot be proved by viewing stored rows, and no new crawl ran this turn.",
+      "acceptance": "Keep this as a detailed audit view, with crawl freshness and failures visible. Compare populated rendered-page details only after a reference project exists.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Browser crawl retains rendered-page and crawl-resource evidence, freshness and failure status."
+    },
+    {
+      "id": 41,
+      "family": "Technical",
+      "screen": "Page Watchlist",
+      "app_url": "https://orwell-web.onrender.com/health?view=watchlist&site=globalbusrental&range=28d",
+      "app_evidence": "app-41.txt",
+      "semrush_equivalent": "Site monitoring, no exact inspected report",
+      "reference_access": "Custom",
+      "reference_files": [],
+      "assessment": "Retain custom feature",
+      "finding": "Important-page watchlist exists but has no saved URLs.",
+      "acceptance": "Retain as a focused monitoring feature with a clear empty-state action and links to page evidence.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Watchlist retains add-page action and saved page evidence."
+    },
+    {
+      "id": 42,
+      "family": "Technical",
+      "screen": "Launch & Migration",
+      "app_url": "https://orwell-web.onrender.com/health?view=launch&site=globalbusrental&range=28d",
+      "app_evidence": "app-42.txt",
+      "semrush_equivalent": "Site Audit comparison, plus launch checklist",
+      "reference_access": "Project/setup",
+      "reference_files": [
+        "sem-site-audit-entry.txt"
+      ],
+      "assessment": "Retain custom feature",
+      "finding": "Launch/migration checks and saved baselines exist; no baseline is saved.",
+      "acceptance": "Keep the checklist and baseline workflow; do not count an uncreated baseline as a failed feature.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Launch/migration checklist and explicit baseline workflow retained."
+    },
+    {
+      "id": 43,
+      "family": "Technical",
+      "screen": "Availability Monitor",
+      "app_url": "https://orwell-web.onrender.com/monitoring?site=globalbusrental&range=28d",
+      "app_evidence": "app-43.txt",
+      "semrush_equivalent": "No exact inspected availability report",
+      "reference_access": "Custom",
+      "reference_files": [],
+      "assessment": "Retain custom feature",
+      "finding": "Reliability monitoring exposes response time, HTTP/TLS and checks. It should not be confused with an SEO audit score.",
+      "acceptance": "Retain uptime and domain-expiry monitoring with source/freshness and selected-site scope visible.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Availability and domain-expiry reports retain source, timestamp and scope."
+    },
+    {
+      "id": 44,
+      "family": "Keywords",
+      "screen": "Search Results",
+      "app_url": "https://orwell-web.onrender.com/serp-intelligence?site=globalbusrental&range=28d",
+      "app_evidence": "app-44.txt",
+      "semrush_equivalent": "Organic/Keyword SERP details",
+      "reference_access": "Live domain/keyword",
+      "reference_files": [
+        "sem-organic-positions.txt",
+        "sem-keyword-overview.txt"
+      ],
+      "assessment": "Workflow depth gap",
+      "finding": "The SERP intelligence workspace exists separately. Semrush places SERP/keyword/URL drilldowns directly in report rows.",
+      "acceptance": "Connect SERP details from each ranking keyword and preserve country, device, date and originating report on return.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Keyword SERP reports and market/device context retained; richer research handoffs added."
+    },
+    {
+      "id": 45,
+      "family": "Technical",
+      "screen": "On Page SEO Checker",
+      "app_url": "https://orwell-web.onrender.com/on-page?site=globalbusrental&range=28d",
+      "app_evidence": "app-45.txt",
+      "semrush_equivalent": "On Page SEO Checker",
+      "reference_access": "Project/setup",
+      "reference_files": [
+        "sem-on-page-entry.txt"
+      ],
+      "assessment": "Project comparison blocked",
+      "finding": "Top pages to optimise and saved-analysis columns exist. No equivalent Semrush project report was available.",
+      "acceptance": "Validate recommendations against exact page/keyword/top-10 evidence, then compare result categories and detail layouts when accessible.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Exact-page/keyword competitor benchmarks and recommendation categories retained."
+    },
+    {
+      "id": 46,
+      "family": "Technical",
+      "screen": "Organic Traffic Insights",
+      "app_url": "https://orwell-web.onrender.com/organic-traffic?site=globalbusrental&range=28d",
+      "app_evidence": "app-46.txt",
+      "semrush_equivalent": "Organic Traffic Insights",
+      "reference_access": "Project/setup",
+      "reference_files": [
+        "sem-organic-traffic-entry.txt"
+      ],
+      "assessment": "Project comparison blocked",
+      "finding": "SEO Command joins landing-page GA4 metrics and GSC clicks, impressions, positions and keywords. Semrush requires project/account connections for equivalent output.",
+      "acceptance": "Keep measured data separate from estimates and show property/date coverage. Full joined-report parity is not verified.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Measured Google property/date coverage remains separate from provider estimates."
+    },
+    {
+      "id": 47,
+      "family": "Operations",
+      "screen": "Scan Centre",
+      "app_url": "https://orwell-web.onrender.com/scan-centre?site=globalbusrental&range=28d",
+      "app_evidence": "app-47.txt",
+      "semrush_equivalent": "Collection controls distributed across tools",
+      "reference_access": "Custom",
+      "reference_files": [],
+      "assessment": "Implemented, improve placement",
+      "finding": "Scan Centre includes module status, last updated, next planned, estimated cost and result links. It is a useful unified feature beyond the inspected Semrush navigation.",
+      "acceptance": "Keep a compact scan summary on the website dashboard and move detailed controls to this page. Preserve site scope and spending limits.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/components/dashboard/site-scan-centre.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Compact overview scan summary links to full website-scoped scan controls; existing spending limits retained."
+    },
+    {
+      "id": 48,
+      "family": "AI",
+      "screen": "Competitor Research",
+      "app_url": "https://orwell-web.onrender.com/ai-visibility?view=competitors&site=globalbusrental&range=28d",
+      "app_evidence": "app-48.txt",
+      "semrush_equivalent": "Competitor Research",
+      "reference_access": "Live domain",
+      "reference_files": [
+        "sem-ai-competitors.txt"
+      ],
+      "assessment": "Wrong destination/report",
+      "finding": "The app's Competitor Research link opens Share of voice. Semrush has up to five domains, visibility/audience/mentions switches, topic/prompt/source matrices and Missing/Weak/Shared/Strong/Unique filters.",
+      "acceptance": "Build a dedicated competitor comparison report and retain share of voice as a metric/view. Add source-backed gap rows with monitoring/content handoffs.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/components/reports/ai-research-reports.tsx",
+        "src/lib/ai-report-model.ts",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [
+        "Broad AI market audience estimates and Semrush\u2019s proprietary brand index are not reproduced by sampled responses."
+      ],
+      "implementation_summary": "Dedicated measured competitor matrix and missing/weak/shared/strong/unique gaps with original-answer evidence and handoffs. Unobserved brands are not counted as shared."
+    },
+    {
+      "id": 49,
+      "family": "AI",
+      "screen": "Prompt Research",
+      "app_url": "https://orwell-web.onrender.com/ai-research?site=globalbusrental&range=28d",
+      "app_evidence": "app-49.txt",
+      "semrush_equivalent": "Prompt Research: Topics, Prompts, Brands, Source Domains",
+      "reference_access": "Live keyword",
+      "reference_files": [
+        "sem-ai-prompt-research.txt",
+        "sem-ai-prompt-prompts.txt",
+        "sem-ai-prompt-brands.txt",
+        "sem-ai-prompt-source-domains.txt"
+      ],
+      "assessment": "Major workflow gap",
+      "finding": "SEO Command shows a saved prompt-response table. Semrush supports topic-seed discovery, four relational reports, prompt examples/full responses, brand/source exploration and monitoring/content actions.",
+      "acceptance": "Add seed-based research with topic/prompt/brand/source views, raw-answer inspection and a connected tracking/content flow. Preserve provenance and sample limitations.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/app/(app)/ai-research/page.tsx",
+        "src/components/research/evidence-panel.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Seed research with topic, prompt, brand and source views; raw answers, tracking setup and content handoffs preserve context."
+    },
+    {
+      "id": 50,
+      "family": "AI",
+      "screen": "Brand Mentions",
+      "app_url": "https://orwell-web.onrender.com/ai-visibility?feature=mentions&site=globalbusrental&range=28d#research",
+      "app_evidence": "app-50.txt",
+      "semrush_equivalent": "Brand Performance / Mentions",
+      "reference_access": "Setup + public demo",
+      "reference_files": [
+        "sem-ai-brand-performance.txt",
+        "sem-ai-brand-demo.txt"
+      ],
+      "assessment": "Wrong identity + feature gap",
+      "finding": "Brand Mentions opens a generic Research heading and a collection panel. It is not the brand-performance dashboard shown in Semrush's labelled sample.",
+      "acceptance": "Create a brand report with time/platform filters, mentions/citations and drilldowns. Use the public demo for layout only, never as Global Bus Rental evidence.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/components/reports/ai-research-reports.tsx",
+        "src/platform/ai-read-model.ts",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [
+        "Brand reports describe saved provider/monitored answers, not a census of AI answers."
+      ],
+      "implementation_summary": "Brand performance includes period/platform filters, mentions/citations and answer drilldowns."
+    },
+    {
+      "id": 51,
+      "family": "AI",
+      "screen": "Platform Comparisons",
+      "app_url": "https://orwell-web.onrender.com/ai-visibility?view=comparison&site=globalbusrental&range=28d",
+      "app_evidence": "app-51.txt",
+      "semrush_equivalent": "Perception / Narrative Drivers",
+      "reference_access": "Setup + public demo",
+      "reference_files": [
+        "sem-ai-perception-demo.txt",
+        "sem-ai-narrative-demo.txt"
+      ],
+      "assessment": "Feature depth gap",
+      "finding": "Matched-platform answer comparison and sentiment review exist, but no matched samples are saved. Semrush's sample additionally organises sentiment and drivers by brand/platform/question context.",
+      "acceptance": "Add evidence-backed sentiment trends and narrative drivers without treating sampled model outputs as universal brand sentiment.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/components/reports/ai-research-reports.tsx",
+        "src/lib/ai-report-model.ts",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [
+        "Sentiment and narrative results are sample-based; they are not universal brand sentiment."
+      ],
+      "implementation_summary": "Measured sentiment history and narrative drivers with explicit response-sample limits."
+    },
+    {
+      "id": 52,
+      "family": "AI",
+      "screen": "Cited Sources",
+      "app_url": "https://orwell-web.onrender.com/ai-visibility?view=sources&site=globalbusrental&range=28d",
+      "app_evidence": "app-52.txt",
+      "semrush_equivalent": "Cited Sources / Source Opportunities / Cited Pages",
+      "reference_access": "Live domain",
+      "reference_files": [
+        "sem-ai-cited-sources.txt",
+        "sem-ai-source-opportunities.txt",
+        "sem-ai-cited-pages.txt"
+      ],
+      "assessment": "Report depth gap",
+      "finding": "A citation graph exists but contains no structured citations. Semrush has separate domain/page opportunity tables with prompt relationships and competitive context.",
+      "acceptance": "Provide source-domain and cited-page tables, opportunity filters and linked prompt/answer evidence, then retain the graph as an optional view.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/components/reports/ai-research-reports.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Separate source-domain, cited-page and opportunity reports with links back to prompt/answer evidence; existing graph retained."
+    },
+    {
+      "id": 53,
+      "family": "AI",
+      "screen": "AI Crawler Audit",
+      "app_url": "https://orwell-web.onrender.com/ai-visibility?view=crawlers&site=globalbusrental&range=28d",
+      "app_evidence": "app-53.txt",
+      "semrush_equivalent": "AI Site Audit / crawler access",
+      "reference_access": "Project/setup",
+      "reference_files": [
+        "sem-site-audit-entry.txt"
+      ],
+      "assessment": "Narrower scope",
+      "finding": "Eight saved robot-agent policies are displayed. Root access checks are useful but are not a full AI-readiness/site-audit report.",
+      "acceptance": "Label this report Crawler Access and expose path-rule evidence. Add broader audit checks only with defined, testable criteria.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/app/(app)/ai-visibility/page.tsx",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Navigation renamed Crawler Access; saved robots/path-rule evidence retained."
+    },
+    {
+      "id": 54,
+      "family": "AI",
+      "screen": "Prompt Tracking",
+      "app_url": "https://orwell-web.onrender.com/ai-visibility?view=prompts&site=globalbusrental&range=28d",
+      "app_evidence": "app-54.txt",
+      "semrush_equivalent": "Prompt Tracking",
+      "reference_access": "Project/setup",
+      "reference_files": [
+        "sem-position-tracking-entry.txt"
+      ],
+      "assessment": "Configuration needed",
+      "finding": "Prompt opportunities, Add prompt, tracking queue and monitoring policy exist; zero prompts are queued for this scope.",
+      "acceptance": "Show a guided setup and connect discovery to tracking. Full live Semrush campaign comparison remains blocked by the no-project constraint.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/app/(app)/ai-visibility/page.tsx",
+        "src/components/research/research-handoff.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [
+        "Populated Semrush campaign comparison remains project-gated."
+      ],
+      "implementation_summary": "Discovery pre-fills prompt-tracking setup while retaining country/language and website scope."
+    },
+    {
+      "id": 55,
+      "family": "Traffic",
+      "screen": "Traffic Channels",
+      "app_url": "https://orwell-web.onrender.com/traffic-analytics?view=channels&site=globalbusrental&range=28d",
+      "app_evidence": "app-55.txt",
+      "semrush_equivalent": "Channel-specific traffic reports",
+      "reference_access": "Subscription gate",
+      "reference_files": [
+        "sem-traffic-organic-search.txt",
+        "sem-traffic-paid-search.txt",
+        "sem-traffic-referral.txt",
+        "sem-traffic-ai.txt"
+      ],
+      "assessment": "Navigation defect",
+      "finding": "The Traffic Channels URL renders the same DataForSEO overview as the main traffic page. Dedicated all-traffic channel UI is only shown after changing source manually.",
+      "acceptance": "The nav click must open a clearly selected channel report or its specific unavailable state; keep source selection in the URL.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/app/(app)/traffic-analytics/page.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [
+        "All-traffic results require the relevant licensed provider dataset and entitlement. DataForSEO search estimates remain available separately."
+      ],
+      "implementation_summary": "Channels opens the channels report immediately, with explicit selected source and report-specific connection status."
+    },
+    {
+      "id": 56,
+      "family": "Traffic",
+      "screen": "Geographical Distribution",
+      "app_url": "https://orwell-web.onrender.com/traffic-analytics?view=countries&site=globalbusrental&range=28d",
+      "app_evidence": "app-56.txt",
+      "semrush_equivalent": "Geographical Distribution / Countries",
+      "reference_access": "Subscription gate",
+      "reference_files": [
+        "sem-traffic-countries.txt"
+      ],
+      "assessment": "Navigation defect",
+      "finding": "The country URL defaults to search overview. Manually selecting All traffic reveals the intended country view and its subscription requirement, confirming the route/source mismatch.",
+      "acceptance": "Respect the country view on initial load and separate saved organic country comparison from all-traffic country distribution.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/app/(app)/traffic-analytics/page.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [
+        "All-traffic results require the relevant licensed provider dataset and entitlement. DataForSEO search estimates remain available separately."
+      ],
+      "implementation_summary": "Country destination respected on initial load; search-country comparison and total-traffic geography remain explicitly separate."
+    },
+    {
+      "id": 57,
+      "family": "Traffic",
+      "screen": "Top Pages by Traffic",
+      "app_url": "https://orwell-web.onrender.com/traffic-analytics?view=pages&site=globalbusrental&range=28d",
+      "app_evidence": "app-57.txt",
+      "semrush_equivalent": "Top Pages by total traffic",
+      "reference_access": "Subscription gate",
+      "reference_files": [
+        "sem-traffic-top-pages.txt"
+      ],
+      "assessment": "Navigation defect + data limitation",
+      "finding": "The page URL defaults to search overview. The prepared all-traffic page report is separate and supports traffic share; visits/entrances/exits are explicitly unavailable.",
+      "acceptance": "Open the correct page report immediately. Do not infer page visits, entrances or exits from provider traffic-share values.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/app/(app)/traffic-analytics/page.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [
+        "All-traffic results require the relevant licensed provider dataset and entitlement. DataForSEO search estimates remain available separately."
+      ],
+      "implementation_summary": "Correct top-pages report opens immediately. Traffic-share data is not relabelled as visits, entrances or exits."
+    },
+    {
+      "id": 58,
+      "family": "Performance",
+      "screen": "Business Results",
+      "app_url": "https://orwell-web.onrender.com/performance?view=business&site=globalbusrental&range=28d",
+      "app_evidence": "app-58.txt",
+      "semrush_equivalent": "Connected analytics / report widgets",
+      "reference_access": "Project/setup",
+      "reference_files": [
+        "sem-organic-traffic-entry.txt",
+        "sem-report-builder.txt"
+      ],
+      "assessment": "Configuration needed",
+      "finding": "Business Results exists, but no event mapping/business event report is collected. A zero key-event count and a missing event mapping must remain distinct.",
+      "acceptance": "Provide event mapping and explicit coverage/status before attributing SEO to leads or revenue.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Conversion/event mapping, coverage and business-results status retained."
+    },
+    {
+      "id": 59,
+      "family": "Performance",
+      "screen": "Branded & Non-Branded",
+      "app_url": "https://orwell-web.onrender.com/performance?view=brand&site=globalbusrental&range=28d",
+      "app_evidence": "app-59.txt",
+      "semrush_equivalent": "Organic Rankings branded/non-branded",
+      "reference_access": "Live domain",
+      "reference_files": [
+        "sem-organic-overview.txt"
+      ],
+      "assessment": "Partial implementation",
+      "finding": "The app already classifies measured GSC queries by brand. Semrush shows branded/non-branded estimated organic analysis inside Organic Rankings.",
+      "acceptance": "Keep the measured report and add equivalent estimated-research presentation only where supported; never mix the two denominators.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Measured brand split retained with its own source and denominator."
+    },
+    {
+      "id": 60,
+      "family": "Performance",
+      "screen": "Trends & Seasonality",
+      "app_url": "https://orwell-web.onrender.com/performance?view=trends&site=globalbusrental&range=28d",
+      "app_evidence": "app-60.txt",
+      "semrush_equivalent": "Keyword/organic trends and seasonality",
+      "reference_access": "Live domain/keyword",
+      "reference_files": [
+        "sem-organic-overview.txt",
+        "sem-keyword-overview.txt"
+      ],
+      "assessment": "Partial implementation",
+      "finding": "Trends and Seasonality is a separate app report. Semrush places histories and trends inside the report being investigated.",
+      "acceptance": "Add contextual date/history controls within keyword/domain reports and deep-link to the broader trend workspace.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Existing trends workspace retained; domain page-history and market-specific keyword handoffs added."
+    },
+    {
+      "id": 61,
+      "family": "Performance",
+      "screen": "Change Timeline",
+      "app_url": "https://orwell-web.onrender.com/performance?view=timeline&site=globalbusrental&range=28d",
+      "app_evidence": "app-61.txt",
+      "semrush_equivalent": "Report notes/history, no exact inspected timeline",
+      "reference_access": "Custom",
+      "reference_files": [],
+      "assessment": "Retain custom feature",
+      "finding": "The change timeline and record-change form exist, with no saved changes or shipped work.",
+      "acceptance": "Retain timeline annotations and link later outcome evidence. Do not invent causal impact from coincident changes.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Timeline annotations and later outcome evidence retained without causal claims."
+    },
+    {
+      "id": 62,
+      "family": "Local",
+      "screen": "Listing Management",
+      "app_url": "https://orwell-web.onrender.com/local-seo?view=locations&site=globalbusrental&range=28d",
+      "app_evidence": "app-62.txt",
+      "semrush_equivalent": "Listing Management",
+      "reference_access": "Setup/offer",
+      "reference_files": [
+        "sem-local-listings.txt"
+      ],
+      "assessment": "Connection/feature gap",
+      "finding": "The app has a manual directory inventory and consistency work. It does not provide Semrush-style automatic publisher distribution from that inventory.",
+      "acceptance": "Keep manual tracking accurately named. Automatic distribution needs a supported distribution partner and confirmed entitlements.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [
+        "Automatic listing distribution needs an approved distribution partner and entitlement. Manual inventory remains available."
+      ],
+      "implementation_summary": "Manual listing inventory remains accurately labelled; automatic distribution is not represented as connected."
+    },
+    {
+      "id": 63,
+      "family": "Local",
+      "screen": "Review Management",
+      "app_url": "https://orwell-web.onrender.com/local-seo?feature=reviews&site=globalbusrental&range=28d#research",
+      "app_evidence": "app-63.txt",
+      "semrush_equivalent": "Review Management",
+      "reference_access": "Setup/offer",
+      "reference_files": [
+        "sem-local-reviews.txt"
+      ],
+      "assessment": "Configuration needed + workflow gap",
+      "finding": "Review management and customer-review evidence collection exist, but no location/review collection is configured. Semrush also presents review-generation and management workflows.",
+      "acceptance": "Complete location/provider setup, then add review-request campaign controls only with explicit outbound authorisation. Do not classify disabled unconfigured actions as broken.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/components/research/local-workflows.tsx",
+        "src/app/api/local-workflows/route.ts",
+        "src/platform/local-workflows.ts",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [
+        "Live campaign delivery requires a configured mailbox and authorised business location. No customer email was sent in QA."
+      ],
+      "implementation_summary": "Review campaigns support named drafts, neutral request copy, location validation, recipient review and explicit sending. Delivery receipts prevent unsafe retries."
+    },
+    {
+      "id": 64,
+      "family": "Local",
+      "screen": "GBP Optimization",
+      "app_url": "https://orwell-web.onrender.com/local-seo?view=profiles&site=globalbusrental&range=28d",
+      "app_evidence": "app-64.txt",
+      "semrush_equivalent": "GBP Optimization",
+      "reference_access": "Setup/offer",
+      "reference_files": [
+        "sem-local-gbp.txt",
+        "sem-local-ai-agent.txt"
+      ],
+      "assessment": "Connection/feature gap",
+      "finding": "Business profile and review-reply controls are prepared. No Global Bus Rental location/Google authorisation is configured here. Semrush promotes posts, optimisation and agent workflows.",
+      "acceptance": "Provide clear Google connection and location selection; implement/verify post scheduling and optimisation actions separately before presenting them as ready.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/components/research/local-workflows.tsx",
+        "src/app/api/local-workflows/route.ts",
+        "src/platform/local-workflows.ts",
+        "scripts/crawler-jobs.ts",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [
+        "Live publication requires authorised Google Business ownership and location mapping. No business post was published in QA."
+      ],
+      "implementation_summary": "Google post drafts, exact-content preview, owned-location mapping, scheduling, cancellation and worker processing. Account access is rechecked before publishing."
+    },
+    {
+      "id": 65,
+      "family": "Local",
+      "screen": "Map Rank Tracker",
+      "app_url": "https://orwell-web.onrender.com/local-seo?view=grid&site=globalbusrental&range=28d",
+      "app_evidence": "app-65.txt",
+      "semrush_equivalent": "Map Rank Tracker",
+      "reference_access": "Setup/offer",
+      "reference_files": [
+        "sem-local-map-tracker.txt"
+      ],
+      "assessment": "Configuration needed",
+      "finding": "The app's map-grid view exists, but no location is selected. Semrush's accessible screen is setup/preview, not a comparable live Global Bus Rental grid.",
+      "acceptance": "Validate populated geo-grid, competitors, keyword/date comparison and tracking schedule after location setup is authorised.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [
+        "Populated geo-grid verification needs an authorised business location."
+      ],
+      "implementation_summary": "Existing geo-grid, competitor/date comparison and monitoring setup retained."
+    },
+    {
+      "id": 66,
+      "family": "Content",
+      "screen": "Content Templates & Briefs",
+      "app_url": "https://orwell-web.onrender.com/content?view=briefs&site=globalbusrental&range=28d",
+      "app_evidence": "app-66.txt",
+      "semrush_equivalent": "SEO Brief Generator / My Content",
+      "reference_access": "Subscription gate",
+      "reference_files": [
+        "sem-content-brief-generator.txt",
+        "sem-content-library.txt"
+      ],
+      "assessment": "Partial implementation",
+      "finding": "Templates & Briefs opens an empty content library with Create brief. Semrush has a separate brief-generator workflow; result details are gated in this account.",
+      "acceptance": "Expose distinct create/import/generate flows and keep brief status, owner, target page and keyword context visible.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/components/content/content-workflow-board.tsx",
+        "src/components/content/optimisation-editor.tsx",
+        "src/app/api/content-workflow/route.ts",
+        "src/app/api/content-assistant/route.ts",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch.",
+        "Browser actions: imported a local draft, saved and reloaded its exact text, followed it into repurposing without publishing or generating paid content."
+      ],
+      "remaining": [],
+      "implementation_summary": "Distinct create/import/generate/optimise/repurpose flows; pasted or uploaded drafts are saved with revisions, owner, target and keyword context."
+    },
+    {
+      "id": 67,
+      "family": "Content",
+      "screen": "Content Calendar",
+      "app_url": "https://orwell-web.onrender.com/content?view=calendar&site=globalbusrental&range=28d",
+      "app_evidence": "app-67.txt",
+      "semrush_equivalent": "No direct counterpart in the inspected current Content menu",
+      "reference_access": "Custom",
+      "reference_files": [
+        "sem-content-toolkit.txt"
+      ],
+      "assessment": "Retain custom feature",
+      "finding": "The app has a working calendar view and an empty Unscheduled group. No calendar destination was visible in the current Semrush Content menu inspected.",
+      "acceptance": "Retain the calendar as a planning feature. Do not remove it or claim Semrush has no calendar anywhere based on this menu inspection.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Content calendar and saved editorial planning retained."
+    },
+    {
+      "id": 68,
+      "family": "Reports",
+      "screen": "Report Archive & Sharing",
+      "app_url": "https://orwell-web.onrender.com/reports?site=globalbusrental&range=28d#report-archive",
+      "app_evidence": "app-68.txt",
+      "semrush_equivalent": "My Reports archive/sharing",
+      "reference_access": "Live builder/setup",
+      "reference_files": [
+        "sem-reports.txt"
+      ],
+      "assessment": "Partial implementation",
+      "finding": "Archive/share controls exist, including client link, revoke and disabled email. The page repeats the full Reports dashboard rather than focusing on a report archive.",
+      "acceptance": "Provide a dedicated archive/library view with generated/queued/failed state, access expiry and report-specific actions. Email requires a configured delivery connection.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/app/(app)/reports/page.tsx",
+        "src/app/api/reports/archive/route.ts",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Dedicated report archive with ready/queued/failed status and download, share/revoke, retry and configured-email actions retained."
+    },
+    {
+      "id": 69,
+      "family": "Reports",
+      "screen": "Client Report",
+      "app_url": "https://orwell-web.onrender.com/reports/client?site=globalbusrental&range=28d",
+      "app_evidence": "app-69.txt",
+      "semrush_equivalent": "Report constructor",
+      "reference_access": "Live empty builder",
+      "reference_files": [
+        "sem-report-builder.txt"
+      ],
+      "assessment": "Major editor gap",
+      "finding": "The app has an editable section-based report and live populated preview. Semrush has a widget/integration canvas with report settings, bulk edits and AI summary controls.",
+      "acceptance": "Add a visual report canvas, widget library and per-widget scope/date configuration, while retaining existing templates and truthful source labels.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/components/reports/report-canvas.tsx",
+        "src/app/api/reports/layouts/route.ts",
+        "src/reports/definition.ts",
+        "src/reports/document.ts",
+        "src/reports/build.ts",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch.",
+        "Browser actions: saved/reopened a layout, retained widget order and 7-day override, opened the selected technical template at 90 days, rendered HTML preview, verified full definition in scheduling handoff."
+      ],
+      "remaining": [],
+      "implementation_summary": "Visual widget canvas, drag/arrow ordering, per-widget website and dates, validated save/reload, matching HTML/PDF/CSV and schedule definitions. Mobile widget library collapses."
+    },
+    {
+      "id": 70,
+      "family": "Operations",
+      "screen": "In Progress",
+      "app_url": "https://orwell-web.onrender.com/work?site=globalbusrental&range=28d",
+      "app_evidence": "app-70.txt",
+      "semrush_equivalent": "No exact inspected work queue",
+      "reference_access": "Custom",
+      "reference_files": [],
+      "assessment": "Retain custom feature",
+      "finding": "In Progress opens Continue work with no approved work. This is SEO Command's execution workflow.",
+      "acceptance": "Retain and connect each task to its original report, selected website and evidence.",
+      "implementation_status": "implemented",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/app/(app)/work/page.tsx",
+        "src/components/workflow/site-finding-work-drawer.tsx",
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Source evidence, selected website and research-project context are retained in work links and filters."
+    },
+    {
+      "id": 71,
+      "family": "Operations",
+      "screen": "Results",
+      "app_url": "https://orwell-web.onrender.com/outcomes?site=globalbusrental&range=28d",
+      "app_evidence": "app-71.txt",
+      "semrush_equivalent": "No exact inspected outcome ledger",
+      "reference_access": "Custom",
+      "reference_files": [],
+      "assessment": "Retain custom feature",
+      "finding": "Results opens an outcome ledger with no outcomes/checks scheduled.",
+      "acceptance": "Retain verification dates and before/after evidence; do not count an empty work history as missing functionality.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Outcome verification, dates and before/after evidence retained."
+    },
+    {
+      "id": 72,
+      "family": "Operations",
+      "screen": "Recommendations",
+      "app_url": "https://orwell-web.onrender.com/recommendations?site=globalbusrental&range=28d",
+      "app_evidence": "app-72.txt",
+      "semrush_equivalent": "SEO recommendations / On Page ideas",
+      "reference_access": "Project/setup",
+      "reference_files": [
+        "sem-on-page-entry.txt"
+      ],
+      "assessment": "Retain custom feature, reference limited",
+      "finding": "Recommendations contains prioritised evidence-backed work proposals and a task board. Semrush project idea detail was not accessible for Global Bus Rental.",
+      "acceptance": "Keep the queue connected to source reports and outcomes; compare on-page recommendation detail once the reference is available.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Recommendation queue, original reports and outcome links retained."
+    },
+    {
+      "id": 73,
+      "family": "Operations",
+      "screen": "Notifications",
+      "app_url": "https://orwell-web.onrender.com/notifications?site=globalbusrental&range=28d",
+      "app_evidence": "app-73.txt",
+      "semrush_equivalent": "Product notifications, no exact inspected counterpart",
+      "reference_access": "Custom",
+      "reference_files": [],
+      "assessment": "Retain custom feature",
+      "finding": "Notifications shows saved website alerts and actions.",
+      "acceptance": "Retain severity, event date, evidence source and site filtering; validate alert freshness independently of Semrush visual parity.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Severity/date/source/site notification filtering retained."
+    },
+    {
+      "id": 74,
+      "family": "Operations",
+      "screen": "Open notification history",
+      "app_url": "https://orwell-web.onrender.com/notifications?site=globalbusrental",
+      "app_evidence": "app-74.txt",
+      "semrush_equivalent": "Notification history alias",
+      "reference_access": "Custom",
+      "reference_files": [],
+      "assessment": "Duplicate destination",
+      "finding": "Open notification history leads to the same Notifications screen. This is an alias, not a separate implemented product feature.",
+      "acceptance": "Keep the alias if useful, preserve the active site and exclude it from unique-feature parity counts.",
+      "implementation_status": "retained",
+      "verification_status": "local_route_verified; live_release_check_pending",
+      "changed_files": [
+        "src/lib/toolkits.ts",
+        "src/components/shell/command-rail.tsx",
+        "src/components/shell/app-shell.tsx",
+        "src/components/reports/report-layout.tsx",
+        "src/components/ui/data-table.tsx"
+      ],
+      "verification": [
+        "479 automated tests passed across 100 files.",
+        "Local production build passed.",
+        "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
+      ],
+      "remaining": [],
+      "implementation_summary": "Notification-history alias remains site-scoped and is excluded from unique-feature counts."
+    }
+  ],
+  "additional_capabilities": [
+    {
+      "area": "Traffic and audience",
+      "status": "external_dataset_required",
+      "verification": [
+        "Included in route audit and related automated tests."
+      ],
+      "implementation": "Report-specific navigation and connection states; existing total-traffic/channels/countries/pages adapter retained.",
+      "remaining": [
+        "Audience overlap, demographics, behaviour, socioeconomic, journeys, funnels, market-wide and daily/regional/industry datasets need provider entitlements and matching adapters. These are not marked as completed data features."
+      ]
+    },
+    {
+      "area": "AI brand intelligence",
+      "status": "implemented_with_explicit_limits",
+      "verification": [
+        "Included in route audit and related automated tests."
+      ],
+      "implementation": "Dedicated competitor, brand, perception, narrative, questions and source reports over saved evidence.",
+      "remaining": [
+        "Proprietary market/audience universe is unavailable."
+      ]
+    },
+    {
+      "area": "Backlink research",
+      "status": "implemented_with_explicit_limits",
+      "verification": [
+        "Included in route audit and related automated tests."
+      ],
+      "implementation": "Direct-link network, indexed pages, bounded bulk summaries and crawled outbound domains.",
+      "remaining": [
+        "Direct-link/crawled-page coverage is narrower than a global multi-hop network index."
+      ]
+    },
+    {
+      "area": "Content Toolkit",
+      "status": "implemented_with_explicit_limits",
+      "verification": [
+        "Included in route audit and related automated tests."
+      ],
+      "implementation": "Library, create/import, article/brief generation, optimisation and repurposing connect through saved documents.",
+      "remaining": [
+        "Semrush proprietary scoring and broad content datasets are not copied."
+      ]
+    },
+    {
+      "area": "Local automation",
+      "status": "implemented_with_explicit_limits",
+      "verification": [
+        "Included in route audit and related automated tests."
+      ],
+      "implementation": "Owned Google post drafts/scheduling and explicit review-request campaigns; safe claim/delivery handling.",
+      "remaining": [
+        "Authorised location and mailbox/Google setup needed; no live external send/publish in QA.",
+        "Automatic listing distribution still requires a partner."
+      ]
+    },
+    {
+      "area": "Reporting",
+      "status": "implemented_with_explicit_limits",
+      "verification": [
+        "Included in route audit and related automated tests."
+      ],
+      "implementation": "Saved visual layouts, widget site/date, HTML/PDF/CSV and schedule handoff with access and concurrency checks.",
+      "remaining": [
+        "Email delivery requires configured mailbox."
+      ]
+    },
+    {
+      "area": "Adjacent Semrush navigation (scope review)",
+      "status": "outside_agreed_scope",
+      "verification": [
+        "Included in route audit and related automated tests."
+      ],
+      "implementation": "Adjacent AI PR, Social and Apps were identified in the reference audit; no artificial SEO menu entries were added.",
+      "remaining": [
+        "Separate product scope and data/channel permissions would be required."
+      ]
+    }
+  ],
+  "verification_policy": "Implemented means the described local behaviour is present; it does not certify complete Semrush dataset parity or inaccessible populated reference screens. External gates and sample limits remain explicit."
+}

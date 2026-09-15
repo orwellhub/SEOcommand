@@ -1,3 +1,4 @@
+import {validResearchProject} from "@/platform/research-projects";
 import {NextResponse} from "next/server";
 import {z} from "zod";
 import {canAccessSite,hasPermission} from "@/platform/access";
@@ -7,9 +8,10 @@ import {readLatestSnapshots} from "@/sync/store";
 import {buildSerpStrategy,validClusterParents,type SerpStrategy} from "@/lib/serp-strategy";
 import type {SerpEvidence} from "@/lib/serp-evidence";
 import type {Keyword} from "@/lib/types";
-const Input=z.object({site:z.string().min(1),keywords:z.array(z.string().trim().min(1).max(400)).min(1).max(50),locationCode:z.number().int().positive(),languageCode:z.string().min(2).max(12),device:z.enum(["desktop","mobile"])});
+const Input=z.object({projectId:z.string().uuid().optional(),site:z.string().min(1),keywords:z.array(z.string().trim().min(1).max(400)).min(1).max(50),locationCode:z.number().int().positive(),languageCode:z.string().min(2).max(12),device:z.enum(["desktop","mobile"])});
 export async function GET(request:Request){const site=new URL(request.url).searchParams.get("site")??"";if(!site||!await canAccessSite(request,site))return NextResponse.json({error:"Website access required."},{status:403});return NextResponse.json({records:await workspaceRecords(site,"serp_strategy")});}
 export async function POST(request:Request){const parsed=Input.safeParse(await request.json().catch(()=>null));if(!parsed.success)return NextResponse.json({error:"Choose up to 50 keywords and a search target."},{status:400});const {site,...input}=parsed.data;if(!await canAccessSite(request,site)||!await hasPermission(request,"research",site))return NextResponse.json({error:"Research access required."},{status:403});
+ if(!await validResearchProject(input.projectId,site))return NextResponse.json({error:"Choose an active research project for this website."},{status:400});
  const evidence=(await workspaceRecords(site,"serp_evidence")).map(row=>row.payload as unknown as SerpEvidence),snapshots=process.env.QA_SYNTHETIC==="true"?[]:await readLatestSnapshots(site),managed=await getManagedSite(site),sameMarket=managed?.dataForSeoLocationCode===input.locationCode&&(managed?.dataForSeoLanguageCode??"en")===input.languageCode,metrics=(sameMarket?snapshots.find(row=>row.dataset==="keywords")?.payload??[]:[]) as Keyword[];
  const strategy=buildSerpStrategy(input,evidence,metrics);if(!strategy.clusters.length)return NextResponse.json({error:"No recent, matching SERPs have enough organic results. Collect the selected keywords first.",missing:strategy.missing},{status:409});return NextResponse.json({record:await saveWorkspace(site,"serp_strategy",crypto.randomUUID(),strategy as unknown as Record<string,unknown>)});
 }

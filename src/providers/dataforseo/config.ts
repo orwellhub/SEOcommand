@@ -138,6 +138,7 @@ export const COST_ESTIMATE_USD: Record<string, number> = {
   onPageLighthouse: 0.01,
   labsHistoricalRankOverview: 0.15,
   backlinksBrokenPages: 0.07,
+  backlinksDomainPages: 0.07,
   researchSerp: 0.003,
   serpAutocomplete: 0.003,
   labsDomainCountries: 0.15,
@@ -154,7 +155,7 @@ export function requestCostEstimate(key: string, body: unknown, override?: numbe
   const dynamic = tasks.reduce((sum, task) => {
     const limit = typeof task.limit === "number" ? task.limit : 100;
     if (["labsRankedKeywords", "labsRelevantPages", "labsKeywordIdeas", "labsRelatedKeywords", "labsDomainIntersection", "labsCompetitorsDomain"].includes(key)) return sum + .012 + Math.max(0, limit) * .00012;
-    if (["backlinksList", "backlinksReferringDomains", "backlinksBrokenPages"].includes(key)) return sum + .02 + Math.max(0, limit) * .00004;
+    if (["backlinksList", "backlinksReferringDomains", "backlinksBrokenPages", "backlinksDomainPages"].includes(key)) return sum + .02 + Math.max(0, limit) * .00004;
     if (["serpOrganicLive", "researchSerp"].includes(key)) return sum + .003 * Math.ceil(Math.max(10, Number(task.depth) || 10) / 10);
     if (key === "onPageTaskPost") return sum + Math.max(1, Number(task.max_crawl_pages) || 100) * .000125;
     return sum;

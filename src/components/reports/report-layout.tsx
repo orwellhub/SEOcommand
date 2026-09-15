@@ -20,7 +20,7 @@ export function useReportView<T extends string>(views: readonly T[], fallback: T
 export function ReportTabs<T extends string>({ items, value, onChange, label = "Report views" }: { items: readonly { id: T; label: string }[]; value: T; onChange: (id: T) => void; label?: string }) {
   const container = useRef<HTMLElement>(null);
   useEffect(() => { const nav = container.current;if(!nav)return;const reveal=()=>{const selected=nav.querySelector<HTMLElement>('[aria-current="page"]');if(selected)nav.scrollLeft=selected.offsetLeft-(nav.clientWidth-selected.clientWidth)/2;};reveal();const observer=new ResizeObserver(reveal);observer.observe(nav);return()=>observer.disconnect(); }, [value]);
-  return <nav ref={container} aria-label={label} className="relative flex gap-5 overflow-x-auto border-b border-border">{items.map((item) => <button key={item.id} aria-current={value === item.id ? "page" : undefined} onClick={() => onChange(item.id)} className={cn("relative min-h-10 shrink-0 whitespace-nowrap border-b-2 px-0.5 pb-2 pt-1 text-[13px] font-semibold", value === item.id ? "border-purple text-purple" : "border-transparent text-muted hover:border-border hover:text-ink")}>{item.label}</button>)}</nav>;
+  return <nav ref={container} aria-label={label} className="relative flex gap-5 overflow-x-auto border-b border-border">{items.map((item) => <button key={item.id} aria-current={value === item.id ? "page" : undefined} onClick={() => onChange(item.id)} className={cn("relative min-h-9 shrink-0 whitespace-nowrap border-b-2 px-0.5 pb-2 pt-1 text-[13px] font-semibold", value === item.id ? "border-purple text-purple" : "border-transparent text-muted hover:border-border hover:text-ink")}>{item.label}</button>)}</nav>;
 }
 
 export function MissingChart({ message, height = "h-52" }: { message: string; height?: string }) {
@@ -28,8 +28,8 @@ export function MissingChart({ message, height = "h-52" }: { message: string; he
 }
 
 export function ReportMetric({ label, value, note, href }: { label: string; value?: string | number | null; note?: string; href?: string }) {
-  const content = <><span className="block text-xs text-muted">{label}</span><span className="mt-1 flex items-center gap-1 text-[26px] font-semibold leading-9 tracking-tight tnum">{value ?? "—"}{href && <ArrowUpRight className="h-3.5 w-3.5 text-muted" />}</span><span className="mt-0.5 block text-[11px] leading-4 text-muted">{value == null ? note ?? "Unavailable" : note ?? ""}</span></>;
-  return href ? <Link href={href} className="report-metric block min-w-0 p-4 transition-colors hover:bg-workspace">{content}</Link> : <div className="report-metric min-w-0 p-4">{content}</div>;
+  const content = <><span className="block text-xs text-muted">{label}</span><span className="mt-1 flex items-center gap-1 text-2xl font-semibold leading-8 tracking-tight tnum">{value ?? "—"}{href && <ArrowUpRight className="h-3.5 w-3.5 text-muted" />}</span><span className="mt-0.5 block text-[11px] leading-4 text-muted">{value == null ? note ?? "Unavailable" : note ?? ""}</span></>;
+  return href ? <Link href={href} className="report-metric block min-w-0 px-4 py-3 transition-colors hover:bg-workspace">{content}</Link> : <div className="report-metric min-w-0 px-4 py-3">{content}</div>;
 }
 
 export function UnavailableReport({ title, description, metrics }: { title: string; description: string; metrics: string[] }) {

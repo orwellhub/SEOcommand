@@ -1,0 +1,12 @@
+import {beforeEach,expect,it,vi} from "vitest";
+import type {CommandRecord} from "@/lib/command-model";
+const state=vi.hoisted(()=>({records:[] as CommandRecord[],allowed:true,save:vi.fn(),update:vi.fn()}));
+vi.mock("@/platform/access",()=>({canAccessSite:async(_r:Request,site:string)=>state.allowed&&site==="globalbusrental",hasPermission:async()=>state.allowed}));
+vi.mock("@/platform/workspace-store",()=>({workspaceRecords:async()=>state.records,saveWorkspace:state.save,updateWorkspace:state.update}));
+import {POST} from "./route";
+const request=(extra:Record<string,unknown>={})=>new Request("http://localhost/api/reports/layouts",{method:"POST",body:JSON.stringify({site:"globalbusrental",name:"Client report",templateId:"tpl-domain",days:28,sections:["Search trend"],...extra})});
+beforeEach(()=>{state.allowed=true;state.records=[];state.save.mockReset().mockResolvedValue({recordKey:"saved"});state.update.mockReset();});
+it("saves a report layout with widget settings",async()=>{expect((await POST(request({widgets:{"Search trend":{site:"globalbusrental",days:7}}}))).status).toBe(200);expect(state.save).toHaveBeenCalledWith("globalbusrental","report_layouts",expect.any(String),expect.objectContaining({widgets:{"Search trend":{site:"globalbusrental",days:7}}}));});
+it("refuses inaccessible widget websites before saving",async()=>{expect((await POST(request({widgets:{"Search trend":{site:"other",days:7}}}))).status).toBe(403);expect(state.save).not.toHaveBeenCalled();});
+it("refuses invalid periods and repeated widgets",async()=>{expect((await POST(request({days:14}))).status).toBe(400);expect((await POST(request({sections:["Search trend","Search trend"]}))).status).toBe(400);expect(state.save).not.toHaveBeenCalled();});
+it("does not overwrite a newer layout",async()=>{const key=crypto.randomUUID();state.records=[{recordKey:key,updatedAt:"2026-09-15T12:00:00Z"} as CommandRecord];expect((await POST(request({key,updatedAt:"2026-09-14T12:00:00Z"}))).status).toBe(409);expect(state.update).not.toHaveBeenCalled();});

@@ -12,6 +12,7 @@ import { processCommandChecks, queueCommandSchedules } from "../src/platform/com
 import { notifyOutreachFollowups, processOutreachMonitoring } from "../src/platform/outreach-monitor";
 import { processResearchJobs } from "../src/platform/research-jobs";
 
+import { processLocalPosts } from "../src/platform/local-workflows";
 import { processReportArchives } from "../src/reports/archive";
 import { deliverDueReports } from "../src/reports/delivery";
 
@@ -21,6 +22,8 @@ process.on("SIGINT", () => { shuttingDown = true; });
 
 async function main() {
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required.");
+  await processLocalPosts(new Date(), () => shuttingDown);
+  if (shuttingDown) return;
   await processReportArchives(() => shuttingDown);
   if (shuttingDown) return;
   await deliverDueReports(new Date(), true);

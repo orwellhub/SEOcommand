@@ -7,7 +7,7 @@ import { getManagedSite, listManagedSites, resolveGroupSiteSlugs } from "@/platf
 import { rankPreview } from "@/platform/rank-preview";
 import { rankReportRows } from "@/lib/rank-reports";
 import { resolveReportBranding } from "./branding";
-import { reportDefinition } from "./definition";
+import { reportDefinition, reportWidgetSites } from "./definition";
 import { escapeReport, renderReportDocument, reportTable } from "./document";
 export type ReportScope = { scopeType: "site" | "portfolio" | "group" | "campaign"; scopeId?: string | null; templateId?: string; definition?: Record<string, unknown> };
 export async function reportScopeSites(scope: ReportScope): Promise<string[]> {
@@ -25,6 +25,9 @@ export async function buildReportHtml(scope: ReportScope, allowedSites?: string[
   const selected = await reportScopeSites(scope), slugs = allowedSites ? selected.filter(s => allowedSites.includes(s)) : selected;
   if (!slugs.length) throw new Error("No websites available for this report scope.");
   const definition = reportDefinition(scope.templateId, scope.definition);
+  const widgetSlugs = reportWidgetSites(definition);
+  if (allowedSites && widgetSlugs.some(slug => !allowedSites.includes(slug))) throw new Error("Report widget website access required.");
+  if ((await Promise.all(widgetSlugs.map(getManagedSite))).some(site => !site)) throw new Error("A report widget website no longer exists.");
   const first = (await getManagedSite(slugs[0]!))!, branding = resolveReportBranding(first);
   let campaignHtml: string | undefined;
   if (scope.scopeType === "campaign") {
@@ -38,6 +41,7 @@ export async function buildReportHtml(scope: ReportScope, allowedSites?: string[
     campaignHtml = `<h2>${escapeReport(campaign?.name ?? "Tracking campaign")}</h2><p>${from} to ${to}. ${rows.filter(r => r.observed).length} of ${rows.length} targets have observations. Paused targets are labelled; missing checks remain unknown.</p>${reportTable(["Keyword", "Market / device", "Status", "First", "Latest", "Change", "Checked"], rows.map(r => [r.keyword, `${r.locationCode} / ${r.device}`, r.active ? "Active" : "Paused", r.previous, r.position, r.change, r.lastChecked]))}`;
   }
   const sites = await Promise.all(slugs.map(buildSiteCommand));
+  const widgetSites = [...sites, ...await Promise.all(widgetSlugs.filter(slug => !slugs.includes(slug)).map(buildSiteCommand))];
   let logoData: string | undefined, fontData: string | undefined;
   try { fontData = (await readFile(process.cwd() + "/src/assets/manrope-latin.woff2")).toString("base64"); } catch { /* Font fallback keeps reports readable. */ }
   if (branding.logoUrl) try {
@@ -49,5 +53,5 @@ export async function buildReportHtml(scope: ReportScope, allowedSites?: string[
       logoData = `data:${mime};base64,${Buffer.concat(chunks).toString("base64")}`;
     }
   } catch { /* An unavailable logo must not discard the report evidence. */ }
-  return renderReportDocument({ sites, branding, definition, logoData, fontData, scopeLabel: scope.scopeType === "site" ? first.name : `${scope.scopeType} report · ${slugs.length} website${slugs.length === 1 ? "" : "s"}`, campaignHtml });
+  return renderReportDocument({ sites, widgetSites, branding, definition, logoData, fontData, scopeLabel: scope.scopeType === "site" ? first.name : `${scope.scopeType} report · ${slugs.length} website${slugs.length === 1 ? "" : "s"}`, campaignHtml });
 }

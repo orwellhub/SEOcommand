@@ -32,6 +32,7 @@ export interface BrowserCrawlPageInput {
   externalLinks: number;
   loadTimeMs: number | null;
   issues: string[];
+  outbound?: Array<{ targetUrl: string; anchor: string | null; nofollow: boolean }>;
   links: Array<{ targetUrl: string; anchor: string | null; nofollow: boolean }>;
 }
 
@@ -247,6 +248,7 @@ async function inspectPage(page: Page, url: string, depth: number, host: string)
       externalLinks: external,
       loadTimeMs: Date.now() - started,
       issues,
+      outbound: normalizedLinks.filter(link => !sameSite(link.targetUrl, host)).map(link => ({ targetUrl: link.targetUrl, anchor: link.anchor, nofollow: link.nofollow })),
       links: internal.map((link) => ({ targetUrl: link.targetUrl, anchor: link.anchor, nofollow: link.nofollow })),
     };
   } catch (error) {
@@ -345,8 +347,9 @@ export async function runBrowserCrawl(site: ManagedSite, requestedMax?: number, 
       if (excludedFromCrawl(next.url, exclusions)) { excluded.add(next.url); continue; }
       const result = await inspectPage(page, next.url, next.depth, site.host);
       pages.push(result);
-      const { links: pageLinks, ...pageData } = result;
+      const { links: pageLinks, outbound, ...pageData } = result;
       await db().insert(schema.browserCrawlPages).values({ ...pageData, runId: run.id, siteSlug: site.id });
+      await db().insert(schema.commandRecords).values({ siteSlug: site.id, kind: "workspace_outbound_links", recordKey: `${run.id}:${hash(result.url)}`, status: "completed", payload: { runId: run.id, sourceUrl: result.url, links: (outbound ?? []).slice(0,2000), truncated: (outbound?.length ?? 0)>2000, capturedAt: new Date().toISOString() } });
       if (pageLinks.length) await db().insert(schema.browserCrawlEdges).values(pageLinks.slice(0, 2000).map(edge => ({ runId: run.id, siteSlug: site.id, sourceUrl: result.url, ...edge })));
       const resources = result.issues.includes("browser_render_failed") ? [] : await page.evaluate(() => performance.getEntriesByType("resource").map(entry => { const r = entry as PerformanceResourceTiming; return { url: r.name, type: r.initiatorType, durationMs: Math.round(r.duration), transferBytes: r.transferSize, encodedBytes: r.encodedBodySize }; }).sort((a, b) => b.durationMs - a.durationMs).slice(0, 100)).catch(() => []);
       await db().insert(schema.commandRecords).values({ siteSlug: site.id, kind: "workspace_crawl_resources", recordKey: `${run.id}:${hash(result.url)}`, status: "completed", payload: { runId: run.id, url: result.url, resources, sampled: true, note: "Up to 100 slowest observed resources. Images, media and fonts are intentionally blocked by the crawler; cross-origin byte sizes may be unavailable." } });

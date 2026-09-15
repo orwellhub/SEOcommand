@@ -268,6 +268,7 @@ export function normalizeBacklinks(rows: Row[], domainId: DomainId): Backlink[] 
     lastSeen: str(it?.last_seen ?? it?.last_visited).slice(0, 10),
     status: it?.is_new ? "new" : it?.is_lost ? "lost" : "active",
     toxicity: num(it?.backlink_spam_score),
+    linkType: str(it?.item_type) || null, firstSeenAt: str(it?.first_seen) || null, lastSeenAt: str(it?.last_seen ?? it?.last_visited) || null,
   }));
 }
 
@@ -282,6 +283,8 @@ export function normalizeReferringDomains(rows: Row[], domainId: DomainId): Refe
     firstSeen: str(it?.first_seen).slice(0, 10),
     follow: num(it?.referring_links_types?.anchor) >= 0 ? it?.dofollow !== false : true,
     topicalRelevance: num(it?.rank),
+    country: str(it?.country) || null, ip: str(it?.ip) || null, lastSeen: str(it?.last_seen) || null,
+    status: it?.is_new === true ? "new" : it?.is_lost === true ? "lost" : it?.is_lost === false ? "active" : null,
   }));
 }
 

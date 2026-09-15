@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
-import { reportDefinition } from "@/reports/definition";
+import { reportDefinition, reportWidgetSites } from "@/reports/definition";
 import { REPORT_TEMPLATES } from "@/data/report-templates";
 import { nextReportRun } from "@/lib/report-schedule";
 import { hasDatabase } from "@/sync/store";
@@ -77,6 +77,7 @@ export async function POST(request: Request) {
   if (!template) return NextResponse.json({ error: "Unknown report template." }, { status: 404 });
   let definition;
   try { definition = reportDefinition(template.id, parsed.data.definition); } catch (error) { return NextResponse.json({ error: (error as Error).message }, { status: 400 }); }
+  if (!(await Promise.all(reportWidgetSites(definition).map(async site => await canAccessSite(request, site) && await hasPermission(request, "manage_reports", site)))).every(Boolean)) return NextResponse.json({ error: "Report widget website access required." }, { status: 403 });
   const scopeType = parsed.data.domainId ? "site" : parsed.data.scopeType;
   const scopeId = parsed.data.domainId ?? parsed.data.scopeId ?? null;
   if (scopeType === "site" && (!scopeId || !(await getManagedSite(scopeId)))) {

@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { Button } from "@/components/ui/primitives";
 import { History, Trash2, Loader2, MapPin } from "lucide-react";
 import { Card, EmptyState, Skeleton } from "@/components/ui/primitives";
 import { compactNumber } from "@/lib/format";
@@ -7,6 +9,7 @@ import { cn } from "@/lib/cn";
 
 export interface SavedScan {
   id: string;
+  projectId?: string | null;
   label?: string | null;
   sourceType?: string;
   seed: string;
@@ -15,6 +18,7 @@ export interface SavedScan {
   locationLabel: string;
   rowCount: number;
   totalVolume: number;
+  reportedVolumeCount?:number;
   avgDifficulty: number | null;
   createdBy: string | null;
   createdAt: string;
@@ -43,7 +47,7 @@ export function SavedScans({
   activeId,
   busyId,
   onOpen,
-  onDelete,
+  onDelete, onRename, onMerge, lists = false,
 }: {
   scans: SavedScan[];
   loading: boolean;
@@ -51,19 +55,27 @@ export function SavedScans({
   busyId: string | null;
   onOpen: (scan: SavedScan) => void;
   onDelete: (scan: SavedScan) => void;
+  onRename?: (scan: SavedScan, name: string) => Promise<void>;
+  onMerge?: (scans: SavedScan[], name: string) => Promise<void>;
+  lists?: boolean;
 }) {
+  const [selected, setSelected] = useState<string[]>([]), [editing, setEditing] = useState<SavedScan | null>(null), [name, setName] = useState(""), [merging, setMerging] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState("");
+  async function save() { setBusy(true); setError(""); try { if (editing) await onRename?.(editing, name); else await onMerge?.(scans.filter(row => selected.includes(row.id)), name); setEditing(null); setMerging(false); setSelected([]); } catch (e) { setError(e instanceof Error ? e.message : "Could not save list."); } finally { setBusy(false); } }
   return (
     <Card className="p-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
           <History className="h-4 w-4 text-muted" />
-          Saved searches
+          {lists ? "Keyword lists" : "Saved searches"}
         </h3>
         {scans.length > 0 && (
           <span className="text-2xs text-muted tnum">{scans.length}</span>
         )}
       </div>
 
+      {lists && onMerge && <div className="mb-3 flex flex-wrap gap-2"><Button size="sm" disabled={!selected.length} onClick={()=>{setMerging(true);setName(selected.length===1?"Deduplicated list":"Merged keyword list");}}>Merge / remove duplicates ({selected.length})</Button><p className="self-center text-xs text-muted">Saves a new list; the originals are retained. Reopen a list to refresh metrics, track keywords or plan content.</p></div>}
+      {(editing || merging) && <form onSubmit={e=>{e.preventDefault();void save();}} className="mb-3 flex flex-wrap gap-2"><input aria-label={editing?"Rename keyword list":"Merged list name"} className="h-9 rounded border border-border bg-card px-3 text-sm" value={name} onChange={e=>setName(e.target.value)} maxLength={160}/><Button type="submit" disabled={busy||!name.trim()}>Save</Button><Button disabled={busy} onClick={()=>{setEditing(null);setMerging(false);}}>Cancel</Button></form>}
+      {error && <p role="alert" className="mb-3 text-xs text-critical">{error}</p>}
       {loading ? (
         <div className="space-y-2">
           {[0, 1, 2].map((i) => (
@@ -72,8 +84,8 @@ export function SavedScans({
         </div>
       ) : scans.length === 0 ? (
         <EmptyState
-          title="No saved searches yet"
-          description="Every scan you run is saved here automatically. Reopening one is free — it replays stored results instead of calling DataForSEO again."
+          title={lists ? "No keyword lists yet" : "No saved searches yet"}
+          description={lists?"Select keywords in a research report and save a list. Reopening a list uses its saved evidence.":"Every completed search is saved automatically. Reopening it replays stored results without calling DataForSEO."}
           icon={<History className="h-5 w-5" />}
         />
       ) : (
@@ -81,7 +93,7 @@ export function SavedScans({
           {scans.map((scan) => {
             const active = scan.id === activeId;
             const busy = scan.id === busyId;
-            return (
+              return (
               <li key={scan.id}>
                 <div
                   className={cn(
@@ -91,6 +103,7 @@ export function SavedScans({
                       : "border-border bg-card hover:bg-workspace",
                   )}
                 >
+                  {lists && <input type="checkbox" aria-label={`Select ${scan.label || scan.seed}`} checked={selected.includes(scan.id)} onChange={e=>setSelected(e.target.checked?[...selected,scan.id]:selected.filter(id=>id!==scan.id))}/>}
                   <button
                     type="button"
                     onClick={() => onOpen(scan)}
@@ -110,7 +123,7 @@ export function SavedScans({
                       <span aria-hidden>·</span>
                       <span className="tnum">{scan.rowCount} keywords</span>
                       <span aria-hidden>·</span>
-                      <span className="tnum">{compactNumber(scan.totalVolume)} vol</span>
+                      <span className="tnum">{scan.reportedVolumeCount===0?"Volume not measured":`${compactNumber(scan.totalVolume)} reported vol`}{scan.reportedVolumeCount!=null&&scan.reportedVolumeCount>0&&scan.reportedVolumeCount<scan.rowCount?` (${scan.reportedVolumeCount}/${scan.rowCount})`:""}</span>
                       {scan.avgDifficulty != null && (
                         <>
                           <span aria-hidden>·</span>
@@ -121,11 +134,12 @@ export function SavedScans({
                       <span>{relativeTime(scan.createdAt)}</span>
                     </div>
                   </button>
+                  {onRename && <Button size="sm" aria-label={`Rename ${scan.label || scan.seed}`} onClick={()=>{setEditing(scan);setName(scan.label || scan.seed);setMerging(false);}}>Rename</Button>}
                   <button
                     type="button"
                     onClick={() => onDelete(scan)}
                     disabled={busy}
-                    aria-label={`Delete saved search "${scan.seed}"`}
+                    aria-label={`Delete ${lists?"keyword list":"saved search"} "${scan.label||scan.seed}"`}
                     title="Delete saved search"
                     className="shrink-0 rounded-md p-1.5 text-muted opacity-0 transition-opacity hover:bg-critical/10 hover:text-critical focus-visible:opacity-100 group-hover:opacity-100"
                   >

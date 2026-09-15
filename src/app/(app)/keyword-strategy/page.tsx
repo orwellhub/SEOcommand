@@ -21,7 +21,7 @@ function stableFindingKey(prefix: string, value: string) { let hash = 2166136261
 export default function KeywordStrategyPage() {
   const domain = useResolvedDomain();
   const [strategy, setStrategy] = useState<Strategy | null>(null);
-  const [tab, setTab] = useReportView(["clusters","mapping","cannibalisation","phrases"] as const,"clusters");
+  const [tab, setTab] = useReportView(["clusters","plans","mapping","cannibalisation","phrases"] as const,"clusters");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedFinding, setSelectedFinding] = useState<SiteFinding | null>(null);
@@ -79,9 +79,10 @@ export default function KeywordStrategyPage() {
 
   return <div className="space-y-4 pb-8">
     <header className="border-b border-border pb-4"><p className="mb-2 text-xs text-muted">SEO › Keyword Research</p><div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-xl font-bold">Keyword Strategy Builder: {domain.host}</h1>{tab!=="clusters"&&<Button size="sm" onClick={refresh} disabled={busy}><RefreshCw className={busy?"h-4 w-4 animate-spin":"h-4 w-4"}/>Refresh saved-data analysis</Button>}</div></header>
-    <ReportTabs items={[{id:"clusters",label:"Strategy Builder"},{id:"mapping",label:"Page Ownership"},{id:"cannibalisation",label:"Cannibalisation"},{id:"phrases",label:"Phrase Planning"}]} value={tab} onChange={setTab}/>
+    <ReportTabs items={[{id:"clusters",label:"Strategy Builder"},{id:"plans",label:"Topic & Page Plans"},{id:"mapping",label:"Page Ownership"},{id:"cannibalisation",label:"Cannibalisation"},{id:"phrases",label:"Phrase Planning"}]} value={tab} onChange={setTab}/>
     {error&&<p role="alert" className="rounded border border-critical/20 p-3 text-sm text-critical">{error}</p>}
     {tab==="clusters"&&<><SerpStrategyWorkspace/><details className="rounded border border-border bg-card p-4"><summary className="cursor-pointer text-sm font-semibold">Saved topic plans</summary><div className="mt-4"><TopicPlanner/></div></details></>}
+    {tab==="plans"&&<TopicPlanner/>}
     {tab==="cannibalisation"&&<Card><CannibalisationWorkspace key={domain.id} site={domain.id} candidates={strategy?.cannibalisation??[]}/></Card>}
     {(tab==="mapping"||tab==="phrases")&&(strategy?<Card className="p-4"><h2 className="mb-2 text-base font-semibold">{tab==="mapping"?"Page ownership":"Phrase-based content opportunities"}</h2><p className="mb-4 text-xs text-muted">{tab==="mapping"?"Page and query demand from the latest saved Search Console evidence.":"Groups based on recurring keyword phrases and intent. Use Strategy Builder for grouping by actual SERP overlap."} {strategy.capturedOn&&`Saved ${strategy.capturedOn}.`}</p>{tab==="mapping"?<DataTable rows={strategy.pageMap} columns={mapColumns} searchPlaceholder="Search pages or queries…" rowKey={row=>row.page} onRowClick={row=>setSelectedFinding(pageFinding(row))} exportName="keyword-page-ownership"/>:<DataTable rows={strategy.clusters} columns={clusterColumns} searchPlaceholder="Search phrase groups…" rowKey={row=>row.id} onRowClick={row=>setSelectedFinding(clusterFinding(row))} exportName="keyword-phrase-planning"/>}</Card>:<EmptyState icon={<Layers3 className="h-6 w-6"/>} title="Strategy evidence is not ready" description="Collect Search Console and keyword data, then refresh the saved-data analysis."/>)}
     <SiteFindingWorkDrawer finding={selectedFinding} siteSlug={domain.id} siteName={domain.name} onClose={()=>setSelectedFinding(null)}/>

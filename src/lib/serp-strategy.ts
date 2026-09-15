@@ -1,6 +1,6 @@
 import type {SerpEvidence} from "./serp-evidence";
 export type SerpCluster={id:string;label:string;keywords:string[];intent:string|null;totalVolume:number|null;targetUrl:string|null;parentId:string|null;minimumOverlap:number;collectedFrom:string;collectedTo:string};
-export type SerpStrategy={clusters:SerpCluster[];missing:string[];input:{keywords:string[];locationCode:number;languageCode:string;device:string};builtAt:string};
+export type SerpStrategy={clusters:SerpCluster[];missing:string[];input:{projectId?:string;keywords:string[];locationCode:number;languageCode:string;device:string};builtAt:string};
 export function organicUrls(report:SerpEvidence){return new Set(report.items.filter(item=>item.type==="organic"&&item.url).sort((a,b)=>(a.groupPosition??a.position??999)-(b.groupPosition??b.position??999)).slice(0,10).flatMap(item=>{try{const url=new URL(item.url!);url.hash="";return [url.toString().replace(/\/$/,"")];}catch{return [];}}));}
 export function sharedResults(a:SerpEvidence,b:SerpEvidence){if(a.locationCode!==b.locationCode||a.languageCode!==b.languageCode||a.device!==b.device||Math.abs(Date.parse(a.collectedAt)-Date.parse(b.collectedAt))>7*86400000)return 0;const urls=organicUrls(a);return [...organicUrls(b)].filter(url=>urls.has(url)).length;}
 /** Complete linkage prevents a chain of weakly related SERPs becoming one large cluster. */

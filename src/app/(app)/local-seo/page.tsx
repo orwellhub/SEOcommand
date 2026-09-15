@@ -2,6 +2,7 @@
 import { useSearchParams } from "next/navigation";
 import { ReportTabs, useReportView } from "@/components/reports/report-layout";
 import { ListingInventory } from "@/components/research/listing-inventory";
+import { LocalWorkflows } from "@/components/research/local-workflows";
 import { BusinessManager } from "@/components/research/business-manager";
 import { ResearchEvidencePanel } from "@/components/research/evidence-panel";
 
@@ -35,6 +36,7 @@ export default function LocalSeoPage() {
   const tab = params.get("feature") === "reviews" ? "reviews" : view;
   const domain = useResolvedDomain();
   const saved = useJson<{locations: Location[]; snapshots: Snapshot[]; grid: GridPoint[]}>(`/api/local-seo?scope=${encodeURIComponent(scope)}`);
+  const connections = useJson<{connected:boolean;records:{kind:string;recordKey:string}[]}>(domain?`/api/business-management?site=${encodeURIComponent(domain.id)}`:null);
   const locations = saved.data?.locations ?? [];
   const snapshots = useMemo(() => saved.data?.snapshots ?? [], [saved.data]);
   const grid = saved.data?.grid ?? [];
@@ -65,7 +67,7 @@ export default function LocalSeoPage() {
       }) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Location could not be added.");
-      setOpen(false); setDraft({ name: "", businessKeyword: "", address: "", placeId: "", latitude: "", longitude: "", gridRadiusKm: "5", gridSize: "3", keywords: "" }); setNotice("Location added. Free monitoring starts now; paid grid scans remain approval-gated."); await load();
+      setOpen(false); setDraft({ name: "", businessKeyword: "", address: "", placeId: "", latitude: "", longitude: "", gridRadiusKm: "5", gridSize: "3", keywords: "" }); setNotice("Location saved. Connect the matching Google profile and review the monitoring and grid settings to begin."); await load();
     } catch (err) { setError(err instanceof Error ? err.message : "Location could not be added."); }
     finally { setBusy(null); }
   };
@@ -105,9 +107,10 @@ export default function LocalSeoPage() {
   return <div className="animate-in space-y-5">
     <PageHeader title={tab === "grid" ? "Map Rank Tracker" : tab === "profiles" ? "GBP Optimization" : tab === "reviews" ? "Review Management" : tab === "locations" ? "Listing Management" : "Local Dashboard"} description="Google Business Profile evidence, review movement and geographic Maps visibility." actions={<Button variant="primary" onClick={() => setOpen(true)}><Plus className="h-4 w-4" />Add location</Button>} />
     <ReportTabs items={[{id:"overview",label:"Overview"},{id:"locations",label:"Listings"},{id:"reviews",label:"Reviews"},{id:"profiles",label:"Business profiles"},{id:"grid",label:"Map rankings"}]} value={tab} onChange={setView} label="Local reports" />
-    {tab === "reviews" && <><BusinessManager reviewsOnly /><ResearchEvidencePanel features={["reviews"]} /></>}
+    {tab === "overview" && <Card className="p-4"><h2 className="mb-3 text-base font-semibold">Set up local visibility</h2><div className="grid gap-3 md:grid-cols-4">{[{title:"1. Add location",done:locations.length>0,detail:"Business name, address and Google Place ID",action:()=>setOpen(true)},{title:"2. Connect Google profile",done:Boolean(connections.data?.connected && connections.data.records.some(row=>row.kind==="workspace_business")),detail:"Verify your account manages the matching location",action:()=>setView("profiles")},{title:"3. Choose keywords & grid",done:locations.some(row=>row.keywords.length>0),detail:"Review map area, collection cost and approval",action:()=>setView("grid")},{title:"4. Review saved results",done:snapshots.length>0,detail:"Compare dated maps, reviews and competitors",action:()=>setView("grid")}].map(step=><button key={step.title} className="rounded border border-border bg-workspace/30 p-3 text-left hover:border-purple/40" onClick={step.action}><h3 className="text-sm font-semibold">{step.title}{step.done?" ✓":""}</h3><p className="mt-1 text-xs text-muted">{step.detail}</p></button>)}</div></Card>}
+    {tab === "reviews" && <><BusinessManager reviewsOnly /><LocalWorkflows reviews /><ResearchEvidencePanel features={["reviews"]} /></>}
     {tab === "locations" && <ListingInventory locations={locations} />}
-    {tab === "profiles" && <section id="business-management" className="scroll-mt-6"><BusinessManager /></section>}
+    {tab === "profiles" && <section id="business-management" className="scroll-mt-6"><BusinessManager /><div className="mt-4"><LocalWorkflows /></div></section>}
     {notice && <div role="status" className="rounded-md border border-success/20 bg-success/5 p-3 text-xs font-semibold text-success">{notice}</div>}
     {(error || saved.error) && <div role="alert" className="rounded-md border border-critical/20 bg-critical/5 p-3 text-xs text-critical">{error ?? saved.error} <button onClick={saved.refresh} className="underline">Retry</button></div>}
     {["overview", "grid"].includes(tab) && <>

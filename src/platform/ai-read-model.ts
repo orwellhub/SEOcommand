@@ -71,6 +71,8 @@ export async function buildAiVisibilityDashboard(scope: AiDashboardScope, days =
       checks: sql<number>`count(*)::int`,
       mentions: sql<number>`coalesce(sum(case when ${schema.aiResponseObservations.mentioned} then 1 else 0 end), 0)::int`,
       citations: sql<number>`coalesce(sum(case when ${schema.aiResponseObservations.cited} then 1 else 0 end), 0)::int`,
+      positives: sql<number>`coalesce(sum(case when ${schema.aiResponseObservations.mentioned} and ${schema.aiResponseObservations.sentiment} = 'positive' then 1 else 0 end), 0)::int`,
+      negatives: sql<number>`coalesce(sum(case when ${schema.aiResponseObservations.mentioned} and ${schema.aiResponseObservations.sentiment} = 'negative' then 1 else 0 end), 0)::int`,
     }).from(schema.aiResponseObservations).where(observationFilter)
       .groupBy(schema.aiResponseObservations.capturedOn)
       .orderBy(schema.aiResponseObservations.capturedOn),
@@ -88,6 +90,8 @@ export async function buildAiVisibilityDashboard(scope: AiDashboardScope, days =
       checks: sql<number>`count(*)::int`,
       mentions: sql<number>`coalesce(sum(case when ${schema.aiResponseObservations.mentioned} then 1 else 0 end), 0)::int`,
       citations: sql<number>`coalesce(sum(case when ${schema.aiResponseObservations.cited} then 1 else 0 end), 0)::int`,
+      positives: sql<number>`coalesce(sum(case when ${schema.aiResponseObservations.mentioned} and ${schema.aiResponseObservations.sentiment} = 'positive' then 1 else 0 end), 0)::int`,
+      negatives: sql<number>`coalesce(sum(case when ${schema.aiResponseObservations.mentioned} and ${schema.aiResponseObservations.sentiment} = 'negative' then 1 else 0 end), 0)::int`,
       avgPosition: sql<number | null>`avg(${schema.aiResponseObservations.recommendationPosition})::float`,
     }).from(schema.aiResponseObservations).where(observationFilter)
       .groupBy(schema.aiResponseObservations.platform),
@@ -169,6 +173,9 @@ export async function buildAiVisibilityDashboard(scope: AiDashboardScope, days =
     citedPages: new Set(citationPages.filter((row) => row.date === item.date).flatMap((row) => row.urls)).size,
     mentions: item.mentions,
     citedResponses: item.citations,
+    positiveMentions: item.positives,
+    negativeMentions: item.negatives,
+    neutralMentions: Math.max(0,item.mentions-item.positives-item.negatives),
     mentionRate: rate(item.mentions, item.checks),
     citationRate: rate(item.citations, item.checks),
     shareOfVoice: rate(entityTrend.get(item.date)?.owned ?? 0, entityTrend.get(item.date)?.total ?? 0),
@@ -179,6 +186,9 @@ export async function buildAiVisibilityDashboard(scope: AiDashboardScope, days =
     checks: item.checks,
     mentions: item.mentions,
     citedResponses: item.citations,
+    positiveMentions: item.positives,
+    negativeMentions: item.negatives,
+    neutralMentions: Math.max(0,item.mentions-item.positives-item.negatives),
     mentionRate: rate(item.mentions, item.checks),
     citationRate: rate(item.citations, item.checks),
     avgPosition: item.avgPosition == null ? null : Math.round(item.avgPosition * 10) / 10,

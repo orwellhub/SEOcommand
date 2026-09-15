@@ -75,7 +75,7 @@ function MoverList({
 
 export default function ContentIntelligencePage() {
   const domain = useResolvedDomain();
-  const [view, setView] = useReportView(["overview", "editor", "briefs", "calendar"] as const, "overview");
+  const [view, setView] = useReportView(["overview", "editor", "briefs", "calendar", "generate", "optimise", "repurpose", "library", "generate-brief"] as const, "overview");
   const { scope } = useDomain();
   const { data: bundle, loading, error, isPortfolio, scopeLabel, scopeHost, scopeId } = useScopedLive();
 
@@ -207,13 +207,13 @@ export default function ContentIntelligencePage() {
   return (
     <div className="animate-in space-y-5">
       <PageHeader
-        title={view === "editor" ? "SEO Writing Assistant" : view === "briefs" ? "Content Templates & Briefs" : view === "calendar" ? "Content Calendar" : "Content Dashboard"}
+        title={view==="generate"?"AI Article Generator":view==="optimise"?"Content Optimizer":view==="repurpose"?"Content Repurposing":view==="library"?"My Content":view==="generate-brief"?"SEO Brief Generator":view === "editor" ? "SEO Writing Assistant" : view === "briefs" ? "Content Templates & Briefs" : view === "calendar" ? "Content Calendar" : "Content Dashboard"}
         description={view === "overview" ? `Page-level search performance for ${scopeHost}: traffic, decay, rising pages and landing-page outcomes.` : `Saved editorial work for ${scopeHost}. Open an item to review its brief, draft, owner and deadline.`}
         lastSync={view==="overview"?bundle?.lastSync??null:undefined}
         loading={loading}
       />
 
-      <ReportTabs items={[{id:"overview",label:"Overview"},{id:"editor",label:"Writing assistant"},{id:"briefs",label:"Templates & briefs"},{id:"calendar",label:"Calendar"}]} value={view} onChange={setView} label="Content views" />
+      <ReportTabs items={[{id:"overview",label:"Overview"},{id:"editor",label:"Writing assistant"},{id:"briefs",label:"Templates & briefs"},{id:"calendar",label:"Calendar"},{id:"generate",label:"Generate article"},{id:"optimise",label:"Optimize"},{id:"repurpose",label:"Repurpose"},{id:"generate-brief",label:"Generate brief"},{id:"library",label:"My Content"}]} value={view} onChange={setView} label="Content views" />
       {!isPortfolio && <ContentWorkflowBoard key={`${domain.id}:${view}`} siteSlug={domain.id} view={view} />}
       {view === "overview" && <>
       <ScopeNote isPortfolio={isPortfolio} noun="content data" />

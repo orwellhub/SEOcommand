@@ -1,4 +1,5 @@
 "use client";
+import {BacklinkDetails} from "@/components/reports/backlink-details";
 import { ReportTabs, useReportView } from "@/components/reports/report-layout";
 import { ResearchEvidencePanel } from "@/components/research/evidence-panel";
 
@@ -25,7 +26,7 @@ import { cn } from "@/lib/cn";
 import type { Backlink, ReferringDomain } from "@/lib/types";
 import type { BacklinkHistoryPoint } from "@/platform/types";
 
-type SubTab = "backlinks" | "history" | "referring" | "anchors" | "risk";
+type SubTab = "overview" | "network" | "pages" | "recovery" | "research" | "outbound" | "bulk" | "backlinks" | "history" | "referring" | "anchors" | "risk";
 
 interface AnchorRow {
   anchor: string;
@@ -41,11 +42,18 @@ interface ScoreComponent {
 }
 
 const TABS: { key: SubTab; label: string }[] = [
+  { key: "overview", label: "Overview" },
   { key: "backlinks", label: "Backlinks" },
   { key: "history", label: "History" },
   { key: "referring", label: "Referring domains" },
   { key: "anchors", label: "Anchors" },
   { key: "risk", label: "Risk review" },
+  { key: "network", label: "Network Graph" },
+  { key: "pages", label: "Indexed Pages" },
+  { key: "recovery", label: "Broken Pages" },
+  { key: "outbound", label: "Outbound Domains" },
+  { key: "bulk", label: "Bulk Analysis" },
+  { key: "research", label: "Deeper Research" },
 ];
 
 const AWAITING_SYNC = "No backlink data for this domain yet";
@@ -84,7 +92,8 @@ function ToxicityMeter({ value }: { value: number }) {
 export default function BacklinksPage() {
   const { data: bundle, loading, error, isPortfolio, scopeLabel, scopeHost, scopeId } = useScopedLive();
 
-  const [tab, setTab] = useReportView<SubTab>(["backlinks", "history", "referring", "anchors", "risk"], "backlinks");
+  const [tab, setTab] = useReportView<SubTab>(TABS.map(item=>item.key), "overview");
+  const [statusFilter,setStatusFilter]=useState("all"),[followFilter,setFollowFilter]=useState("all"),[typeFilter,setTypeFilter]=useState("all"),[countryFilter,setCountryFilter]=useState("all"),[domainStatus,setDomainStatus]=useState("all");
   const [selected, setSelected] = useState<Backlink | null>(null);
 
   const backlinks = bundle?.datasets.backlinks?.data ?? null;
@@ -177,6 +186,8 @@ export default function BacklinksPage() {
 
   const backlinkCols = useMemo<Column<Backlink>[]>(
     () => [
+      {key:"firstSeen",header:"First seen",render:r=><span title={r.firstSeenAt??undefined}>{formatDate(r.firstSeen)}</span>},
+      {key:"type",header:"Type",render:r=>r.linkType??"—"},
       {
         key: "sourceDomain",
         header: "Source domain",
@@ -265,17 +276,10 @@ export default function BacklinksPage() {
         sortValue: (r) => r.backlinks,
         render: (r) => fullNumber(r.backlinks),
       },
-      {
-        key: "topicalRelevance",
-        header: "Relevance",
-        align: "right",
-        sortValue: (r) => r.topicalRelevance,
-        render: (r) => (
-          <span className={r.topicalRelevance >= 60 ? "text-success" : "text-muted"}>
-            {r.topicalRelevance ?? "—"}
-          </span>
-        ),
-      },
+      {key:"country",header:"Country",render:r=>r.country??"—"},
+      {key:"ip",header:"IP",render:r=>r.ip??"—"},
+      {key:"status",header:"New / lost",render:r=>r.status??"Not reported"},
+      {key:"lastSeen",header:"Last seen",render:r=>r.lastSeen?formatDate(r.lastSeen):"—"},
       {
         key: "firstSeen",
         header: "First seen",
@@ -328,7 +332,7 @@ export default function BacklinksPage() {
     return (
       <div className="animate-in space-y-5">
         <PageHeader
-          title="Backlink Analytics"
+          title={tab==="overview"?"Backlink Analytics":TABS.find(item=>item.key===tab)?.label??"Backlink Analytics"}
           description="Referring-domain quality and toxic-link risk, scored with the transparent Orwell Authority Score."
           lastSync={null}
           loading
@@ -351,7 +355,7 @@ export default function BacklinksPage() {
     return (
       <div className="animate-in space-y-5">
         <PageHeader
-          title="Backlink Analytics"
+          title={tab==="overview"?"Backlink Analytics":TABS.find(item=>item.key===tab)?.label??"Backlink Analytics"}
           description="Referring-domain quality and toxic-link risk, scored with the transparent Orwell Authority Score."
           lastSync={null}
         />
@@ -363,7 +367,7 @@ export default function BacklinksPage() {
   return (
     <div className="animate-in space-y-5">
       <PageHeader
-        title="Backlink Analytics"
+        title={tab==="overview"?"Backlink Analytics":TABS.find(item=>item.key===tab)?.label??"Backlink Analytics"}
         description="Referring-domain quality and toxic-link risk, scored with the transparent Orwell Authority Score."
         lastSync={bundle?.lastSync ?? null}
         loading={loading}
@@ -402,6 +406,7 @@ export default function BacklinksPage() {
         />
       </div>
 
+      {["overview","network","pages","recovery","research","outbound","bulk"].includes(tab)&&<BacklinkDetails view={tab} links={backlinks} history={backlinkHistory} host={scopeHost??""} site={scopeId} onSelect={setSelected}/>}
       {tab === "backlinks" && (
         <Card className="p-4">
           {(statusCounts.newCount > 0 || statusCounts.lostCount > 0) && (
@@ -415,9 +420,10 @@ export default function BacklinksPage() {
               <span className="text-2xs text-muted">Link status within the fetched sample.</span>
             </div>
           )}
+          <div className="mb-3 flex gap-2"><select aria-label="Backlink status" className="rounded border border-border bg-card p-2 text-xs" value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}>{["all","active","new","lost"].map(value=><option key={value} value={value}>{value==="all"?"All links":value}</option>)}</select><select aria-label="Link attributes" className="rounded border border-border bg-card p-2 text-xs" value={followFilter} onChange={e=>setFollowFilter(e.target.value)}><option value="all">All attributes</option><option value="follow">Follow</option><option value="nofollow">Nofollow</option></select><select aria-label="Backlink type" className="rounded border border-border bg-card p-2 text-xs" value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}><option value="all">All link types</option>{[...new Set((backlinks??[]).map(row=>row.linkType).filter(Boolean))].map(type=><option key={type} value={type!}>{type}</option>)}</select></div>
           {backlinks ? (
             <DataTable
-              rows={backlinks}
+              rows={backlinks.filter(row=>(statusFilter==="all"||row.status===statusFilter)&&(followFilter==="all"||row.follow===(followFilter==="follow"))&&(typeFilter==="all"||row.linkType===typeFilter))}
               columns={backlinkCols}
               searchKeys={(r) => `${r.sourceDomain} ${r.anchor} ${r.targetUrl}`}
               searchPlaceholder="Search backlinks…"
@@ -435,12 +441,12 @@ export default function BacklinksPage() {
       )}
 
       {tab === "referring" && (
-        <Card className="p-4">
+        <Card className="p-4"><div className="mb-3 flex flex-wrap gap-2"><select aria-label="Referring domain country" className="rounded border border-border bg-card p-2 text-xs" value={countryFilter} onChange={e=>setCountryFilter(e.target.value)}><option value="all">All countries</option>{[...new Set((referringDomains??[]).map(row=>row.country).filter(Boolean))].map(country=><option key={country} value={country!}>{country}</option>)}</select><select aria-label="Referring domain state" className="rounded border border-border bg-card p-2 text-xs" value={domainStatus} onChange={e=>setDomainStatus(e.target.value)}>{["all","active","new","lost"].map(state=><option key={state} value={state}>{state==="all"?"All states":state}</option>)}</select></div>
           {referringDomains ? (
             <DataTable
-              rows={referringDomains}
+              rows={referringDomains.filter(row=>(countryFilter==="all"||row.country===countryFilter)&&(domainStatus==="all"||row.status===domainStatus))}
               columns={referringCols}
-              searchKeys={(r) => r.host}
+              searchKeys={(r) => `${r.host} ${r.country??""} ${r.ip??""}`}
               searchPlaceholder="Search referring domains…"
               exportName={`referring-domains-${scopeId}`}
               pageSize={12}
@@ -598,7 +604,7 @@ export default function BacklinksPage() {
       </div>
 
 </div></details>
-      <ResearchEvidencePanel features={["links", "recovery"]} />
+      {["backlinks","referring","anchors","risk","history"].includes(tab)&&<ResearchEvidencePanel features={["links", "recovery"]} />}
       <Drawer
         open={selected !== null}
         onClose={() => setSelected(null)}

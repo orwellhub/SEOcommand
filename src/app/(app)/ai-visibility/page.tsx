@@ -1,6 +1,7 @@
 "use client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ReportTabs, useReportView } from "@/components/reports/report-layout";
+import { AiResearchReports } from "@/components/reports/ai-research-reports";
 import { AiComparison } from "@/components/research/ai-comparison";
 import { ResearchEvidencePanel } from "@/components/research/evidence-panel";
 
@@ -19,7 +20,7 @@ import type { AiVisibilityDashboard } from "@/platform/ai-read-model";
 
 import { cn } from "@/lib/cn";
 
-type Tab = "overview" | "prompts" | "sources" | "competitors" | "crawlers" | "comparison" | "research";
+type Tab = "overview" | "prompts" | "sources" | "competitors" | "crawlers" | "comparison" | "research" | "brand" | "perception" | "narrative" | "questions" | "cited-pages" | "source-opportunities" | "graph" | "share";
 type Observation = AiVisibilityDashboard["observations"][number];
 type Opportunity = AiVisibilityDashboard["opportunities"][number];
 
@@ -27,7 +28,15 @@ const TABS: { id: Tab; label: string; icon: typeof Sparkles }[] = [
   { id: "overview", label: "Overview", icon: Sparkles },
   { id: "prompts", label: "Prompts", icon: MessageSquareText },
   { id: "sources", label: "Sources", icon: Link2 },
-  { id: "competitors", label: "Share of voice", icon: Users },
+  { id: "competitors", label: "Competitor Research", icon: Users },
+  { id: "brand", label: "Brand Performance", icon: Users },
+  { id: "perception", label: "Perception", icon: Users },
+  { id: "narrative", label: "Narrative Drivers", icon: MessageSquareText },
+  { id: "questions", label: "Questions", icon: MessageSquareText },
+  { id: "cited-pages", label: "Cited Pages", icon: Link2 },
+  { id: "source-opportunities", label: "Source Opportunities", icon: Link2 },
+  { id: "graph", label: "Citation Graph", icon: Link2 },
+  { id: "share", label: "Share of Voice", icon: Users },
   { id: "crawlers", label: "Crawler access", icon: Bot },
   { id: "comparison", label: "Platform comparisons", icon: Users },
   { id: "research", label: "Research", icon: FolderSearch },
@@ -44,10 +53,10 @@ export default function AiVisibilityPage() {
   const [error, setError] = useState<string | null>(null);
   const params = useSearchParams();
   const router = useRouter();
-  const [view, setTab] = useReportView<Tab>(["overview", "prompts", "sources", "competitors", "crawlers", "comparison", "research"], "overview", {"#platform-comparison":"comparison"});
+  const [view, setTab] = useReportView<Tab>(TABS.map(item=>item.id), "overview", {"#platform-comparison":"comparison"});
   const days = parseInt(range);
   const platform = params.get("platform") ?? "";
-  const tab = params.has("feature") ? "research" : view;
+  const tab = params.get("feature")==="mentions" ? "brand" : params.has("feature") ? "research" : view;
   const [selected, setSelected] = useState<Observation | null>(null);
   const [reload, setReload] = useState(0);
 
@@ -83,8 +92,9 @@ export default function AiVisibilityPage() {
         <>
           {tab === "overview" && <AiOverview data={data} onSelect={setSelected} />}
           {tab === "prompts" && <Prompts data={data} scope={scope} onAccepted={() => setReload((value) => value + 1)} />}
-          {tab === "sources" && <Sources data={data} />}
-          {tab === "competitors" && <Competitors data={data} />}
+          {tab === "graph" && <Sources data={data} />}
+          {["competitors","brand","perception","narrative","questions","sources","cited-pages","source-opportunities"].includes(tab) && <AiResearchReports key={`${scope}:${tab}`} view={tab} data={data} onSelect={setSelected} />}
+          {tab === "share" && <Competitors data={data} />}
           {tab === "crawlers" && <CrawlerAccess data={data} />}
         </>
       )}
@@ -100,8 +110,9 @@ export default function AiVisibilityPage() {
 function Prompts({ data, scope, onAccepted }: { data: AiVisibilityDashboard; scope: string; onAccepted: () => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [adding, setAdding] = useState(false);
-  const [customPrompt, setCustomPrompt] = useState("");
+  const [adding, setAdding] = useState(Boolean(useSearchParams().get("prompt")));
+  const promptParams=useSearchParams();
+  const [customPrompt, setCustomPrompt] = useState(promptParams.get("prompt")??"");
   const [topic, setTopic] = useState("Custom");
   const [cadence, setCadence] = useState<"daily" | "weekly" | "monthly">("weekly");
   const [platforms, setPlatforms] = useState<string[]>(["chatgpt", "google_ai_overview", "google_ai_mode"]);

@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   const parsed = z.enum(["site", "portfolio", "group", "campaign"]).safeParse(p.get("scopeType") ?? "site");
   if (!parsed.success) return NextResponse.json({ error: "Choose a report scope." }, { status: 400 });
   try {
-    const definition = reportDefinition(p.get("template") ?? "tpl-domain", { days: Number(p.get("days") ?? 28), sections: p.getAll("section") });
+    const definition = reportDefinition(p.get("template") ?? "tpl-domain", { days: Number(p.get("days") ?? 28), sections: p.getAll("section"), widgets: p.has("widgets") ? JSON.parse(p.get("widgets")!) : undefined });
     const scope = { scopeType: parsed.data, scopeId: p.get("scopeId") ?? p.get("site"), templateId: definition.templateId, definition };
     const sites = await reportScopeSites(scope), allowed = await accessibleSiteSlugs(request);
     if (scope.scopeType !== "portfolio" && (!sites.length || !(await Promise.all(sites.map(s => canAccessSite(request, s)))).every(Boolean))) return NextResponse.json({ error: "Report scope access required." }, { status: 403 });

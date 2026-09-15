@@ -1,0 +1,6 @@
+import { expect, it } from "vitest";
+import { googlePostBody, googleReviewUrl, LocalPostSchema, ReviewCampaignSchema } from "./local-workflows";
+const businessId="40000000-0000-4000-8000-000000000001";
+it("creates Google standard posts from only supported saved fields",()=>{const parsed=LocalPostSchema.parse({businessId,title:"Update",summary:"Book your coach",actionUrl:"https://globalbusrental.com/",imageUrl:"https://globalbusrental.com/photo.jpg"});expect(googlePostBody(parsed)).toEqual({languageCode:"en",summary:"Book your coach",topicType:"STANDARD",callToAction:{actionType:"LEARN_MORE",url:"https://globalbusrental.com/"},media:[{mediaFormat:"PHOTO",sourceUrl:"https://globalbusrental.com/photo.jpg"}]});});
+it("rejects credential-bearing links and email header injection",()=>{expect(LocalPostSchema.safeParse({businessId,title:"Update",summary:"x",actionUrl:"https://user:pass@example.com"}).success).toBe(false);expect(ReviewCampaignSchema.safeParse({businessId,title:"Reviews",subject:"Hello\nBcc: someone@example.com",message:"Share your feedback",recipients:["customer@example.com"]}).success).toBe(false);});
+it("encodes the stored place ID in the neutral review link",()=>{expect(googleReviewUrl("id&next=other")).toBe("https://search.google.com/local/writereview?placeid=id%26next%3Dother");});

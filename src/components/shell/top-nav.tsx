@@ -89,7 +89,7 @@ export function TopNav() {
     .split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("");
 
   return (
-    <div className="relative flex h-[53px] flex-nowrap items-center gap-1.5 sm:gap-3 border-b border-border bg-card px-4 py-2 sm:flex-nowrap sm:px-6">
+    <div className="relative flex h-11 flex-nowrap items-center gap-1.5 sm:gap-3 border-b border-border bg-card px-4 py-2 sm:flex-nowrap sm:px-6">
       <button
         type="button"
         onClick={() => setSearchOpen(true)}

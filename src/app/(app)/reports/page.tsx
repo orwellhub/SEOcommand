@@ -1,4 +1,7 @@
 "use client";
+import { reportDefinition, type ReportWidget } from "@/reports/definition";
+import {ReportCanvas} from "@/components/reports/report-canvas";
+import {ReportTabs} from "@/components/reports/report-layout";
 import { ReportArchive } from "@/components/reports/report-archive";
 
 import { useEffect, useMemo, useState } from "react";
@@ -15,7 +18,7 @@ import {
   Button,
 } from "@/components/ui/primitives";
 import { Drawer } from "@/components/ui/drawer";
-import { REPORT_TEMPLATES } from "@/data/report-templates";
+import { REPORT_TEMPLATES, REPORT_WIDGET_SECTIONS } from "@/data/report-templates";
 import { DOMAINS } from "@/data/domains";
 import type { PortfolioLive } from "@/lib/live";
 import { useLivePortfolio } from "@/lib/use-live";
@@ -71,9 +74,10 @@ export default function ReportsPage() {
   const [draftFormat, setDraftFormat] = useState<"PDF" | "CSV" | "PDF+CSV">("PDF");
   const [sectionDrafts, setSectionDrafts] = useState<Record<string, string[]>>(() => {
     const t = REPORT_TEMPLATES.find(t => t.id === params.get("template"));
-    const selected = t ? params.getAll("section").filter(s => t.sections.includes(s)) : [];
+    const selected = t ? params.getAll("section").filter(s => REPORT_WIDGET_SECTIONS.includes(s)) : [];
     return t && selected.length ? { [t.id]: [...new Set(selected)] } : {};
   });
+  const [draftWidgets] = useState<Record<string,ReportWidget>>(()=>{try{return reportDefinition(params.get("template")??"tpl-domain",{widgets:JSON.parse(params.get("widgets")??"{}")}).widgets??{};}catch{return {};}});
   const draftSections = sectionDrafts[draftTemplateId] ?? REPORT_TEMPLATES.find(t => t.id === draftTemplateId)?.sections ?? [];
   function updateSections(next: string[]) { setSectionDrafts(s => ({ ...s, [draftTemplateId]: next })); }
   function moveSection(index: number, delta: number) { const next = [...draftSections], to = index + delta; if (to < 0 || to >= next.length) return; [next[index], next[to]] = [next[to]!, next[index]!]; updateSections(next); }
@@ -154,7 +158,7 @@ export default function ReportsPage() {
       const response = await fetch("/api/reports/schedules", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ templateId: draftTemplateId, cadence: draftCadence, recipients, format: draftFormat, scopeType, scopeId: scopeType === "portfolio" ? null : scopeId, definition: { documentVersion: "client-report-v3", days: parseInt(range), branding: scopeType === "site" ? "website" : "portfolio", sections: draftSections } }),
+        body: JSON.stringify({ templateId: draftTemplateId, cadence: draftCadence, recipients, format: draftFormat, scopeType, scopeId: scopeType === "portfolio" ? null : scopeId, definition: { documentVersion: "client-report-v3", days: parseInt(range), branding: scopeType === "site" ? "website" : "portfolio", sections: draftSections, widgets: Object.fromEntries(Object.entries(draftWidgets).filter(([section])=>draftSections.includes(section))) } }),
       });
       const body = (await response.json()) as { schedule?: PersistedSchedule; error?: string };
       if (!response.ok || !body.schedule) throw new Error(body.error || "Could not save the schedule.");
@@ -200,12 +204,15 @@ export default function ReportsPage() {
   }
 
   function previewUrl(template: ReportTemplate) {
-    return `/api/reports/preview?scopeType=${scopeType}&scopeId=${encodeURIComponent(scopeId)}&template=${template.id}&days=${parseInt(range)}`;
+    const query=new URLSearchParams({scopeType,scopeId,template:template.id,days:String(parseInt(range))});for(const section of sectionDrafts[template.id]??template.sections)query.append("section",section);return `/api/reports/preview?${query}`;
   }
   function printReport() {
     if (previewTemplate) window.open(previewUrl(previewTemplate), "_blank", "noopener,noreferrer");
   }
 
+  const reportView=params.get("view")??"overview";
+  const reportTabs=<ReportTabs label="Report views" value={reportView} items={[{id:"overview",label:"My Reports"},{id:"builder",label:"Report Builder"},{id:"archive",label:"Archive & Sharing"}]} onChange={view=>{const query=new URLSearchParams(params);query.set("view",view);router.push(`/reports?${query}`,{scroll:false});}}/>;
+  if(["builder","archive"].includes(reportView))return <div className="space-y-4"><PageHeader title={reportView==="builder"?"Report Builder":"Report Archive & Sharing"} description="Saved website evidence, reusable layouts and client reports."/>{reportTabs}{reportView==="builder"?<ReportCanvas/>:activeDomain?<ReportArchive/>:<Card className="p-8">Select a website to open its report archive.</Card>}</div>;
   if (loading && !pm) {
     return (
       <div className="animate-in space-y-5">
@@ -257,14 +264,9 @@ export default function ReportsPage() {
         actions={<details className="relative"><summary className="cursor-pointer rounded-md border border-border px-3 py-2 text-xs font-semibold">Report options</summary><div className="mt-2 flex flex-wrap items-center gap-2"><select aria-label="Report coverage" value={scopeType} onChange={(event) => { const next = event.target.value as typeof scopeType; setScopeType(next); setScopeId(next === "site" ? activeDomain?.id ?? "" : ""); }} className="h-9 rounded-md border border-border bg-card px-3 text-xs font-bold text-ink"><option value="portfolio">Portfolio</option><option value="group">Folder</option><option value="site">Website</option><option value="campaign" disabled={!activeDomain}>Campaign</option></select>{scopeType !== "portfolio" && <select aria-label="Report website, folder or campaign" value={scopeId} onChange={(event) => setScopeId(event.target.value)} className="h-9 max-w-56 rounded-md border border-border bg-card px-3 text-xs font-bold text-ink"><option value="">Choose {scopeType === "group" ? "a folder" : scopeType === "site" ? "a website" : "a campaign"}</option>{(scopeType === "group" ? groups : scopeType === "site" ? sites : campaignOptions).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>}</div></details>}
       />
 
+      {reportTabs}
       <section id="report-archive" className="scroll-mt-6"><ReportArchive /></section>
-      <Card className="relative overflow-hidden border-0 bg-[#11182B] text-white">
-        <div className="absolute inset-y-0 left-0 w-1.5" style={{ background: `linear-gradient(180deg, ${reportSite?.accent ?? "#335CFF"}, #12B8C4)` }} />
-        <div className="grid gap-7 p-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-center lg:p-8">
-          <div><div className="text-[12px] font-extrabold uppercase tracking-[0.2em] text-white/45">Client reporting studio</div><h2 className="mt-3 max-w-2xl font-serif text-3xl font-bold leading-tight tracking-tight">Turn live SEO evidence into a report a client can understand and act on.</h2><p className="mt-3 max-w-2xl text-xs leading-5 text-white/60">Every website can carry its own logo, colours, prepared-by identity and footer. Reports combine narrative, period comparisons, trend charts, ranking movement, crawl risk, links, AI visibility and next actions.</p><div className="mt-5 flex flex-wrap gap-2">{reportSite ? <><Button variant="primary" onClick={() => router.push(`/reports/client?site=${reportSite.id}&template=tpl-domain`)}>Open full client report <ArrowRight className="h-4 w-4" /></Button><Button onClick={() => router.push(`/sites/${reportSite.id}/settings?tab=reporting`)}><Palette className="h-4 w-4" />Customise branding</Button></> : <div className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70">Select a website in the top bar to create a white-label client report.</div>}</div></div>
-          <div className="relative hidden min-h-44 overflow-hidden rounded-md bg-[#F7F8FB] p-5 text-[#11182B] shadow-2xl lg:block"><div className="h-1 w-16" style={{ background: reportSite?.accent ?? "#335CFF" }} /><div className="mt-8 text-[12px] font-extrabold uppercase tracking-[0.18em] text-[#7B8498]">Monthly performance</div><div className="mt-2 font-serif text-2xl font-bold">{reportSite?.name ?? "Client website"}</div><div className="mt-7 grid grid-cols-3 gap-2">{["Search", "Technical", "Actions"].map((label, index) => <div key={label} className="border-t-2 bg-white p-2 text-[12px] font-bold" style={{ borderColor: index === 1 ? "#12B8C4" : reportSite?.accent ?? "#335CFF" }}>{label}<div className="mt-2 h-1.5 rounded bg-[#E6E9F0]" /></div>)}</div></div>
-        </div>
-      </Card>
+      <Card className="flex flex-wrap items-center justify-between gap-3 p-4"><div><h2 className="font-semibold">Create a client report</h2><p className="mt-1 text-xs text-muted">Choose a template below or build a reusable layout from your saved evidence.</p></div><div className="flex gap-2"><Button variant="primary" onClick={()=>router.push(`/reports?site=${activeDomain?.id??""}&view=builder`)}>Create report</Button>{reportSite&&<Button onClick={()=>router.push(`/sites/${reportSite.id}/settings?tab=reporting`)}><Palette className="h-4 w-4"/>Branding</Button>}</div></Card>
 
       {/* KPI row */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

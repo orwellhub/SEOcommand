@@ -48,3 +48,5 @@ export const REPORT_TEMPLATES: ReportTemplate[] = [
     sections: ["AI summary", "Mention rate", "Citation rate", "Platform coverage", "Missed prompts", "Next actions"],
   },
 ];
+
+export const REPORT_WIDGET_SECTIONS = [...new Set(REPORT_TEMPLATES.flatMap(template => template.sections))];

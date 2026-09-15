@@ -1,4 +1,5 @@
 "use client";
+import { ReportCanvas } from "@/components/reports/report-canvas";
 import { useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -6,6 +7,10 @@ import { Button, EmptyState } from "@/components/ui/primitives";
 import { useDomain } from "@/components/shell/domain-context";
 import { REPORT_TEMPLATES } from "@/data/report-templates";
 export default function ClientReportPage() {
+  const params=useSearchParams(),{activeDomain}=useDomain();
+  return params.get("view")==="classic"?<ClassicReportPage/>:<div className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3"><h1 className="text-xl font-bold">Client Report Builder</h1><Link className="text-sm text-purple" href={`/reports/client?site=${activeDomain?.id??""}&view=classic`}>Open template report</Link></div><ReportCanvas/></div>;
+}
+function ClassicReportPage() {
   const params = useSearchParams(), { sites, range } = useDomain(), siteId = params.get("site") ?? "", site = sites.find(s => s.id === siteId);
   const template = REPORT_TEMPLATES.find(t => t.id === params.get("template")) ?? REPORT_TEMPLATES[1]!;
   const [selected, setSelected] = useState<Record<string, string[]>>({}), [revision, setRevision] = useState(0);

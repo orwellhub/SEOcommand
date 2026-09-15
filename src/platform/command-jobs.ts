@@ -1,3 +1,4 @@
+import { googleConfigured } from "@/providers/google/auth";
 import { and, asc, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { hasDatabase } from "@/sync/store";
@@ -36,6 +37,8 @@ export async function processCommandChecks(id?: string, stopped: () => boolean =
   const rows = await db().select().from(schema.commandRecords).where(and(inArray(schema.commandRecords.kind, COMMAND_CHECKS), eq(schema.commandRecords.status, "queued"), id ? eq(schema.commandRecords.id, id) : undefined)).orderBy(asc(schema.commandRecords.createdAt)).limit(id ? 1 : 12);
   for (const row of rows) {
     if (stopped()) break;
+    // Leave Google jobs for a configured process; an unconfigured worker must not consume them.
+    if (["indexing", "business"].includes(row.kind) && !googleConfigured()) continue;
     const [claimed] = await db().update(schema.commandRecords).set({ status: "running", updatedAt: new Date() }).where(and(eq(schema.commandRecords.id, row.id), eq(schema.commandRecords.status, "queued"))).returning();
     if (!claimed) continue;
     try {

@@ -1,5 +1,6 @@
+import {validResearchProject} from "@/platform/research-projects";
 import { NextResponse } from "next/server";
-import { desc, eq, isNull } from "drizzle-orm";
+import { desc, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { hasDatabase } from "@/sync/store";
@@ -85,6 +86,7 @@ export async function GET(request: Request) {
         locationLabel: schema.keywordScans.locationLabel,
         rowCount: schema.keywordScans.rowCount,
         totalVolume: schema.keywordScans.totalVolume,
+        reportedVolumeCount: sql<number>`(SELECT count(*)::int FROM jsonb_array_elements(${schema.keywordScans.rows}) AS item WHERE jsonb_typeof(item->'volume') = 'number')`,
         avgDifficulty: schema.keywordScans.avgDifficulty,
         createdBy: schema.keywordScans.createdBy,
         createdAt: schema.keywordScans.createdAt,
@@ -116,13 +118,15 @@ export async function POST(request: Request) {
   if (parsed.siteSlug && !await canAccessSite(request, parsed.siteSlug)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
   if (!await hasPermission(request, "research", parsed.siteSlug)) return NextResponse.json({ error: "Research permission required." }, { status: 403 });
 
+  if(!await validResearchProject(parsed.projectId,parsed.siteSlug||null))return NextResponse.json({error:"Choose an active research project for this website."},{status:400});
   if (process.env.QA_SYNTHETIC === "true") {
     const volumes = parsed.rows.map((row) => row.volume).filter((value): value is number => value != null);
     const difficulties = parsed.rows.map((row) => row.difficulty).filter((value): value is number => value != null);
-    const scan=await saveCommandRecord(parsed.siteSlug??"__qa_research__","qa_keyword_scan",crypto.randomUUID(),{...parsed,rowCount:parsed.rows.length,totalVolume:volumes.reduce((a,b)=>a+b,0),avgDifficulty:difficulties.length?Math.round(difficulties.reduce((a,b)=>a+b,0)/difficulties.length):null});
+    const scan=await saveCommandRecord(parsed.siteSlug??"__qa_research__","qa_keyword_scan",crypto.randomUUID(),{...parsed,rowCount:parsed.rows.length,reportedVolumeCount:volumes.length,totalVolume:volumes.reduce((a,b)=>a+b,0),avgDifficulty:difficulties.length?Math.round(difficulties.reduce((a,b)=>a+b,0)/difficulties.length):null});
     return NextResponse.json({ok:true,synthetic:true,scan:{...scan.payload,rows:undefined,id:scan.id,createdAt:scan.createdAt}});
   }
   if (!hasDatabase()) return unavailable();
+
 
   const rows = parsed.rows as unknown as KeywordResearchRow[];
   const volumes = rows.map((r) => r.volume).filter((v): v is number => v != null);

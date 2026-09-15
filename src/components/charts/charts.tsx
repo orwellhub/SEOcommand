@@ -90,10 +90,12 @@ export function MultiLine({
   data,
   series,
   height = 240,
+  wholeNumbers = false,
 }: {
   data: Record<string, number | string | null>[];
   series: { key: string; name: string; color: string }[];
   height?: number;
+  wholeNumbers?: boolean;
 }) {
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -107,7 +109,7 @@ export function MultiLine({
           minTickGap={40}
           tickFormatter={(v) => (typeof v === "string" && v.length === 10 ? formatDate(v).slice(0, 6) : v)}
         />
-        <YAxis tick={AXIS} tickLine={false} axisLine={false} width={40} tickFormatter={compactNumber} />
+        <YAxis tick={AXIS} tickLine={false} axisLine={false} width={40} allowDecimals={!wholeNumbers} tickFormatter={value=>Math.abs(Number(value))<10?Number(value).toLocaleString(undefined,{maximumFractionDigits:2}):compactNumber(Number(value))} />
         <Tooltip content={<ChartTooltip />} />
         {series.map((s) => (
           <Line

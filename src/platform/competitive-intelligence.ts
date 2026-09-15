@@ -46,7 +46,7 @@ export interface CompetitorExplorerResult {
     paidTraffic: number | null;
     estimatedTrafficCost: number | null;
   };
-  keywords: Array<{ keyword: string; position: number | null; volume: number | null; difficulty: number | null; intent: string | null; url: string | null; traffic: number | null; previousPosition?: number | null; isNew?: boolean | null; isLost?: boolean | null; updatedAt?: string | null }>;
+  keywords: Array<{ keyword: string; position: number | null; volume: number | null; difficulty: number | null; intent: string | null; url: string | null; traffic: number | null; previousPosition?: number | null; isNew?: boolean | null; isLost?: boolean | null; updatedAt?: string | null; cpc?: number | null; competition?: number | null; serpFeatures?: string[] | null; serpUrl?: string | null }>;
   pages: Array<{ url: string; keywords: number | null; traffic: number | null; trafficCost: number | null }>;
   backlinks: { rank: number | null; backlinks: number | null; referringDomains: number | null; spamScore: number | null };
 }
@@ -105,7 +105,8 @@ export async function collectDomainResearch(opts: {
     const intentInfo = record(keywordData.search_intent_info);
     const serpItem = record(record(item.ranked_serp_element).serp_item);
     const changes = record(serpItem.rank_changes), ranked = record(item.ranked_serp_element);
-    return { previousPosition:number(changes.previous_rank_absolute),isNew:typeof changes.is_new==="boolean"?changes.is_new:null,isLost:typeof ranked.is_lost==="boolean"?ranked.is_lost:null,updatedAt:string(ranked.last_updated_time), keyword: string(keywordData.keyword) ?? "", position: number(serpItem.rank_absolute), volume: number(keywordInfo.search_volume), difficulty: number(properties.keyword_difficulty), intent: string(intentInfo.main_intent), url: string(serpItem.url), traffic: number(serpItem.etv) };
+    const serpInfo = record(keywordData.serp_info);
+    return { previousPosition:number(changes.previous_rank_absolute),isNew:typeof changes.is_new==="boolean"?changes.is_new:null,isLost:typeof ranked.is_lost==="boolean"?ranked.is_lost:null,updatedAt:string(ranked.last_updated_time), keyword: string(keywordData.keyword) ?? "", position: number(serpItem.rank_absolute), volume: number(keywordInfo.search_volume), difficulty: number(properties.keyword_difficulty), intent: string(intentInfo.main_intent), url: string(serpItem.url), traffic: number(serpItem.etv), cpc:number(keywordInfo.cpc), competition:number(keywordInfo.competition), serpFeatures:Array.isArray(serpInfo.serp_item_types)?serpInfo.serp_item_types.filter((value):value is string=>typeof value==="string"):null, serpUrl:string(serpInfo.check_url) };
   }).filter((item) => item.keyword);
   const pages = parseRelevantPages(pageResponse.result);
   const backlinkRaw = backlinkResponse.result[0] ?? {};

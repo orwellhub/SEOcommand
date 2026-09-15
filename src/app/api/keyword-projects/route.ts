@@ -10,8 +10,7 @@ export const dynamic = "force-dynamic";
 
 const CreateSchema = z.object({ siteSlug: z.string().max(120).nullable().optional(), name: z.string().min(2).max(120), description: z.string().max(500).optional(), tags: z.array(z.string().max(40)).max(20).optional() });
 const UpdateSchema = z.object({ id: z.string().uuid(), name: z.string().min(2).max(120).optional(), description: z.string().max(500).nullable().optional(), status: z.enum(["active", "archived"]).optional() });
-type QaProject = { id: string; siteSlug: string | null; name: string; description: string | null; status: string; tags: string[]; createdBy: string | null; createdAt: string; updatedAt: string };
-const qaProjects: QaProject[] = [];
+import {previewProjects as qaProjects,type PreviewProject as QaProject} from "@/platform/research-projects";
 
 export async function GET(request: Request) {
   const siteSlug = new URL(request.url).searchParams.get("site")?.trim() || null;
