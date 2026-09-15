@@ -4,8 +4,10 @@ import { chromium, type Browser, type Page } from "playwright";
 import { db, schema } from "@/db";
 import type { ManagedSite } from "./types";
 import { createNotification } from "./notifications";
-import { assertPublicHostname, fetchPublic, isObviouslyPublicHostname } from "./public-network";
+import { assertPublicHostname, fetchPublic, isObviouslyPublicHostname, readBoundedText } from "./public-network";
 import { excludedFromCrawl, internationalChecks, structuredDataIssues } from "./audit-depth";
+
+import { CrawlBrowser } from "./crawl-browser";
 
 const USER_AGENT = "OrwellSEOCommand/2.0 (+hybrid technical audit)";
 const DEFAULT_BROWSER_PAGES = 200;
@@ -123,7 +125,7 @@ async function sitemapSeeds(host: string): Promise<string[]> {
     try {
       const response = await fetchPublic(candidate, { headers: { "user-agent": USER_AGENT }, signal: AbortSignal.timeout(10_000) });
       if (!response.ok) continue;
-      const xml = (await response.text()).slice(0, 10_000_000);
+      const xml = await readBoundedText(response, 10_000_000);
       for (const match of xml.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/gi)) {
         const value = cleanUrl(match[1]!.replace(/&amp;/g, "&"));
         if (value && sameSite(value, host)) urls.push(value);
@@ -148,7 +150,7 @@ async function inspectPage(page: Page, url: string, depth: number, host: string)
     });
     rawStatus = response.status;
     const type = response.headers.get("content-type") ?? "";
-    if (type.includes("text/html") || type.includes("xhtml")) rawHtml = (await response.text()).slice(0, 5_000_000);
+    if (type.includes("text/html") || type.includes("xhtml")) rawHtml = await readBoundedText(response, 5_000_000);
   } catch {
     // Browser navigation below provides the authoritative status when fetch fails.
   }
@@ -311,12 +313,9 @@ export async function runBrowserCrawl(site: ManagedSite, requestedMax?: number, 
   }).returning();
   if (!run) throw new Error("Could not create browser crawl run.");
 
-  let browser: Browser | null = null;
+  const browser = new CrawlBrowser(launchBrowser, USER_AGENT);
   try {
-    browser = await launchBrowser();
-    const context = await browser.newContext({ userAgent: USER_AGENT, ignoreHTTPSErrors: false });
-    const page = await context.newPage();
-    await page.route("**/*", async (route) => {
+    const preparePage = async (page: Page) => { await page.route("**/*", async (route) => {
       const kind = route.request().resourceType();
       if (["image", "media", "font"].includes(kind)) return route.abort();
       try {
@@ -326,7 +325,7 @@ export async function runBrowserCrawl(site: ManagedSite, requestedMax?: number, 
       } catch {
         await route.abort("blockedbyclient");
       }
-    });
+    }); };
     const home = cleanUrl(options.url ?? `https://${site.host}/`)!;
     if (!sameSite(home, site.host)) throw new Error("Choose a URL on the selected website.");
     const seeds = options.url ? [] : await sitemapSeeds(site.host);
@@ -345,13 +344,16 @@ export async function runBrowserCrawl(site: ManagedSite, requestedMax?: number, 
       seen.add(next.url);
       if (next.depth > maxDepth) { excluded.add(next.url); continue; }
       if (excludedFromCrawl(next.url, exclusions)) { excluded.add(next.url); continue; }
-      const result = await inspectPage(page, next.url, next.depth, site.host);
+      const { result, resources } = await browser.inspect(preparePage, async page => {
+        const result = await inspectPage(page, next.url, next.depth, site.host);
+        const resources = result.issues.includes("browser_render_failed") ? [] : await page.evaluate(() => performance.getEntriesByType("resource").map(entry => { const r = entry as PerformanceResourceTiming; return { url: r.name, type: r.initiatorType, durationMs: Math.round(r.duration), transferBytes: r.transferSize, encodedBytes: r.encodedBodySize }; }).sort((a, b) => b.durationMs - a.durationMs).slice(0, 100)).catch(() => []);
+        return { result, resources };
+      });
       pages.push(result);
       const { links: pageLinks, outbound, ...pageData } = result;
       await db().insert(schema.browserCrawlPages).values({ ...pageData, runId: run.id, siteSlug: site.id });
       await db().insert(schema.commandRecords).values({ siteSlug: site.id, kind: "workspace_outbound_links", recordKey: `${run.id}:${hash(result.url)}`, status: "completed", payload: { runId: run.id, sourceUrl: result.url, links: (outbound ?? []).slice(0,2000), truncated: (outbound?.length ?? 0)>2000, capturedAt: new Date().toISOString() } });
       if (pageLinks.length) await db().insert(schema.browserCrawlEdges).values(pageLinks.slice(0, 2000).map(edge => ({ runId: run.id, siteSlug: site.id, sourceUrl: result.url, ...edge })));
-      const resources = result.issues.includes("browser_render_failed") ? [] : await page.evaluate(() => performance.getEntriesByType("resource").map(entry => { const r = entry as PerformanceResourceTiming; return { url: r.name, type: r.initiatorType, durationMs: Math.round(r.duration), transferBytes: r.transferSize, encodedBytes: r.encodedBodySize }; }).sort((a, b) => b.durationMs - a.durationMs).slice(0, 100)).catch(() => []);
       await db().insert(schema.commandRecords).values({ siteSlug: site.id, kind: "workspace_crawl_resources", recordKey: `${run.id}:${hash(result.url)}`, status: "completed", payload: { runId: run.id, url: result.url, resources, sampled: true, note: "Up to 100 slowest observed resources. Images, media and fonts are intentionally blocked by the crawler; cross-origin byte sizes may be unavailable." } });
       await db().update(schema.browserCrawlRuns).set({ pagesCrawled: pages.length, diffSummary: { heartbeatAt: Date.now(), singlePage: options.url ? 1 : 0 } }).where(eq(schema.browserCrawlRuns.id, run.id));
       if (options.jobId) await db().update(schema.platformJobs).set({ progress: sql`${schema.platformJobs.progress} || ${JSON.stringify({ runId: run.id, pagesCrawled: pages.length, heartbeatAt: Date.now() })}::jsonb` }).where(and(eq(schema.platformJobs.id, options.jobId), eq(schema.platformJobs.status, "running")));
@@ -360,7 +362,7 @@ export async function runBrowserCrawl(site: ManagedSite, requestedMax?: number, 
         if (!seen.has(link.targetUrl) && queue.length < maxPages * 5) queue.push({ url: link.targetUrl, depth: next.depth + 1 });
       }
     }
-    await context.close();
+    await browser.close();
     applyCrossPageChecks(pages);
     const internationalCoverage = internationalChecks(pages);
 
@@ -389,7 +391,7 @@ export async function runBrowserCrawl(site: ManagedSite, requestedMax?: number, 
     // Pages and edges were checkpointed during collection. Only cross-page findings need updating.
     for (const item of pages) await db().update(schema.browserCrawlPages).set({ issues: item.issues }).where(and(eq(schema.browserCrawlPages.runId, run.id), eq(schema.browserCrawlPages.url, item.url)));
     await db().update(schema.browserCrawlRuns).set({
-      status: "completed",
+      status: cancelled ? "cancelled" : "completed",
       pagesCrawled: pages.length,
       issueCounts: counts,
       diffSummary,
@@ -425,7 +427,7 @@ export async function runBrowserCrawl(site: ManagedSite, requestedMax?: number, 
     }).where(eq(schema.browserCrawlRuns.id, run.id));
     throw error;
   } finally {
-    await browser?.close().catch(() => undefined);
+    await browser.close().catch(() => undefined);
   }
 }
 

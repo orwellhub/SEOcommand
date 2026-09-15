@@ -164,6 +164,10 @@ export async function PATCH(request: Request) {
     : { status: "cancelled", completedAt: new Date(), progress: { ...job.progress, phase: "cancelled" } }
   ).where(and(eq(schema.platformJobs.id, job.id), eq(schema.platformJobs.status, job.status))).returning();
   if (!updated) return NextResponse.json({ error: "This scan changed while you were viewing it. Refresh and try again." }, { status: 409 });
+  if (parsed.data.action === "cancel" && job.kind === "browser_crawl" && typeof job.progress.runId === "string") {
+    await db().update(schema.browserCrawlRuns).set({ status: "cancelled", completedAt: new Date(), lastError: "Crawl cancelled. Saved page evidence is retained." })
+      .where(and(eq(schema.browserCrawlRuns.id, job.progress.runId), eq(schema.browserCrawlRuns.siteSlug, job.siteSlug), eq(schema.browserCrawlRuns.status, "running")));
+  }
   if (parsed.data.action !== "cancel" && ["site_scan", "initial_site_scan"].includes(job.kind)) after(() => runQueuedScan(job.id));
   return NextResponse.json({ ok: true, job: jobResult(updated!) });
 }

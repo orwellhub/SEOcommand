@@ -22,6 +22,19 @@ export function latestIndexInspections(records: CommandRecord[], host: string) {
   return [...latest.values()].sort((a, b) => time(b) - time(a));
 }
 
+/** Current attempt per page and check configuration; older failures remain saved history. */
+export function latestCheckAttempts(records: CommandRecord[], host: string) {
+  const latest = new Map<string, CommandRecord>();
+  for (const row of [...records].sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.updatedAt.localeCompare(a.updatedAt))) {
+    if (typeof row.payload.url !== "string") continue;
+    const target = urlKey(row.payload.url, host);
+    if (!target) continue;
+    const key = JSON.stringify([row.kind, target, row.payload.device ?? "", row.kind === "speed" ? row.payload.provider ?? "google" : ""]);
+    if (!latest.has(key)) latest.set(key, row);
+  }
+  return [...latest.values()];
+}
+
 export function summarizePageCoverage(input: {
   host: string;
   pages: Pick<PageSummary, "url">[];

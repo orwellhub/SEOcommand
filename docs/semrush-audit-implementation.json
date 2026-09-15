@@ -30,7 +30,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -68,7 +68,7 @@
         "src/components/charts/charts.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -102,7 +102,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -136,7 +136,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -172,7 +172,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch.",
         "Browser actions: imported a local draft, saved and reloaded its exact text, followed it into repurposing without publishing or generating paid content."
@@ -207,7 +207,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch.",
         "Browser actions: saved/reopened a layout, retained widget order and 7-day override, opened the selected technical template at 90 days, rendered HTML preview, verified full definition in scheduling handoff."
@@ -239,7 +239,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -268,7 +268,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -299,7 +299,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -332,7 +332,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -369,7 +369,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -407,7 +407,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -440,7 +440,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -471,7 +471,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -503,7 +503,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -535,7 +535,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -566,7 +566,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -598,7 +598,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -630,7 +630,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -664,7 +664,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -699,7 +699,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -732,7 +732,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -765,7 +765,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -799,7 +799,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -832,7 +832,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -867,7 +867,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch.",
         "Browser actions: created a local project, collected sample research, saved/reopened/renamed/deduplicated lists, retained originals, saved a topic plan, built and reopened a page strategy with its assigned URL."
@@ -904,7 +904,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch.",
         "Browser actions: created a local project, collected sample research, saved/reopened/renamed/deduplicated lists, retained originals, saved a topic plan, built and reopened a page strategy with its assigned URL."
@@ -938,7 +938,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -972,7 +972,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch.",
         "Browser actions: imported a local draft, saved and reloaded its exact text, followed it into repurposing without publishing or generating paid content."
@@ -1008,7 +1008,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1039,7 +1039,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1074,7 +1074,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1107,7 +1107,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1138,7 +1138,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1175,7 +1175,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1211,7 +1211,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1243,7 +1243,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1276,7 +1276,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1307,7 +1307,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1341,7 +1341,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1372,7 +1372,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1401,7 +1401,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1432,7 +1432,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1461,7 +1461,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1493,7 +1493,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1524,7 +1524,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1555,7 +1555,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1585,7 +1585,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1618,7 +1618,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1656,7 +1656,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1690,7 +1690,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1726,7 +1726,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1762,7 +1762,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1794,7 +1794,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1827,7 +1827,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1864,7 +1864,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1898,7 +1898,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1932,7 +1932,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1966,7 +1966,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -1997,7 +1997,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -2029,7 +2029,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -2058,7 +2058,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -2089,7 +2089,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -2125,7 +2125,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -2163,7 +2163,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -2196,7 +2196,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -2234,7 +2234,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch.",
         "Browser actions: imported a local draft, saved and reloaded its exact text, followed it into repurposing without publishing or generating paid content."
@@ -2266,7 +2266,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -2299,7 +2299,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -2335,7 +2335,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch.",
         "Browser actions: saved/reopened a layout, retained widget order and 7-day override, opened the selected technical template at 90 days, rendered HTML preview, verified full definition in scheduling handoff."
@@ -2367,7 +2367,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -2396,7 +2396,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -2427,7 +2427,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -2456,7 +2456,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -2485,7 +2485,7 @@
         "src/components/ui/data-table.tsx"
       ],
       "verification": [
-        "479 automated tests passed across 100 files.",
+        "486 automated tests passed across 102 files.",
         "Local production build passed.",
         "130 automated browser checks passed: 112 route visits and 18 responsive cases. No page exceptions, failed HTTP data requests, page-wide overflow or selected-website mismatch."
       ],
@@ -2573,5 +2573,12 @@
       ]
     }
   ],
-  "verification_policy": "Implemented means the described local behaviour is present; it does not certify complete Semrush dataset parity or inaccessible populated reference screens. External gates and sample limits remain explicit."
+  "verification_policy": "Implemented means the described local behaviour is present; it does not certify complete Semrush dataset parity or inaccessible populated reference screens. External gates and sample limits remain explicit.",
+  "release_follow_up": {
+    "responsive_checks": "Six additional Domain Overview and AI Visibility checks passed at 390, 768 and 1024 pixels after the final spacing changes.",
+    "indexing": "Live Google inspection completed for Global Bus Rental on 2026-09-15. Superseded failed attempts no longer appear as current status; remaining attempts include dates.",
+    "backlinks": "Indexed Pages saved 1,000 of 9,910 provider matches ($0.06). One-domain Bulk Analysis completed ($0.024); future estimate increased to $0.03 per domain.",
+    "crawl": "Live worker exceeded its 512 MB limit at 38 pages. Saved evidence retained. Browser contexts are now disposed after every page and Chromium recycled every ten pages; scoped runner added. Live recovery verification pending.",
+    "preservation": "All 48 original Global Bus Rental dataset snapshot IDs retained. No migration, reset or production seed."
+  }
 }

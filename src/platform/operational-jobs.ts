@@ -5,14 +5,14 @@ import { listDueLocalLocations, syncLocalLocation } from "./local-seo";
 import { checkReliability } from "./reliability";
 import { getManagedSite, listManagedSites } from "./site-store";
 
-export async function processBrowserCrawlJobs(now = new Date(), shouldStop: () => boolean = () => false) {
+export async function processBrowserCrawlJobs(now = new Date(), shouldStop: () => boolean = () => false, siteSlug?: string) {
   const cutoff = now.getTime() - 30 * 60000;
   // A dead worker must not block all future scans for this website. Retain every checkpoint.
-  await db().update(schema.platformJobs).set({ status: "failed", completedAt: now, lastError: "Browser worker interrupted. Saved page evidence is retained. Queue a new crawl to continue checking the website." }).where(and(eq(schema.platformJobs.kind, "browser_crawl"), eq(schema.platformJobs.status, "running"), lte(schema.platformJobs.startedAt, new Date(cutoff)), sql`coalesce((${schema.platformJobs.progress}->>'heartbeatAt')::numeric, 0) < ${cutoff}`));
-  await db().update(schema.browserCrawlRuns).set({ status: "failed", completedAt: now, lastError: "Crawl interrupted; completed page evidence was retained." }).where(and(eq(schema.browserCrawlRuns.status, "running"), lte(schema.browserCrawlRuns.startedAt, new Date(cutoff)), sql`coalesce((${schema.browserCrawlRuns.diffSummary}->>'heartbeatAt')::numeric, 0) < ${cutoff}`));
+  await db().update(schema.platformJobs).set({ status: "failed", completedAt: now, lastError: "Browser worker interrupted. Saved page evidence is retained. Queue a new crawl to continue checking the website." }).where(and(siteSlug ? eq(schema.platformJobs.siteSlug, siteSlug) : undefined, eq(schema.platformJobs.kind, "browser_crawl"), eq(schema.platformJobs.status, "running"), lte(schema.platformJobs.startedAt, new Date(cutoff)), sql`coalesce((${schema.platformJobs.progress}->>'heartbeatAt')::numeric, 0) < ${cutoff}`));
+  await db().update(schema.browserCrawlRuns).set({ status: "failed", completedAt: now, lastError: "Crawl interrupted; completed page evidence was retained." }).where(and(siteSlug ? eq(schema.browserCrawlRuns.siteSlug, siteSlug) : undefined, eq(schema.browserCrawlRuns.status, "running"), lte(schema.browserCrawlRuns.startedAt, new Date(cutoff)), sql`coalesce((${schema.browserCrawlRuns.diffSummary}->>'heartbeatAt')::numeric, 0) < ${cutoff}`));
   const limit = Math.min(Math.max(Number(process.env.BROWSER_CRAWL_JOBS_PER_RUN ?? "1"), 1), 5);
   const jobs = await db().select().from(schema.platformJobs)
-    .where(and(eq(schema.platformJobs.kind, "browser_crawl"), eq(schema.platformJobs.status, "queued"), or(lte(schema.platformJobs.runAfter, now), like(schema.platformJobs.lastError, "browserType.launch: Executable doesn%"))))
+    .where(and(siteSlug ? eq(schema.platformJobs.siteSlug, siteSlug) : undefined, eq(schema.platformJobs.kind, "browser_crawl"), eq(schema.platformJobs.status, "queued"), or(lte(schema.platformJobs.runAfter, now), like(schema.platformJobs.lastError, "browserType.launch: Executable doesn%"))))
     .orderBy(asc(schema.platformJobs.attempts), asc(schema.platformJobs.createdAt)).limit(limit);
   let completed = 0;
   let failed = 0;

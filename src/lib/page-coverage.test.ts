@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { summarizePageCoverage } from "./page-coverage";
+import { latestCheckAttempts, summarizePageCoverage } from "./page-coverage";
 import type { CommandRecord } from "./command-model";
 
 const host = "example.com";
@@ -9,6 +9,28 @@ const record = (url: string, verdict = "PASS", extra: Partial<CommandRecord> = {
   nextRunAt: null, createdAt: "2026-09-12T10:00:00Z", updatedAt: "2026-09-12T10:00:00Z", ...extra,
 });
 const summary = (inspections: CommandRecord[], urls: string[] = []) => summarizePageCoverage({ host, inspections, pages: urls.map((url) => ({ url })) });
+
+describe("latest check attempts", () => {
+  it("removes superseded failures from current status while retaining the stored records", () => {
+    const failed = record("https://example.com/", "PASS", { id: "old", status: "failed", createdAt: "2026-09-10T10:00:00Z" });
+    const completed = record("https://www.example.com/", "PASS", { id: "new" });
+    const records = [failed, completed];
+    expect(latestCheckAttempts(records, host).map(row => row.id)).toEqual(["new"]);
+    expect(records).toHaveLength(2);
+    const queued = record("https://example.com/", "PASS", { id: "pending", status: "queued", createdAt: "2026-09-13T10:00:00Z" });
+    expect(latestCheckAttempts([...records, queued], host)[0].status).toBe("queued");
+    expect(summary([...records, queued]).inspected).toBe(1);
+  });
+  it("keeps different URLs, devices and speed providers separate", () => {
+    const variants = [
+      { url: "https://example.com/a", device: "mobile" },
+      { url: "https://example.com/a", device: "desktop" },
+      { url: "https://example.com/a", device: "mobile", provider: "dataforseo" },
+      { url: "https://example.com/b", device: "mobile" },
+    ].map((payload, i) => record(payload.url, "PASS", { id: String(i), kind: "speed", payload }));
+    expect(latestCheckAttempts([...variants, record("https://other.test/")], host)).toHaveLength(4);
+  });
+});
 
 describe("website page coverage", () => {
   it("keeps missing evidence unavailable instead of claiming zero pages or zero indexing", () => {
