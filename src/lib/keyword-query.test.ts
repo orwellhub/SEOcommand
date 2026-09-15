@@ -20,8 +20,16 @@ describe("keyword query contract",()=>{
   });
   it("quotes literal group terms and distinguishes phrase from exact matching",()=>{
     expect(providerKeywordQuery("bus rental",{...DEFAULT_KEYWORD_QUERY,match:"phrase"}).filters).toHaveLength(3);
-    expect(providerKeywordQuery("bus rental",{...DEFAULT_KEYWORD_QUERY,group:["c++"]}).filters).toEqual(["keyword","regex",expect.stringContaining("c\\+\\+")]);
+    expect(providerKeywordQuery("bus rental",{...DEFAULT_KEYWORD_QUERY,group:["c++"]}).filters).toEqual(["keyword","regex",expect.stringContaining("c\\\\+\\\\+")]);
     expect(providerKeywordQuery("bus rental",{...DEFAULT_KEYWORD_QUERY,match:"exact"}).filters).toBeUndefined();
+  });
+  it("preserves question boundaries through the provider's extra escape layer",()=>{
+    const wire=providerKeywordQuery("bus rental",{...DEFAULT_KEYWORD_QUERY,questions:true}).filters as string[];
+    expect(wire[2]).toContain("\\\\b");
+    const expression=new RegExp(wire[2]!.replace(/\\\\/g,"\\"));
+    expect(expression.test("how much is bus rental")).toBe(true);
+    expect(expression.test("island bus rental")).toBe(false);
+    expect(expression.test("bus rental cost?")).toBe(true);
   });
   it("keeps website, scan, project and market when opening the questions card",()=>{
     const href=keywordReportHref(new URLSearchParams({site:"globalbusrental",project:"p",scan:"saved",keywords:"stale",action:"track"}),"bus rental",2826,"United Kingdom","en",{...DEFAULT_KEYWORD_QUERY,questions:true});

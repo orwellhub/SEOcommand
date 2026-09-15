@@ -2,7 +2,7 @@ import {beforeEach,it,expect,vi} from "vitest";
 const state=vi.hoisted(()=>({post:vi.fn(),tracked:[{id:"first",keyword:"bus rental",device:"desktop",locationCode:2840,languageCode:"en"}]}));
 vi.mock("./client",()=>({DataForSeoClient:class {post=state.post;}}));
 vi.mock("@/platform/site-store",()=>({getManagedSite:async()=>({host:"example.com"}),listRankTrackingKeywords:async()=>state.tracked}));
-import {fetchDailyTrackedRankings,researchKeywords} from "./index";
+import {fetchDailyTrackedRankings,researchKeywords,keywordGlobalVolume} from "./index";
 beforeEach(()=>{vi.stubEnv("DATAFORSEO_LOGIN","test@example.test");vi.stubEnv("DATAFORSEO_PASSWORD","test-only");vi.stubEnv("DATABASE_URL","");state.post.mockReset();state.tracked=[{id:"first",keyword:"bus rental",device:"desktop",locationCode:2840,languageCode:"en"}];});
 it("keeps a sponsored result and similar host out of the organic position",async()=>{state.post.mockResolvedValue({result:[{items:[{type:"paid",domain:"example.com",url:"https://example.com/ad",rank_absolute:1},{type:"organic",domain:"notexample.com",url:"https://notexample.com",rank_absolute:2},{type:"featured_snippet",domain:"example.com",url:"https://example.com/snippet",rank_absolute:3},{type:"organic",domain:"example.com",url:"https://example.com/organic",rank_absolute:4},{type:"organic",domain:"rival.com",url:"https://rival.com",rank_absolute:42}]}],costUsd:.03});const [row]=await fetchDailyTrackedRankings("test");expect(row).toMatchObject({position:4,url:"https://example.com/organic",ownedFeatures:["paid","featured_snippet"]});expect(row?.competitors).toEqual(expect.arrayContaining([expect.objectContaining({host:"rival.com",position:42})]));});
 it("persists completed ranking targets before surfacing a partial batch failure",async()=>{state.tracked.push({...state.tracked[0]!,id:"second",keyword:"coach hire"});state.post.mockResolvedValueOnce({result:[{items:[]}],costUsd:.03}).mockRejectedValueOnce(new Error("Budget reached"));const checkpoint=vi.fn().mockResolvedValue(undefined);await expect(fetchDailyTrackedRankings("test",checkpoint)).rejects.toThrow("Budget reached");expect(checkpoint).toHaveBeenCalledWith([expect.objectContaining({trackedKeywordId:"first",position:null})]);});
@@ -20,3 +20,15 @@ it("keeps seed metadata outside a filtered page and passes filters before the pr
 });
 it("does not treat a malformed provider response as a zero-result search",async()=>{state.post.mockResolvedValue({result:[]});await expect(researchKeywords({seed:"bus rental",locationCode:2826,languageCode:"en"})).rejects.toThrow("valid keyword report");});
 it("accepts a real zero-match response without inventing an exact-seed result",async()=>{state.post.mockResolvedValue({result:[{total_count:0,items:null}]});const page=vi.fn();expect(await researchKeywords({seed:"bus rental",sourceType:"questions",locationCode:2826,languageCode:"en",onPagination:page})).toEqual([]);expect(state.post).toHaveBeenCalledTimes(1);expect(page).toHaveBeenCalledWith(expect.objectContaining({total:0,hasMore:false}));});
+it("reads split seed metadata without losing the filtered report",async()=>{
+ state.post.mockResolvedValue({result:[{seed_keyword_data:{keyword:"bus rental",keyword_info:{search_volume:480}}},{total_count:1,items:[{keyword:"how much is bus rental",keyword_info:{search_volume:10}}]}]});
+ const primary=vi.fn();const rows=await researchKeywords({seed:"bus rental",sourceType:"questions",locationCode:2826,languageCode:"en",onPrimary:primary});
+ expect(rows.map(row=>row.keyword)).toEqual(["how much is bus rental"]);
+ expect(primary).toHaveBeenCalledWith(expect.objectContaining({keyword:"bus rental",volume:480}));
+});
+
+it("retains an unassigned clickstream country without making reports unsaveable",async()=>{
+ state.post.mockResolvedValue({result:[{items:[{keyword:"bus rental",search_volume:3679,country_distribution:[{country_iso_code:"US",search_volume:1049,percentage:28.5},{country_iso_code:null,search_volume:3,percentage:0.08}]}]}]});
+ const result=await keywordGlobalVolume("bus rental","test");
+ expect(result.volume).toBe(3679);expect(result.countries).toEqual([{code:"US",volume:1049,percentage:28.5},{code:"ZZ",volume:3,percentage:0.08}]);
+});

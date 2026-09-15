@@ -45,3 +45,8 @@ export function marketForIsoCountry(iso: string): {code:number;label:string} | n
 }
 
 export function isKeywordDatabase(code: number): boolean { return Object.hasOwn(countryNames, String(code)); }
+
+/** Clickstream includes an unassigned-country bucket, represented as null. */
+export function keywordCountryCode(value: unknown): string {
+  return typeof value === "string" && /^[a-z]{2}$/i.test(value) ? value.toUpperCase() : "ZZ";
+}

@@ -1,4 +1,5 @@
 import { DEFAULT_KEYWORD_QUERY, KeywordQuerySchema, providerKeywordQuery, type KeywordQuery } from "@/lib/keyword-query";
+import { keywordCountryCode } from "@/lib/markets";
 import {belongsToHost} from "@/lib/rank-reports";
 import type { AiPlatform, AiPrompt, Backlink, Competitor, DomainId, Keyword, KeywordResearchRow, KeywordResearchResult, PositionBucket, RankSnapshot, ReferringDomain } from "@/lib/types";
 import type { OnPageResult } from "@/lib/live";
@@ -153,13 +154,18 @@ export async function researchKeywords(opts: {
     task = {...common, keyword:opts.seed, include_seed_keyword:offset === 0, exact_match:query.match === "exact", ignore_synonyms:false};
   }
   const {result} = await client.post<Record<string, unknown>>(endpoint, ENDPOINTS[endpoint], [task], {domainSlug:opts.siteSlug ?? null});
-  const root = result[0];
-  if (!root || (!Array.isArray(root.items) && root.total_count !== 0)) throw new Error("The provider did not return a valid keyword report. Your previous collection is still available.");
+  // Some Labs responses put seed metadata in a separate result object.
+  const root = result.find(part => Array.isArray(part.items) || part.total_count === 0);
+  if (!root) {
+    console.warn("Keyword provider response missing report", {endpoint, reports:result.map(part => ({keys:Object.keys(part), total:part.total_count, count:part.items_count, itemsType:part.items === null ? "null" : typeof part.items}))});
+    throw new Error("The provider did not return a valid keyword report. Your previous collection is still available.");
+  }
   const items = (root.items ?? []) as Record<string, unknown>[];
   const total = typeof root.total_count === "number" ? root.total_count : null;
   opts.onPagination?.({nextOffset:offset + items.length, total, hasMore:items.length > 0 && (total == null ? items.length >= limit : offset + items.length < total), sourceType:opts.sourceType ?? "seed", ...(typeof root.offset_token === "string" ? {nextToken:root.offset_token} : {})});
-  if (root.seed_keyword_data) {
-    const primary = normalizeKeywordIdeas([{items:[root.seed_keyword_data]}])[0];
+  const seedData = result.find(part => part.seed_keyword_data)?.seed_keyword_data;
+  if (seedData) {
+    const primary = normalizeKeywordIdeas([{items:[seedData]}])[0];
     if (primary) opts.onPrimary?.(primary);
   }
   // The exact seed is report metadata, never an extra row inserted into a filtered page.
@@ -179,7 +185,7 @@ export async function keywordGlobalVolume(keyword: string, siteSlug?: string | n
   const item = items.find(row => String(row.keyword).toLowerCase() === keyword.toLowerCase());
   if (!item) throw new Error("Global search volume is not available for this keyword.");
   const number = (value: unknown) => typeof value === "number" && Number.isFinite(value) ? value : null;
-  return {volume:number(item.search_volume), countries:((item.country_distribution ?? []) as Record<string, unknown>[]).map(row => ({code:String(row.country_iso_code), volume:number(row.search_volume), percentage:number(row.percentage)})).sort((a,b) => (b.volume ?? -1) - (a.volume ?? -1)), fetchedAt:new Date().toISOString(), source:"clickstream"};
+  return {volume:number(item.search_volume), countries:((item.country_distribution ?? []) as Record<string, unknown>[]).map(row => ({code:keywordCountryCode(row.country_iso_code), volume:number(row.search_volume), percentage:number(row.percentage)})).sort((a,b) => (b.volume ?? -1) - (a.volume ?? -1)), fetchedAt:new Date().toISOString(), source:"clickstream"};
 }
 
 /** domain_rank_overview once → visibility point + position buckets + est traffic. */

@@ -9,7 +9,7 @@ import {DEFAULT_KEYWORD_QUERY, type KeywordQuery} from "@/lib/keyword-query";
 import type {KeywordResearchResult, KeywordResearchRow} from "@/lib/types";
 
 const format=(value:number|null|undefined)=>value==null?"—":value.toLocaleString(undefined,{maximumFractionDigits:2});
-const countryName=(code:string)=>{try{return new Intl.DisplayNames(["en"],{type:"region"}).of(code)??code;}catch{return code;}};
+const countryName=(code:string)=>{if(code==="ZZ")return "Other / unknown";try{return new Intl.DisplayNames(["en"],{type:"region"}).of(code)??code;}catch{return code;}};
 function ReportMetric({label,value,note}:{label:string;value?:number|string|null;note?:string}){return <div><p className="text-xs text-muted">{label}</p><p className="mt-1 text-2xl font-semibold leading-8 tracking-tight">{typeof value==="number"?format(value):value??"—"}</p>{note&&<p className="mt-1 text-[11px] leading-4 text-muted">{note}</p>}</div>;}
 export function KeywordOverview({result,site,busy,onOpenMagic,onKeyword,onGlobal,onRefresh,onCountry}:{result?:KeywordResearchResult;site?:string;busy:boolean;onOpenMagic:(query:KeywordQuery)=>void;onKeyword:(row:KeywordResearchRow)=>void;onGlobal:()=>void;onRefresh:()=>void;onCountry:(code:number,label:string)=>void}){
   const [allCountries,setAllCountries]=useState(false);

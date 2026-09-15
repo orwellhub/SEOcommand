@@ -38,7 +38,9 @@ type Clause = [string, string, string | number | string[]];
 export function providerKeywordQuery(seed: string, query: KeywordQuery, nested = false, language = "en") {
   const prefix = nested ? "keyword_data." : "";
   const clauses: Clause[] = [];
-  const add = (field: string, operator: string, value: Clause[2]) => clauses.push([prefix + field, operator, value]);
+  // Labs consumes one escape layer before RE2 (a single \b becomes backspace).
+  // Keep our patterns standard and encode that extra layer only at the API boundary.
+  const add = (field: string, operator: string, value: Clause[2]) => clauses.push([prefix + field, operator, typeof value === "string" && (operator === "regex" || operator === "not_regex") ? value.replace(/\\/g, "\\\\") : value]);
   if (query.match === "phrase") for (const term of new Set(keywordWords(seed))) add("keyword", "regex", wordPattern(term));
   if (query.questions) {
     const patterns: Record<string,string> = {en:QUESTION_PATTERN, ar:"^(كيف|ما|ماذا|متى|أين|اين|من|لماذا|هل|كم) |[؟?]", fr:"^(comment|pourquoi|quand|où|ou|quel|quelle|combien|est-ce)\\b|\\?", es:"^(cómo|como|qué|que|cuándo|cuando|dónde|donde|cuánto|cuanto|por qué)\\b|[¿?]", de:"^(wie|was|wann|wo|wer|warum|welche|kann|ist)\\b|\\?"};
