@@ -1,6 +1,8 @@
 import { marketLabel } from "./markets";
 /** Shared, serialisable research contracts. Provider credentials never enter this module. */
 export const RESEARCH_FEATURES = [
+  { id: "keyword_bulk", title: "Background keyword collection", home: "/keyword-research", description: "Collect up to 50,000 keyword ideas with saved progress, cancellation and safe continuation.", input: "keywords" },
+  { id: "traffic", title: "Search traffic analytics", home: "/traffic-analytics", description: "Organic and paid search estimates, monthly history and leading search pages from DataForSEO.", input: "domains" },
   { id: "autocomplete", title: "Autocomplete suggestions", home: "/keyword-research?view=autocomplete", description: "Google's suggested searches, with their seed, language, market and collection date.", input: "keywords" },
   { id: "countries", title: "Domain country comparison", home: "/domain-research?view=countries", description: "Organic and paid search estimates by country and language from the provider index.", input: "domains" },
   { id: "footprint", title: "Deeper keyword and page research", home: "/competitors", description: "Up to 1,000 ranking keywords and 100 leading pages per selected domain.", input: "domains" },
@@ -15,12 +17,12 @@ export const RESEARCH_FEATURES = [
   { id: "reviews", title: "Customer review analysis", home: "/local-seo", description: "Review text, ratings, owner replies and evidence-backed themes for a selected business.", input: "business" },
 ] as const;
 export type ResearchFeature = typeof RESEARCH_FEATURES[number]["id"];
-export type ResearchInput = { market?: { locationCode: number; languageCode: string; label: string }; feature: ResearchFeature; keywords: string[]; domains: string[]; businessId?: string; platform: "google" | "chat_gpt"; device: "desktop" | "mobile"; path?: string; pathMode?: "page" | "folder" };
+export type ResearchInput = { maxRows?: number; market?: { locationCode: number; languageCode: string; label: string }; feature: ResearchFeature; keywords: string[]; domains: string[]; businessId?: string; platform: "google" | "chat_gpt"; device: "desktop" | "mobile"; path?: string; pathMode?: "page" | "folder" };
 export type EvidenceRow = { id: string; label: string; url?: string; keywords?: string[]; values: Record<string, string | number | null>; detail?: string; evidence?: Record<string, unknown> };
 export type EvidenceTable = { title: string; columns: string[]; rows: EvidenceRow[]; total: number | null; note?: string };
 export type EvidenceSeries = { label: string; unit: string; points: { date: string; value: number | null }[] };
 export type EvidenceReport = { tables: EvidenceTable[]; series: EvidenceSeries[]; notes: string[] };
-export type ResearchUnit = { id: string; endpoint: string; path: string; body: Record<string, unknown>; estimateUsd: number; label: string; mode?: "reviews"; chargeId?: string; startedAt?: string; status?: "running" | "waiting" | "completed"; taskId?: string; costUsd?: number; collectedAt?: string; raw?: Record<string, unknown>[]; report?: EvidenceReport };
+export type ResearchUnit = { maxRows?: number; id: string; endpoint: string; path: string; body: Record<string, unknown>; estimateUsd: number; label: string; mode?: "reviews"; chargeId?: string; startedAt?: string; status?: "running" | "waiting" | "completed"; taskId?: string; costUsd?: number; collectedAt?: string; raw?: Record<string, unknown>[]; report?: EvidenceReport };
 export type ResearchPayload = { input: ResearchInput; market: { locationCode: number; languageCode: string; label: string }; units: ResearchUnit[]; estimateUsd: number; notes: string[]; error?: string; lease?: string; report?: EvidenceReport };
 export type ResearchRun = { id: string; siteSlug: string; feature: ResearchFeature; status: string; createdAt: string; updatedAt: string; nextRunAt: string | null; payload: ResearchPayload };
 export const researchFeature = (id: string) => RESEARCH_FEATURES.find((feature) => feature.id === id);

@@ -42,8 +42,8 @@ export interface LiveState<T> {
   refresh: () => void;
 }
 
-export function useJson<T>(url: string, ttlMs = TTL_MS): LiveState<T> {
-  const cached = cache.get(url) as CacheEntry<T> | undefined;
+export function useJson<T>(url: string | null, ttlMs = TTL_MS): LiveState<T> {
+  const cached = (url ? cache.get(url) : undefined) as CacheEntry<T> | undefined;
   const [data, setData] = useState<T | null>(cached?.data ?? null);
   const [dataUrl, setDataUrl] = useState(url);
   const [loading, setLoading] = useState(!cached);
@@ -54,6 +54,7 @@ export function useJson<T>(url: string, ttlMs = TTL_MS): LiveState<T> {
     let cancelled = false;
     setError(null);
     setDataUrl(url);
+    if (!url) { setData(null); setLoading(false); return; }
     const entry = cache.get(url) as CacheEntry<T> | undefined;
     if (entry) {
       setData(entry.data);

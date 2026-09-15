@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { chromium, type Browser, type Page } from "playwright";
 import { db, schema } from "@/db";
 import type { ManagedSite } from "./types";
@@ -284,24 +284,28 @@ async function launchBrowser(): Promise<Browser> {
   });
 }
 
-export async function runBrowserCrawl(site: ManagedSite, requestedMax?: number): Promise<BrowserCrawlResult> {
+export async function runBrowserCrawl(site: ManagedSite, requestedMax?: number, options: { url?: string; jobId?: string; shouldStop?: () => boolean } = {}): Promise<BrowserCrawlResult> {
   if (!publicHost(site.host)) throw new Error("Browser crawler only accepts public website hosts.");
   await assertPublicHostname(site.host);
   const [settings] = await db().select({ payload: schema.commandRecords.payload }).from(schema.commandRecords).where(and(eq(schema.commandRecords.siteSlug, site.id), eq(schema.commandRecords.kind, "settings"), eq(schema.commandRecords.recordKey, "preferences")));
   const exclusions = Array.isArray(settings?.payload.crawlExclusions) ? settings.payload.crawlExclusions.filter((v): v is string => typeof v === "string" && v.startsWith("/")) : [];
+  const maxDepth = Math.min(30, Math.max(0, Number(settings?.payload.crawlMaxDepth ?? 10)));
+  const delayMs = Math.min(5000, Math.max(0, Number(settings?.payload.crawlDelayMs ?? 250)));
+  const deadline = Date.now() + 12 * 60000;
   const maxPages = Math.min(
-    Math.max(requestedMax ?? Number(process.env.BROWSER_CRAWL_MAX_PAGES ?? DEFAULT_BROWSER_PAGES), 1),
+    Math.max(requestedMax ?? Number(settings?.payload.crawlPageLimit ?? process.env.BROWSER_CRAWL_MAX_PAGES ?? DEFAULT_BROWSER_PAGES), 1),
     site.crawlMaxPages,
     MAX_BROWSER_PAGES,
   );
   const [previous] = await db().select().from(schema.browserCrawlRuns)
-    .where(eq(schema.browserCrawlRuns.siteSlug, site.id))
+    .where(and(eq(schema.browserCrawlRuns.siteSlug, site.id), eq(schema.browserCrawlRuns.status, "completed"), sql`coalesce(${schema.browserCrawlRuns.diffSummary}->>'singlePage', '0') = '0'`))
     .orderBy(desc(schema.browserCrawlRuns.startedAt)).limit(1);
   const [run] = await db().insert(schema.browserCrawlRuns).values({
     siteSlug: site.id,
     status: "running",
     maxPages,
     previousRunId: previous?.id ?? null,
+    diffSummary: { singlePage: options.url ? 1 : 0 },
   }).returning();
   if (!run) throw new Error("Could not create browser crawl run.");
 
@@ -321,20 +325,35 @@ export async function runBrowserCrawl(site: ManagedSite, requestedMax?: number):
         await route.abort("blockedbyclient");
       }
     });
-    const home = cleanUrl(`https://${site.host}/`)!;
-    const seeds = await sitemapSeeds(site.host);
+    const home = cleanUrl(options.url ?? `https://${site.host}/`)!;
+    if (!sameSite(home, site.host)) throw new Error("Choose a URL on the selected website.");
+    const seeds = options.url ? [] : await sitemapSeeds(site.host);
     const queue: Array<{ url: string; depth: number }> = [{ url: home, depth: 0 }, ...seeds.map((url) => ({ url, depth: 1 }))];
     const seen = new Set<string>();
     const pages: BrowserCrawlPageInput[] = [];
     const excluded = new Set<string>();
-    while (queue.length && pages.length < maxPages) {
+    let cancelled = false;
+    while (queue.length && pages.length < maxPages && Date.now() < deadline && !options.shouldStop?.()) {
+      if (options.jobId) {
+        const [active] = await db().select({ status: schema.platformJobs.status }).from(schema.platformJobs).where(eq(schema.platformJobs.id, options.jobId));
+        if (active?.status !== "running") { cancelled = true; break; }
+      }
       const next = queue.shift()!;
       if (seen.has(next.url) || !sameSite(next.url, site.host)) continue;
       seen.add(next.url);
+      if (next.depth > maxDepth) { excluded.add(next.url); continue; }
       if (excludedFromCrawl(next.url, exclusions)) { excluded.add(next.url); continue; }
       const result = await inspectPage(page, next.url, next.depth, site.host);
       pages.push(result);
-      for (const link of result.links) {
+      const { links: pageLinks, ...pageData } = result;
+      await db().insert(schema.browserCrawlPages).values({ ...pageData, runId: run.id, siteSlug: site.id });
+      if (pageLinks.length) await db().insert(schema.browserCrawlEdges).values(pageLinks.slice(0, 2000).map(edge => ({ runId: run.id, siteSlug: site.id, sourceUrl: result.url, ...edge })));
+      const resources = result.issues.includes("browser_render_failed") ? [] : await page.evaluate(() => performance.getEntriesByType("resource").map(entry => { const r = entry as PerformanceResourceTiming; return { url: r.name, type: r.initiatorType, durationMs: Math.round(r.duration), transferBytes: r.transferSize, encodedBytes: r.encodedBodySize }; }).sort((a, b) => b.durationMs - a.durationMs).slice(0, 100)).catch(() => []);
+      await db().insert(schema.commandRecords).values({ siteSlug: site.id, kind: "workspace_crawl_resources", recordKey: `${run.id}:${hash(result.url)}`, status: "completed", payload: { runId: run.id, url: result.url, resources, sampled: true, note: "Up to 100 slowest observed resources. Images, media and fonts are intentionally blocked by the crawler; cross-origin byte sizes may be unavailable." } });
+      await db().update(schema.browserCrawlRuns).set({ pagesCrawled: pages.length, diffSummary: { heartbeatAt: Date.now(), singlePage: options.url ? 1 : 0 } }).where(eq(schema.browserCrawlRuns.id, run.id));
+      if (options.jobId) await db().update(schema.platformJobs).set({ progress: sql`${schema.platformJobs.progress} || ${JSON.stringify({ runId: run.id, pagesCrawled: pages.length, heartbeatAt: Date.now() })}::jsonb` }).where(and(eq(schema.platformJobs.id, options.jobId), eq(schema.platformJobs.status, "running")));
+      if (delayMs) await new Promise(resolve => setTimeout(resolve, delayMs));
+      for (const link of options.url ? [] : result.links) {
         if (!seen.has(link.targetUrl) && queue.length < maxPages * 5) queue.push({ url: link.targetUrl, depth: next.depth + 1 });
       }
     }
@@ -349,23 +368,23 @@ export async function runBrowserCrawl(site: ManagedSite, requestedMax?: number):
     const after = new Map(pages.map((item) => [item.url, item]));
     const diffSummary = {
       ...internationalCoverage,
+      singlePage: options.url ? 1 : 0,
+      timeLimited: Date.now() >= deadline ? 1 : 0,
+      interrupted: cancelled || options.shouldStop?.() ? 1 : 0,
       excluded: excluded.size,
       discovered: new Set([...seen, ...queue.map((item) => item.url)]).size,
       unvisited: new Set(queue.filter((item) => !seen.has(item.url)).map((item) => item.url)).size,
       added: [...after.keys()].filter((url) => !before.has(url)).length,
-      removed: [...before.keys()].filter((url) => !after.has(url)).length,
+      removed: !options.url && !queue.length && !cancelled && !options.shouldStop?.() ? [...before.keys()].filter((url) => !after.has(url)).length : 0,
+      removalComparisonComplete: !options.url && !queue.length && !cancelled && !options.shouldStop?.() ? 1 : 0,
       contentChanged: pages.filter((item) => before.get(item.url)?.renderedHash && before.get(item.url)?.renderedHash !== item.renderedHash).length,
       titleChanged: pages.filter((item) => before.get(item.url)?.renderedTitle && before.get(item.url)?.renderedTitle !== item.renderedTitle).length,
       canonicalChanged: pages.filter((item) => before.get(item.url)?.canonical && before.get(item.url)?.canonical !== item.canonical).length,
       indexabilityChanged: pages.filter((item) => before.has(item.url) && before.get(item.url)?.indexable !== item.indexable).length,
     };
     const counts = issueCounts(pages);
-    for (let index = 0; index < pages.length; index += 200) {
-      const chunk = pages.slice(index, index + 200);
-      await db().insert(schema.browserCrawlPages).values(chunk.map(({ links: _links, ...item }) => ({ ...item, runId: run.id, siteSlug: site.id })));
-    }
-    const edges = pages.flatMap((item) => item.links.slice(0, 2_000).map((edge) => ({ runId: run.id, siteSlug: site.id, sourceUrl: item.url, ...edge })));
-    for (let index = 0; index < edges.length; index += 500) await db().insert(schema.browserCrawlEdges).values(edges.slice(index, index + 500));
+    // Pages and edges were checkpointed during collection. Only cross-page findings need updating.
+    for (const item of pages) await db().update(schema.browserCrawlPages).set({ issues: item.issues }).where(and(eq(schema.browserCrawlPages.runId, run.id), eq(schema.browserCrawlPages.url, item.url)));
     await db().update(schema.browserCrawlRuns).set({
       status: "completed",
       pagesCrawled: pages.length,
@@ -376,6 +395,7 @@ export async function runBrowserCrawl(site: ManagedSite, requestedMax?: number):
     }).where(eq(schema.browserCrawlRuns.id, run.id));
 
     const regressed = previous ? pages.filter((item) => {
+      if (item.issues.includes("browser_render_failed")) return false;
       const prior = before.get(item.url);
       return Boolean(
         (prior?.indexable && !item.indexable) ||
@@ -408,7 +428,7 @@ export async function runBrowserCrawl(site: ManagedSite, requestedMax?: number):
 
 export async function latestBrowserCrawl(siteSlug: string) {
   const [run] = await db().select().from(schema.browserCrawlRuns)
-    .where(eq(schema.browserCrawlRuns.siteSlug, siteSlug))
+    .where(and(eq(schema.browserCrawlRuns.siteSlug, siteSlug), sql`coalesce(${schema.browserCrawlRuns.diffSummary}->>'singlePage', '0') = '0'`))
     .orderBy(desc(schema.browserCrawlRuns.startedAt)).limit(1);
   if (!run) return { run: null, pages: [], orphanUrls: [] as string[] };
   const pages = await db().select().from(schema.browserCrawlPages)
@@ -419,20 +439,14 @@ export async function latestBrowserCrawl(siteSlug: string) {
   return { run, pages, orphanUrls };
 }
 
-export async function queueBrowserCrawl(siteSlug: string, maxPages?: number) {
-  const queued = await db().select({ id: schema.platformJobs.id }).from(schema.platformJobs)
-    .where(inArray(schema.platformJobs.status, ["queued", "running"]))
-    .limit(100);
-  // The queue is intentionally idempotent per site/kind while work is active.
-  const existing = await db().select().from(schema.platformJobs)
-    .where(eq(schema.platformJobs.siteSlug, siteSlug))
-    .orderBy(desc(schema.platformJobs.createdAt)).limit(20);
-  const active = existing.find((job) => job.kind === "browser_crawl" && ["queued", "running"].includes(job.status));
-  if (active) return active;
-  const [job] = await db().insert(schema.platformJobs).values({
-    siteSlug,
-    kind: "browser_crawl",
-    progress: { maxPages: maxPages ?? null, queueDepth: queued.length },
-  }).returning();
-  return job!;
+export async function queueBrowserCrawl(siteSlug: string, maxPages?: number, url?: string) {
+  return db().transaction(async tx => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`browser-crawl:${siteSlug}`}))`);
+    const now = new Date(), cutoff = now.getTime() - 30 * 60000;
+    await tx.update(schema.platformJobs).set({ status: "failed", completedAt: now, lastError: "Browser worker interrupted. Saved evidence is retained; a replacement crawl was requested." }).where(and(eq(schema.platformJobs.siteSlug, siteSlug), eq(schema.platformJobs.kind, "browser_crawl"), eq(schema.platformJobs.status, "running"), sql`${schema.platformJobs.startedAt} < ${new Date(cutoff)}`, sql`coalesce((${schema.platformJobs.progress}->>'heartbeatAt')::numeric, 0) < ${cutoff}`));
+    const [active] = await tx.select().from(schema.platformJobs).where(and(eq(schema.platformJobs.siteSlug, siteSlug), eq(schema.platformJobs.kind, "browser_crawl"), inArray(schema.platformJobs.status, ["queued", "running"]))).limit(1);
+    if (active) return active;
+    const [job] = await tx.insert(schema.platformJobs).values({ siteSlug, kind: "browser_crawl", progress: { maxPages: url ? 1 : maxPages ?? null, ...(url ? { url } : {}) } }).returning();
+    return job!;
+  });
 }

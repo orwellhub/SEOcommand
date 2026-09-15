@@ -1,0 +1,11 @@
+import {beforeEach,expect,it,vi} from "vitest";
+const state=vi.hoisted(()=>({allowed:true,post:vi.fn(),save:vi.fn()}));
+vi.mock("@/platform/access",()=>({canAccessSite:async()=>state.allowed,hasPermission:async()=>state.allowed}));
+vi.mock("@/platform/site-store",()=>({getManagedSite:async()=>({host:"example.com"})}));
+vi.mock("@/providers/dataforseo",()=>({getDataForSeoClient:()=>({post:state.post})}));
+vi.mock("@/platform/workspace-store",()=>({workspaceRecords:async()=>[],saveWorkspace:state.save}));
+import {POST} from "./route";
+const request=()=>new Request("http://localhost/api/advertising",{method:"POST",body:JSON.stringify({site:"test",domain:"example.com",locationCode:2840,languageCode:"en",kind:"keywords"})});
+beforeEach(()=>{vi.stubEnv("QA_SYNTHETIC","false");state.allowed=true;state.post.mockReset().mockResolvedValue({result:[{items:[],total_count:0}],costUsd:.012});state.save.mockReset().mockResolvedValue({id:"saved"});});
+it("explicitly requests paid results under the selected website spending limit and saves zero results",async()=>{expect((await POST(request())).status).toBe(200);expect(state.post).toHaveBeenCalledWith("labsRankedKeywords",expect.any(String),[expect.objectContaining({item_types:["paid"],location_code:2840,limit:100})],{domainSlug:"test"});expect(state.save).toHaveBeenCalledWith("test","advertising",expect.any(String),expect.objectContaining({rows:[],total:0,costUsd:.012}),"completed");});
+it("rejects a user without research permission before collection",async()=>{state.allowed=false;expect((await POST(request())).status).toBe(403);expect(state.post).not.toHaveBeenCalled();});

@@ -1,5 +1,6 @@
 import { and, desc, eq, gte, lte, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
+import { competitorCitationGaps } from "@/lib/ai-research";
 import { listManagedSites } from "./site-store";
 
 export interface AiDashboardScope {
@@ -219,11 +220,11 @@ export async function buildAiVisibilityDashboard(scope: AiDashboardScope, days =
   }));
 
   const recommendations = [
-    ...sources.filter((item) => !item.owned).slice(0, 5).map((item) => ({
+    ...competitorCitationGaps(latestObservations).slice(0, 5).map((item) => ({
       kind: "source_gap",
-      title: `Build authority with ${item.domain}`,
-      detail: `${item.domain} appeared in ${item.citations} measured citations across ${item.platforms.length} AI platforms.`,
-      priority: Math.min(95, 55 + item.citations * 4),
+      title: `Review citations from ${item.domain}`,
+      detail: `${item.domain} was cited in ${item.checks} responses mentioning a competitor while your brand was absent. Review the source before choosing an action.`,
+      priority: Math.min(95, 55 + item.checks * 4),
       reviewOnly: true,
     })),
     ...latestObservations.filter((item) => !item.mentioned).slice(0, 5).map((item) => ({

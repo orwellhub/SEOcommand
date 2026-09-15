@@ -10,6 +10,7 @@ import { NotificationBell } from "./notification-bell";
 import { JobDrawer } from "./job-drawer";
 import { Modal } from "@/components/ui/modal";
 import { AskCommand } from "@/components/command/ask-command";
+import { navigateSafely } from "@/components/ui/unsaved-changes";
 import { ProviderBalance } from "./provider-balance";
 
 interface SessionUser {
@@ -56,7 +57,8 @@ export function TopNav() {
     window.localStorage.setItem("orwell.theme", next ? "dark" : "light");
   }
 
-  async function signOut() {
+  function signOut() { navigateSafely(() => { void performSignOut(); }); }
+  async function performSignOut() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
     router.push("/login");
     router.refresh();
@@ -75,13 +77,12 @@ export function TopNav() {
 
   function openSite(id: string) {
     setSearchOpen(false);
-    setScope(id);
-    router.push(`/sites/${id}`);
+    navigateSafely(() => { setScope(id); router.push(`/sites/${id}`); });
   }
 
   function openTool(item: NavItem) {
     setSearchOpen(false);
-    router.push(navigationHref(item, scope, range));
+    navigateSafely(() => router.push(navigationHref(item, scope, range)));
   }
 
   const initials = (user?.name || user?.email || "Orwell")
@@ -129,7 +130,7 @@ export function TopNav() {
                 {matches.sites.map((site) => <SearchResult key={site.id} color={site.accent} title={site.name} subtitle={site.host} onClick={() => openSite(site.id)} />)}
               </SearchSection>
               <SearchSection label="Groups">
-                {matches.groups.map((group) => <SearchResult key={group.id} color={group.color} title={group.name} subtitle={`${group.siteSlugs.length} websites`} onClick={() => { setSearchOpen(false); setScope(`group:${group.id}`); router.push(`/portfolio?scope=${encodeURIComponent(`group:${group.id}`)}`); }} />)}
+                {matches.groups.map((group) => <SearchResult key={group.id} color={group.color} title={group.name} subtitle={`${group.siteSlugs.length} websites`} onClick={() => { setSearchOpen(false); navigateSafely(() => { setScope(`group:${group.id}`); router.push(`/portfolio?scope=${encodeURIComponent(`group:${group.id}`)}`); }); }} />)}
               </SearchSection>
               {!matches.sites.length && !matches.groups.length && !matches.modules.length && <p className="p-4 text-sm text-muted">No matching website or feature. Try a shorter name.</p>}
               <SearchSection label="Features">

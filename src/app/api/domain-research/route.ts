@@ -27,7 +27,7 @@ const qaRuns: QaEvidence[] = [];
 function qaEvidence(targetHost = "competitor.example", locationCode = 2840, languageCode = "en", locationLabel = "United States") {
   const result = qaCompetitorExplorer(targetHost);
   return {
-    id: "71000000-0000-4000-8000-000000000001",
+    id: crypto.randomUUID(),
     projectId: null,
     kind: "domain",
     title: `${targetHost} domain research`,
@@ -49,8 +49,8 @@ export async function GET(request: Request) {
   if (!await hasPermission(request, "research")) return NextResponse.json({ error: "Research permission required." }, { status: 403 });
   const id = new URL(request.url).searchParams.get("id")?.trim();
   if (process.env.QA_SYNTHETIC === "true") {
-    const evidence = qaRuns[0] ?? qaEvidence();
-    return id ? NextResponse.json({ evidence: id === evidence.id ? evidence : null, synthetic: true }) : NextResponse.json({ evidence: [evidence], estimateUsd: DOMAIN_RESEARCH_ESTIMATE_USD, synthetic: true });
+    if (!qaRuns.length) qaRuns.push(qaEvidence());
+    return id ? NextResponse.json({ evidence: qaRuns.find(row => row.id === id) ?? null, synthetic: true }) : NextResponse.json({ evidence: qaRuns, estimateUsd: DOMAIN_RESEARCH_ESTIMATE_USD, synthetic: true });
   }
   if (!hasDatabase()) return NextResponse.json({ error: "Domain research requires DATABASE_URL." }, { status: 503 });
   if (id) {

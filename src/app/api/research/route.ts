@@ -5,7 +5,7 @@ import { canAccessSite, hasPermission } from "@/platform/access";
 import { getManagedSite } from "@/platform/site-store";
 import { researchFeature, type ResearchFeature } from "@/lib/research-evidence";
 import { buildResearchPlan, researchDefaults, researchInputSchema } from "@/platform/research-plan";
-import { cancelResearch, processResearchJobs, queueResearch, researchRuns } from "@/platform/research-jobs";
+import { resumeResearch, cancelResearch, processResearchJobs, queueResearch, researchRun, researchRuns } from "@/platform/research-jobs";
 import { dataForSeoConfigured } from "@/providers/dataforseo";
 import { assertSiteSpendAllowed } from "@/platform/spend-approval";
 
@@ -21,11 +21,11 @@ export async function GET(request: Request) {
   try {
     const site = await getManagedSite(siteId);
     if (!site) return NextResponse.json({ error: "Website not found." }, { status: 404 });
-    const [runs, defaults, canScan, canEdit] = await Promise.all([researchRuns(site.id, feature as ResearchFeature), researchDefaults(site), hasPermission(request, "run_scans", site.id), hasPermission(request, "manage_content", site.id)]);
+    const [runs, defaults, canScan, canEdit] = await Promise.all([researchRuns(site.id, feature as ResearchFeature, Math.min(1200, Math.max(0, Number(params.get("offset")) || 0))), researchDefaults(site), hasPermission(request, "run_scans", site.id), hasPermission(request, "manage_content", site.id)]);
     return NextResponse.json({ runs: runs.map((run) => ({ ...run, payload: { ...run.payload, lease: undefined, units: run.payload.units.map(({ raw: _raw, ...unit }) => unit) } })), defaults, canScan, canEdit, configured: dataForSeoConfigured() && process.env.QA_SYNTHETIC !== "true" });
   } catch { return NextResponse.json({ error: "Saved research could not load. Retry shortly." }, { status: 503 }); }
 }
-const bodySchema = z.object({ site: z.string().min(1).max(120), action: z.enum(["preview", "collect", "cancel", "continue"]), input: researchInputSchema.optional(), id: z.string().uuid().optional(), approvedEstimate: z.number().finite().nonnegative().max(25).optional() });
+const bodySchema = z.object({ site: z.string().min(1).max(120), action: z.enum(["preview", "collect", "cancel", "continue", "resume"]), input: researchInputSchema.optional(), id: z.string().uuid().optional(), approvedEstimate: z.number().finite().nonnegative().max(25).optional() });
 export async function POST(request: Request) {
   const session = await sessionFromRequest(request);
   if (!session) return NextResponse.json({ error: "Sign in to manage research." }, { status: 401 });
@@ -41,9 +41,15 @@ export async function POST(request: Request) {
       const run = await cancelResearch(site.id, body.id);
       return NextResponse.json({ run, message: "Collection stopped. Completed evidence is retained; an in-flight request may still finish." });
     }
+    if (body.action === "resume") {
+      if (!body.id) throw new Error("Choose a saved collection.");
+      const run = await resumeResearch(site.id, body.id);
+      after(() => processResearchJobs(run.id));
+      return NextResponse.json({ run }, { status: 202 });
+    }
     if (body.action === "continue") {
       if (!body.id || !body.input) throw new Error("Choose a queued collection.");
-      const run = (await researchRuns(site.id, body.input.feature)).find((row) => row.id === body.id);
+      const run = await researchRun(site.id, body.input.feature, body.id);
       if (!run || !["queued", "waiting"].includes(run.status)) throw new Error("Only queued or waiting collections can continue. Failed requests are not replayed.");
       after(() => processResearchJobs(run.id));
       return NextResponse.json({ message: "Worker requested. Existing review task IDs and completed evidence are reused." }, { status: 202 });

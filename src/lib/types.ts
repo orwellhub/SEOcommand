@@ -135,6 +135,10 @@ export interface KeywordMonthlyPoint {
  * low-signal keywords rather than returning zero.
  */
 export interface KeywordResearchRow {
+  relatedToSeed?: boolean;
+  serpFeatures?: string[];
+  resultCount?: number | null;
+  updatedAt?: string | null;
   keyword: string;
   volume: number | null;
   difficulty: number | null; // 0-100
@@ -150,6 +154,7 @@ export interface KeywordResearchRow {
 
 /** Result of one keyword-research scan against a chosen SERP market. */
 export interface KeywordResearchResult {
+  pagination?: { nextOffset: number; total: number | null; hasMore: boolean; sourceType: string };
   seed: string;
   locationCode: number;
   languageCode: string;
@@ -449,6 +454,7 @@ export interface ShareOfMarket {
 
 /** GA4 organic overview for a window. */
 export interface Ga4Overview {
+  averageSessionDuration?: number | null; // seconds, aggregate for this exact reporting window
   sessions: number;
   totalUsers: number;
   newUsers: number;

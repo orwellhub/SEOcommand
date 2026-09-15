@@ -19,7 +19,7 @@ export async function GET(request: Request) {
   if (row.status !== "ready" || !row.payload.pdf) return NextResponse.json({ error: "PDF is queued for the browser worker. Check again after the next hourly run." }, { status: 409 });
   return new Response(Buffer.from(String(row.payload.pdf), "base64"), { headers: { "content-type": "application/pdf", "content-disposition": 'attachment; filename="seo-report.pdf"', "cache-control": "private, no-store" } });
 }
-const inputSchema = z.object({ action: z.enum(["generate", "share", "revoke", "email", "retry"]), site: z.string().min(1).max(120), id: z.string().uuid().optional(), recipients: z.array(z.string().email()).min(1).max(10).optional() });
+const inputSchema = z.object({ action: z.enum(["generate", "share", "revoke", "email", "retry"]), site: z.string().min(1).max(120), id: z.string().uuid().optional(), recipients: z.array(z.string().email()).min(1).max(10).optional(), templateId: z.string().optional(), definition: z.record(z.string(), z.unknown()).optional() });
 export async function POST(request: Request) {
   const input = inputSchema.safeParse(await request.json().catch(() => null)), session = await sessionFromRequest(request);
   if (!input.success || !session) return NextResponse.json({ error: "Sign in and choose valid report details." }, { status: 400 });
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   if (!await canAccessSite(request, body.site) || !await hasPermission(request, "manage_reports", body.site)) return NextResponse.json({ error: "Report management access required." }, { status: 403 });
   if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ error: "Report delivery is disabled in preview." }, { status: 409 });
   try {
-    if (body.action === "generate") { const report = await archiveReport(body.site, session.email); return NextResponse.json({ id: report.id, message: report.status === "ready" ? "PDF generated and archived." : "Report snapshot saved. PDF queued for the next hourly browser worker; client sharing is available now." }); }
+    if (body.action === "generate") { const report = await archiveReport(body.site, session.email, body.templateId, body.definition); return NextResponse.json({ id: report.id, message: report.status === "ready" ? "PDF generated and archived." : "Report snapshot saved. PDF queued for the next hourly browser worker; client sharing is available now." }); }
     const report = body.id ? await reportById(body.site, body.id) : null;
     if (!report) throw new Error("Choose an archived report.");
     if (body.action === "retry") {

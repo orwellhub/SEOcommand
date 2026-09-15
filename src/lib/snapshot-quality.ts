@@ -19,6 +19,12 @@ export function normalizeSavedSnapshot<T extends { dataset: string; payload: unk
       payload = { ...data, completeDateRange: true, qualityNote: "Older saved report: the latest day may be incomplete for some property time zones. Comparisons and tracking coverage are unverified." };
     }
   }
+  if (snapshot.dataset === "onpage" && payload && typeof payload === "object" && !Array.isArray(payload)) {
+    const audit=payload as {methodologyVersion?:number;issues?:{id?:string;title?:string}[]};
+    // This provider field counts successful URL checks. Retain stored records,
+    // but remove the known incorrectly labelled issue at the read boundary.
+    if ((audit.methodologyVersion??0)<3 && Array.isArray(audit.issues)) payload={...audit,issues:audit.issues.filter(row=>!row.id?.includes("seo_friendly_url_characters_check")&&row.title!=="Non SEO-friendly URL characters")};
+  }
   if (Array.isArray(payload)) {
     if (snapshot.dataset === "referring_domains") payload = payload.filter((row) => typeof row?.host === "string" && row.host.trim());
     else if (snapshot.dataset === "backlinks") payload = payload.filter((row) => row?.sourceUrl && row?.targetUrl);

@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { sourceHealth } from "@/lib/source-health";
 import { buildDomainBundle } from "@/sync/bundle";
@@ -10,13 +10,13 @@ import { groupCauses, segmentBrand, suggestLinks, unifiedPages, type BusinessRes
 
 export async function pageInventory(siteSlug: string) {
   if (!hasDatabase() || process.env.QA_SYNTHETIC === "true") return { pages: [] as PageEvidence[], edges: [] as { sourceUrl: string; targetUrl: string }[], saved: 0, capturedAt: null as string | null };
-  const [run] = await db().select().from(schema.browserCrawlRuns).where(and(eq(schema.browserCrawlRuns.siteSlug, siteSlug), eq(schema.browserCrawlRuns.status, "completed"))).orderBy(desc(schema.browserCrawlRuns.completedAt)).limit(1);
+  const [run] = await db().select().from(schema.browserCrawlRuns).where(and(eq(schema.browserCrawlRuns.siteSlug, siteSlug), eq(schema.browserCrawlRuns.status, "completed"), sql`coalesce(${schema.browserCrawlRuns.diffSummary}->>'singlePage', '0') = '0'`)).orderBy(desc(schema.browserCrawlRuns.completedAt)).limit(1);
   if (run) {
     const [pages, edges] = await Promise.all([
       db().select().from(schema.browserCrawlPages).where(eq(schema.browserCrawlPages.runId, run.id)).limit(10000),
       db().select({ sourceUrl: schema.browserCrawlEdges.sourceUrl, targetUrl: schema.browserCrawlEdges.targetUrl }).from(schema.browserCrawlEdges).where(eq(schema.browserCrawlEdges.runId, run.id)).limit(100000),
     ]);
-    return { pages: pages.map((row): PageEvidence => ({ url: row.url, finalUrl: row.finalUrl, title: row.renderedTitle ?? row.rawTitle, statusCode: row.statusCode, canonical: row.canonical, indexable: row.indexable, hash: row.renderedHash, tracking: null, capturedAt: row.capturedAt.toISOString(), issues: row.issues })), edges, saved: run.pagesCrawled, capturedAt: run.completedAt?.toISOString() ?? null };
+    return { pages: pages.map((row): PageEvidence => ({ url: row.url, finalUrl: row.finalUrl, title: row.renderedTitle ?? row.rawTitle, statusCode: row.statusCode, canonical: row.canonical, indexable: row.issues.includes("browser_render_failed") ? null : row.indexable, hash: row.renderedHash, tracking: null, capturedAt: row.capturedAt.toISOString(), issues: row.issues })), edges, saved: run.pagesCrawled, capturedAt: run.completedAt?.toISOString() ?? null };
   }
   const [inventory] = await db().select().from(schema.detailedCrawlRuns).where(and(eq(schema.detailedCrawlRuns.siteSlug, siteSlug), eq(schema.detailedCrawlRuns.status, "completed"))).orderBy(desc(schema.detailedCrawlRuns.completedAt)).limit(1);
   if (!inventory) return { pages: [] as PageEvidence[], edges: [], saved: 0, capturedAt: null };

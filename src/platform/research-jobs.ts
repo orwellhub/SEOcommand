@@ -7,15 +7,21 @@ import { normalizeResearch } from "@/providers/dataforseo/research-normalizers";
 import { clusterSearchResults, researchKind, researchReportLabels, type EvidenceReport, type ResearchFeature, type ResearchPayload, type ResearchRun } from "@/lib/research-evidence";
 import { getManagedSite } from "./site-store";
 
+import { nextResearchPage, researchCanResume } from "@/lib/research-pagination";
 const records = schema.commandRecords;
 function serialize(row: typeof records.$inferSelect): ResearchRun {
   const feature = row.kind.replace(/^research_/, "") as ResearchFeature;
   const payload = row.payload as ResearchPayload;
   return { id: row.id, siteSlug: row.siteSlug, feature, status: row.status, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(), nextRunAt: row.nextRunAt?.toISOString() ?? null, payload: { ...payload, report: researchReportLabels(feature, payload.report), units: payload.units.map(unit => ({ ...unit, report: researchReportLabels(feature, unit.report) })) } };
 }
-export async function researchRuns(siteSlug: string, feature: ResearchFeature) {
+export async function researchRuns(siteSlug: string, feature: ResearchFeature, offset = 0) {
   if (!hasDatabase()) return [];
-  return (await db().select().from(records).where(and(eq(records.siteSlug, siteSlug), eq(records.kind, researchKind(feature)))).orderBy(desc(records.createdAt)).limit(12)).map(serialize);
+  return (await db().select().from(records).where(and(eq(records.siteSlug, siteSlug), eq(records.kind, researchKind(feature)))).orderBy(desc(records.createdAt)).limit(12).offset(offset)).map(serialize);
+}
+export async function researchRun(siteSlug: string, feature: ResearchFeature, id: string) {
+  if (!hasDatabase()) return null;
+  const [row] = await db().select().from(records).where(and(eq(records.siteSlug, siteSlug), eq(records.kind, researchKind(feature)), eq(records.id, id))).limit(1);
+  return row ? serialize(row) : null;
 }
 export async function queueResearch(siteSlug: string, payload: ResearchPayload, actor: string) {
   if (!hasDatabase()) throw new Error("The workspace database is required to save research.");
@@ -40,7 +46,13 @@ export function combinedResearchReport(payload: ResearchPayload): EvidenceReport
     const excluded = samples.filter((sample) => sample.urls.length < 3).map((sample) => sample.keyword);
     return { tables: [{ title: "Keyword groups sharing search results", columns: ["Keywords", "Minimum shared URLs"], rows: clusterSearchResults(samples), total: null, note: "Every pair in a group shares at least three URLs from its top ten organic results. This suggests shared intent; review before assigning one page." }], series: [], notes: [...payload.notes, ...(excluded.length ? [`Insufficient organic results for: ${excluded.join(", ")}.`] : [])] };
   }
-  const tables = complete.flatMap((unit) => unit.report?.tables ?? []);
+  const groups = new Map<string, EvidenceReport["tables"][number]>();
+  for (const unit of complete) for (const table of unit.report?.tables ?? []) {
+    const old = groups.get(table.title);
+    const rows = [...new Map([...(old?.rows ?? []), ...table.rows].map(row => [row.label + (row.url ?? ""), row])).values()].map((row, i) => ({ ...row, id: String(i) }));
+    groups.set(table.title, { ...table, rows });
+  }
+  const tables = [...groups.values()];
   return { tables: payload.input.feature === "questions" ? tables.filter((table) => table.title.endsWith(": customer questions")) : tables, series: complete.flatMap((unit) => unit.report?.series ?? []), notes: [...payload.notes, ...complete.flatMap((unit) => unit.report?.notes ?? [])] };
 }
 
@@ -86,7 +98,9 @@ export async function processResearchJobs(id?: string, shouldStop: () => boolean
             unit.taskId = posted.taskId; unit.costUsd = posted.costUsd; unit.status = "waiting";
           } else {
             const result = await client.post<Record<string, unknown>>(unit.endpoint, unit.path, [unit.body], options);
+            const next = nextResearchPage(unit, result.result);
             unit.costUsd = result.costUsd; unit.report = normalizeResearch(unit, result.result); unit.collectedAt = new Date().toISOString(); unit.status = "completed";
+            if (next) payload.units.push(next);
           }
         }
         if (await checkpoint("running")) break;
@@ -100,4 +114,19 @@ export async function processResearchJobs(id?: string, shouldStop: () => boolean
       await checkpoint("failed");
     }
   }
+}
+
+export async function resumeResearch(siteSlug: string, id: string) {
+  return db().transaction(async tx => {
+    const [row] = await tx.select().from(records).where(and(eq(records.id, id), eq(records.siteSlug, siteSlug), like(records.kind, "research_%"))).for("update");
+    if (!row || !["failed", "cancelled"].includes(row.status)) throw new Error("Choose an interrupted collection.");
+    const payload = row.payload as ResearchPayload;
+    if (!researchCanResume(payload.units)) throw new Error("This collection has no safe pending requests. Completed evidence is retained; uncertain paid requests require provider review.");
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`research:${siteSlug}:${payload.input.feature}`}))`);
+    const [active] = await tx.select().from(records).where(and(eq(records.siteSlug, siteSlug), eq(records.kind, row.kind), inArray(records.status, ["queued", "running", "waiting"])));
+    if (active) throw new Error("Finish the active collection before resuming this one.");
+    delete payload.error; delete payload.lease;
+    const [saved] = await tx.update(records).set({ payload, status: "queued", nextRunAt: new Date(), updatedAt: new Date() }).where(eq(records.id, id)).returning();
+    return serialize(saved!);
+  });
 }

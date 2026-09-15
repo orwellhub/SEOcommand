@@ -8,6 +8,7 @@ import { uncertainResearchSpend } from "@/providers/dataforseo/reservations";
 
 const ENDPOINT_CATEGORY: Record<string, SpendCategory> = {
   serpOrganicLive: "rankings",
+  onPageLighthouse: "crawling",
   onPageTaskPost: "crawling",
   onPageSummary: "crawling",
   onPagePages: "crawling",

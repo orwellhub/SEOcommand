@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, lte } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import { DOMAINS, DOMAIN_MAP } from "@/data/domains";
 import { db, schema } from "@/db";
 import { hasDatabase } from "@/sync/store";
@@ -266,6 +266,7 @@ export async function listRankTrackingKeywords(siteSlug: string) {
       and(
         eq(schema.rankTrackingKeywords.siteSlug, siteSlug),
         eq(schema.rankTrackingKeywords.active, true),
+        sql`not exists (select 1 from ${schema.dailyRankHistory} where ${schema.dailyRankHistory.trackedKeywordId} = ${schema.rankTrackingKeywords.id} and ${schema.dailyRankHistory.capturedOn} > current_date - (case when ${schema.rankTrackingKeywords.cadence} = 'daily' then 1 else 7 end))`,
       ),
     )
     .orderBy(asc(schema.rankTrackingKeywords.createdAt));

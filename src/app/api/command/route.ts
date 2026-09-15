@@ -32,6 +32,8 @@ export async function GET(request: Request) {
 
 const schema = z.object({
   action: z.enum(["brand", "business_settings", "crawl_settings", "speed", "indexing", "business", "watch_add", "watch_remove", "watch_check", "baseline", "compare", "timeline", "plan_preview", "plan_save", "plan_cancel"]),
+  speedProvider: z.enum(["google", "dataforseo"]).optional(),
+  crawlPageLimit: z.number().int().min(1).max(5000).optional(), crawlMaxDepth: z.number().int().min(0).max(30).optional(), crawlDelayMs: z.number().int().min(0).max(5000).optional(),
   exclusions: z.array(z.string().trim().min(2).max(200).regex(/^\/(?!\/)[^?#*]*$/, "Use a path prefix, e.g. /account; no wildcards." )).max(50).optional(),
   site: z.string().min(1).max(120).optional(), url: z.string().max(2000).optional(), device: z.enum(["mobile", "desktop"]).optional(),
   terms: z.array(z.string().trim().min(1).max(100)).max(30).optional(), businessEvents: z.record(z.string().regex(/^[a-zA-Z][a-zA-Z0-9_]{0,39}$/), z.enum(["enquiry", "booking", "qualified_lead"])).optional(),
@@ -78,7 +80,7 @@ export async function POST(request: Request) {
     }
     if (["speed", "indexing", "business", "watch_check"].includes(input.action)) {
       const kind = input.action === "watch_check" ? "watch_run" : input.action;
-      const row = await queueCommandCheck(site.id, kind, { ...(url ? { url } : {}), ...(kind === "speed" ? { device: input.device ?? "mobile" } : {}) }, session.email);
+      const row = await queueCommandCheck(site.id, kind, { ...(url ? { url } : {}), ...(kind === "speed" ? { device: input.device ?? "mobile", provider: input.speedProvider ?? "google" } : {}) }, session.email);
       after(() => processCommandChecks(row.id));
       return NextResponse.json({ ok: true, record: row, message: "Check queued. You can leave this page; results will be saved." }, { status: 202 });
     }

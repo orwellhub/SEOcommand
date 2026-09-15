@@ -46,7 +46,7 @@ export interface CompetitorExplorerResult {
     paidTraffic: number | null;
     estimatedTrafficCost: number | null;
   };
-  keywords: Array<{ keyword: string; position: number | null; volume: number | null; difficulty: number | null; intent: string | null; url: string | null; traffic: number | null }>;
+  keywords: Array<{ keyword: string; position: number | null; volume: number | null; difficulty: number | null; intent: string | null; url: string | null; traffic: number | null; previousPosition?: number | null; isNew?: boolean | null; isLost?: boolean | null; updatedAt?: string | null }>;
   pages: Array<{ url: string; keywords: number | null; traffic: number | null; trafficCost: number | null }>;
   backlinks: { rank: number | null; backlinks: number | null; referringDomains: number | null; spamScore: number | null };
 }
@@ -91,8 +91,8 @@ export async function collectDomainResearch(opts: {
   // Run sequentially so each actual cost is recorded before the next
   // preflight. Parallel calls could all observe the same near-limit balance.
   const overviewResponse = await client.post<Row>("labsDomainRankOverview", ENDPOINTS.labsDomainRankOverview, [{ ...base }], providerOptions);
-  const keywordResponse = await client.post<Row>("labsRankedKeywords", ENDPOINTS.labsRankedKeywords, [{ ...base, limit: 250, order_by: ["keyword_data.keyword_info.search_volume,desc"] }], providerOptions);
-  const pageResponse = await client.post<Row>("labsRelevantPages", ENDPOINTS.labsRelevantPages, [{ ...base, limit: 100, order_by: ["metrics.organic.etv,desc"] }], providerOptions);
+  const keywordResponse = await client.post<Row>("labsRankedKeywords", ENDPOINTS.labsRankedKeywords, [{ ...base, item_types: ["organic"], limit: 250, order_by: ["keyword_data.keyword_info.search_volume,desc"] }], providerOptions);
+  const pageResponse = await client.post<Row>("labsRelevantPages", ENDPOINTS.labsRelevantPages, [{ ...base, item_types: ["organic"], limit: 100, order_by: ["metrics.organic.etv,desc"] }], providerOptions);
   const backlinkResponse = await client.post<Row>("backlinksSummary", ENDPOINTS.backlinksSummary, [{ target: targetHost, include_subdomains: true }], providerOptions);
   const overviewRaw = items(overviewResponse.result)[0] ?? overviewResponse.result[0] ?? {};
   const metrics = record(overviewRaw.metrics);
@@ -104,7 +104,8 @@ export async function collectDomainResearch(opts: {
     const properties = record(keywordData.keyword_properties);
     const intentInfo = record(keywordData.search_intent_info);
     const serpItem = record(record(item.ranked_serp_element).serp_item);
-    return { keyword: string(keywordData.keyword) ?? "", position: number(serpItem.rank_absolute), volume: number(keywordInfo.search_volume), difficulty: number(properties.keyword_difficulty), intent: string(intentInfo.main_intent), url: string(serpItem.url), traffic: number(serpItem.etv) };
+    const changes = record(serpItem.rank_changes), ranked = record(item.ranked_serp_element);
+    return { previousPosition:number(changes.previous_rank_absolute),isNew:typeof changes.is_new==="boolean"?changes.is_new:null,isLost:typeof ranked.is_lost==="boolean"?ranked.is_lost:null,updatedAt:string(ranked.last_updated_time), keyword: string(keywordData.keyword) ?? "", position: number(serpItem.rank_absolute), volume: number(keywordInfo.search_volume), difficulty: number(properties.keyword_difficulty), intent: string(intentInfo.main_intent), url: string(serpItem.url), traffic: number(serpItem.etv) };
   }).filter((item) => item.keyword);
   const pages = parseRelevantPages(pageResponse.result);
   const backlinkRaw = backlinkResponse.result[0] ?? {};

@@ -1,0 +1,12 @@
+"use client";
+import {marketLabel} from "@/lib/markets";
+import {useEffect,useState} from "react";
+type Location={code:number;name:string;type:string};
+const defaults:Location[]=[[2784,"United Arab Emirates"],[2840,"United States"],[2826,"United Kingdom"],[2124,"Canada"],[2036,"Australia"],[2356,"India"]].map(([code,name])=>({code:Number(code),name:String(name),type:"Country"}));
+export function MarketSelector({location,language,onChange,disabled=false}:{location:number;language:string;onChange:(code:number,language:string,label:string)=>void;disabled?:boolean}){
+ const [query,setQuery]=useState(""),[options,setOptions]=useState<Location[]>(defaults);
+ useEffect(()=>{const controller=new AbortController();const timer=setTimeout(()=>{void fetch(`/api/locations?q=${encodeURIComponent(query)}&limit=100`,{signal:controller.signal}).then(response=>response.json()).then(body=>{if(body.locations)setOptions(body.locations);}).catch(()=>undefined);},200);return()=>{clearTimeout(timer);controller.abort();};},[query]);
+ const rows=[...new Map([...defaults,...options].map(row=>[row.code,row])).values()];
+ const style="h-9 rounded border border-border bg-card px-2 text-xs";
+ return <div className="flex flex-wrap items-center gap-2"><input aria-label="Find search database" placeholder="Find country or city" className={`${style} w-40`} value={query} onChange={e=>setQuery(e.target.value)} disabled={disabled}/><select aria-label="Search database" className={`${style} max-w-64`} value={location} disabled={disabled} onChange={e=>{const row=rows.find(item=>item.code===Number(e.target.value));if(row)onChange(row.code,language,row.name);}}>{!rows.some(row=>row.code===location)&&<option value={location}>{marketLabel(location)}</option>}{rows.map(row=><option key={row.code} value={row.code}>{row.name}</option>)}</select><select aria-label="Search language" className={style} value={language} disabled={disabled} onChange={e=>onChange(location,e.target.value,rows.find(row=>row.code===location)?.name??String(location))}>{!['en','ar','de','fr','es','it','pt','nl','hi','ja'].includes(language)&&<option value={language}>{language}</option>}{[['en','English'],['ar','Arabic'],['de','German'],['fr','French'],['es','Spanish'],['it','Italian'],['pt','Portuguese'],['nl','Dutch'],['hi','Hindi'],['ja','Japanese']].map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></div>;
+}

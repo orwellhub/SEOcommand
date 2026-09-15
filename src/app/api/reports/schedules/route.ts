@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
+import { reportDefinition } from "@/reports/definition";
 import { REPORT_TEMPLATES } from "@/data/report-templates";
 import { nextReportRun } from "@/lib/report-schedule";
 import { hasDatabase } from "@/sync/store";
@@ -74,6 +75,8 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Enter a valid template, cadence and recipient list." }, { status: 400 });
   const template = REPORT_TEMPLATES.find((candidate) => candidate.id === parsed.data.templateId);
   if (!template) return NextResponse.json({ error: "Unknown report template." }, { status: 404 });
+  let definition;
+  try { definition = reportDefinition(template.id, parsed.data.definition); } catch (error) { return NextResponse.json({ error: (error as Error).message }, { status: 400 }); }
   const scopeType = parsed.data.domainId ? "site" : parsed.data.scopeType;
   const scopeId = parsed.data.domainId ?? parsed.data.scopeId ?? null;
   if (scopeType === "site" && (!scopeId || !(await getManagedSite(scopeId)))) {
@@ -115,7 +118,7 @@ export async function POST(request: Request) {
       cadence: parsed.data.cadence,
       recipients: parsed.data.recipients,
       channels: ["email"],
-      definition: parsed.data.definition ?? {},
+      definition,
       format: parsed.data.format,
       nextRun: nextReportRun(parsed.data.cadence),
       createdBy: request.headers.get("x-orwell-user-email"),

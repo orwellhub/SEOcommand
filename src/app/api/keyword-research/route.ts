@@ -2,7 +2,6 @@ import { NextResponse, type NextRequest } from "next/server";
 import { dataForSeoConfigured, researchKeywords } from "@/providers/dataforseo";
 import { BudgetExceededError, DailyLimitError } from "@/providers/dataforseo/errors";
 import { DEFAULT_MARKET, marketByCode, marketLabel } from "@/lib/markets";
-import { isoDate } from "@/lib/dates";
 import type { KeywordResearchResult } from "@/lib/types";
 import { qaKeywordResearch } from "@/data/qa-fixtures";
 import { canAccessSite, hasPermission } from "@/platform/access";
@@ -30,14 +29,16 @@ export async function GET(req: NextRequest) {
   const locationLabel = requestedLabel || marketByCode(locationCode)?.label || marketLabel(locationCode);
   const languageCode = (params.get("language") || fallbackMarket.language).trim();
   const limit = Math.min(Math.max(Number(params.get("limit")) || 100, 1), 1000);
+  const offset=Number(params.get("offset")??0);
+  if(!Number.isInteger(offset)||offset<0||offset>20000)return NextResponse.json({ok:false,message:"Choose an offset between 0 and 20,000."},{status:400});
   const requestedSource = params.get("sourceType");
-  const sourceType = requestedSource === "domain" || requestedSource === "competitor" || requestedSource === "questions" ? requestedSource : "seed";
+  const sourceType = requestedSource === "domain" || requestedSource === "competitor" || requestedSource === "questions" || requestedSource === "related" ? requestedSource : "seed";
   const siteSlug = params.get("site")?.trim() || null;
   if (siteSlug && !await canAccessSite(req, siteSlug)) return NextResponse.json({ ok: false, message: "Website access required." }, { status: 403 });
   if (!await hasPermission(req, "research", siteSlug)) return NextResponse.json({ ok: false, message: "Research permission required." }, { status: 403 });
 
   if (process.env.QA_SYNTHETIC === "true") {
-    return NextResponse.json({ ok: true, configured: true, synthetic: true, result: qaKeywordResearch(seed, locationCode, languageCode, locationLabel) });
+    const result:KeywordResearchResult=qaKeywordResearch(seed, locationCode, languageCode, locationLabel);result.rows=result.rows.map((row,i)=>({...row,keyword:offset?`${row.keyword} variation ${offset+i}`:row.keyword}));result.pagination={nextOffset:offset+result.rows.length,total:2000,hasMore:offset+result.rows.length<2000,sourceType};if(sourceType==="related")result.rows=result.rows.map(row=>({...row,relatedToSeed:true}));return NextResponse.json({ ok: true, configured: true, synthetic: true, result });
   }
 
   if (!dataForSeoConfigured()) {
@@ -50,7 +51,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const warnings:string[]=[];
+    let pagination:KeywordResearchResult["pagination"];
     const rows = await researchKeywords({
+      onWarning:message=>warnings.push(message),
+      offset,
+      onPagination:page=>{pagination={...page,sourceType};},
       seed,
       sourceType,
       siteSlug,
@@ -63,10 +69,11 @@ export async function GET(req: NextRequest) {
       locationCode,
       languageCode,
       locationLabel,
-      fetchedAt: isoDate(new Date()),
+      fetchedAt: new Date().toISOString(),
+      pagination,
       rows,
     };
-    return NextResponse.json({ ok: true, configured: true, result });
+    return NextResponse.json({ ok: true, configured: true, result, warnings });
   } catch (err) {
     const status = err instanceof BudgetExceededError || err instanceof DailyLimitError ? 429 : 502;
     return NextResponse.json(

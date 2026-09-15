@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowUpRight, Database } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/primitives";
+import { navigateSafely } from "@/components/ui/unsaved-changes";
 import { cn } from "@/lib/cn";
 
 export function useReportView<T extends string>(views: readonly T[], fallback: T, legacyHashes?: Partial<Record<string, T>>) {
@@ -12,13 +13,13 @@ export function useReportView<T extends string>(views: readonly T[], fallback: T
   useEffect(() => { const sync = () => setHash(window.location.hash); sync(); window.addEventListener("hashchange", sync); return () => window.removeEventListener("hashchange", sync); }, [pathname, params]);
   const value = params.get("view") ?? legacyHashes?.[hash];
   const view = views.includes(value as T) ? value as T : fallback;
-  function setView(next: T) { const query = new URLSearchParams(params); query.set("view", next); query.delete("feature"); router.push(`${pathname}?${query}`, { scroll: false }); }
+  function setView(next: T) { const query = new URLSearchParams(params); query.set("view", next); query.delete("feature"); navigateSafely(()=>router.push(`${pathname}?${query}`, { scroll: false })); }
   return [view, setView] as const;
 }
 
 export function ReportTabs<T extends string>({ items, value, onChange, label = "Report views" }: { items: readonly { id: T; label: string }[]; value: T; onChange: (id: T) => void; label?: string }) {
   const container = useRef<HTMLElement>(null);
-  useEffect(() => { const nav = container.current; const selected = nav?.querySelector<HTMLElement>('[aria-current="page"]'); if (nav && selected) nav.scrollLeft = selected.offsetLeft - (nav.clientWidth - selected.clientWidth) / 2; }, [value]);
+  useEffect(() => { const nav = container.current;if(!nav)return;const reveal=()=>{const selected=nav.querySelector<HTMLElement>('[aria-current="page"]');if(selected)nav.scrollLeft=selected.offsetLeft-(nav.clientWidth-selected.clientWidth)/2;};reveal();const observer=new ResizeObserver(reveal);observer.observe(nav);return()=>observer.disconnect(); }, [value]);
   return <nav ref={container} aria-label={label} className="relative flex gap-5 overflow-x-auto border-b border-border">{items.map((item) => <button key={item.id} aria-current={value === item.id ? "page" : undefined} onClick={() => onChange(item.id)} className={cn("relative min-h-10 shrink-0 whitespace-nowrap border-b-2 px-0.5 pb-2 pt-1 text-[13px] font-semibold", value === item.id ? "border-purple text-purple" : "border-transparent text-muted hover:border-border hover:text-ink")}>{item.label}</button>)}</nav>;
 }
 

@@ -209,7 +209,7 @@ export default function ContentIntelligencePage() {
       <PageHeader
         title={view === "editor" ? "SEO Writing Assistant" : view === "briefs" ? "Content Templates & Briefs" : view === "calendar" ? "Content Calendar" : "Content Dashboard"}
         description={view === "overview" ? `Page-level search performance for ${scopeHost}: traffic, decay, rising pages and landing-page outcomes.` : `Saved editorial work for ${scopeHost}. Open an item to review its brief, draft, owner and deadline.`}
-        lastSync={bundle?.lastSync ?? null}
+        lastSync={view==="overview"?bundle?.lastSync??null:undefined}
         loading={loading}
       />
 

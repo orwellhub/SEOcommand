@@ -4,7 +4,8 @@ import { hasDatabase } from "@/sync/store";
 import type { CommandRecord } from "@/lib/command-model";
 
 const controls = ["settings", "watch", "plan", "baseline"];
-const qaRecords: CommandRecord[] = [];
+const previewGlobal=globalThis as typeof globalThis & {__seoQaCommands?:CommandRecord[]};
+const qaRecords: CommandRecord[] = process.env.QA_SYNTHETIC==="true"&&process.env.NODE_ENV==="development"?(previewGlobal.__seoQaCommands??=[]):[];
 function serialize(row: typeof schema.commandRecords.$inferSelect): CommandRecord {
   return { ...row, nextRunAt: row.nextRunAt?.toISOString() ?? null, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() };
 }
@@ -33,7 +34,7 @@ export async function saveCommandRecord(siteSlug: string, kind: string, recordKe
   const now = new Date();
   if (process.env.QA_SYNTHETIC === "true") {
     const existing = qaRecords.find((row) => row.siteSlug === siteSlug && row.kind === kind && row.recordKey === recordKey);
-    const row: CommandRecord = { id: existing?.id ?? crypto.randomUUID(), siteSlug, kind, recordKey, payload: kind === "settings" ? { ...existing?.payload, ...payload } : payload, status: options.status ?? "saved", nextRunAt: options.nextRunAt?.toISOString() ?? null, createdAt: existing?.createdAt ?? now.toISOString(), updatedAt: now.toISOString() };
+    const row: CommandRecord = { id: existing?.id ?? crypto.randomUUID(), siteSlug, kind, recordKey, payload: kind === "settings" ? { ...existing?.payload, ...payload } : payload, status: options.status ?? "saved", nextRunAt: options.nextRunAt?.toISOString() ?? null, createdAt: existing?.createdAt ?? now.toISOString(), updatedAt: new Date(Math.max(now.getTime(), existing ? Date.parse(existing.updatedAt) + 1 : 0)).toISOString() };
     if (existing) qaRecords.splice(qaRecords.indexOf(existing), 1);
     qaRecords.unshift(row); return row;
   }

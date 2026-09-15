@@ -1,67 +1,24 @@
 "use client";
-
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, Download, Palette, RefreshCw } from "lucide-react";
-import { Button, EmptyState, Skeleton } from "@/components/ui/primitives";
-import { ClientReport, type ReportOutcome } from "@/components/reports/client-report";
+import { Button, EmptyState } from "@/components/ui/primitives";
 import { useDomain } from "@/components/shell/domain-context";
-import { useLiveDomain } from "@/lib/use-live";
 import { REPORT_TEMPLATES } from "@/data/report-templates";
-import { resolveReportBranding, type ReportBranding } from "@/reports/branding";
-
 export default function ClientReportPage() {
-  const searchParams = useSearchParams();
-  const { sites, setScope, range } = useDomain();
-  const siteId = searchParams.get("site")?.trim() ?? "";
-  const site = sites.find((item) => item.id === siteId);
-  const template = REPORT_TEMPLATES.find((item) => item.id === searchParams.get("template")) ?? REPORT_TEMPLATES.find((item) => item.id === "tpl-domain")!;
-  const live = useLiveDomain(siteId);
-  const [branding, setBranding] = useState<ReportBranding | null>(site ? resolveReportBranding(site) : null);
-  const [brandError, setBrandError] = useState<string | null>(null);
-  const [outcomes, setOutcomes] = useState<ReportOutcome[]>([]);
-  const [outcomeLoading, setOutcomeLoading] = useState(true);
-  const [revision, setRevision] = useState(0);
-  const [outcomeError, setOutcomeError] = useState<string | null>(null);
-
-  useEffect(() => { if (siteId) setScope(siteId); }, [setScope, siteId]);
-  useEffect(() => {
-    if (!site) return;
-    let active = true;
-    setBranding(resolveReportBranding(site));
-    fetch(`/api/sites/${encodeURIComponent(site.id)}/settings`)
-      .then(async (response) => response.ok ? response.json() : Promise.reject(new Error("Report branding could not be loaded.")))
-      .then((body: { site?: { name?: string; host?: string; accent?: string; siteSettings?: Record<string, unknown> } }) => {
-        if (!active || !body.site) return;
-        setBranding(resolveReportBranding({ name: body.site.name ?? site.name, host: body.site.host ?? site.host, accent: body.site.accent ?? site.accent, siteSettings: body.site.siteSettings ?? {} }));
-        setBrandError(null);
-      })
-      .catch((error: Error) => { if (active) setBrandError(error.message); });
-    return () => { active = false; };
-  }, [site]);
-  useEffect(() => { if (!siteId) return; const controller = new AbortController(); setOutcomeLoading(true); setOutcomes([]); fetch(`/api/outcomes?site=${encodeURIComponent(siteId)}`, { signal: controller.signal }).then((response) => response.ok ? response.json() : Promise.reject(new Error("Delivery records could not load. Refresh before exporting."))).then((body) => { setOutcomes(body?.rows ?? []); setOutcomeError(null); }).catch((reason) => { if (reason.name !== "AbortError") setOutcomeError(reason.message); }).finally(() => { if (!controller.signal.aborted) setOutcomeLoading(false); }); return () => controller.abort(); }, [siteId, revision]);
-
-  const title = useMemo(() => `${site?.name ?? "Website"} · ${template.name}`, [site, template.name]);
-  useEffect(() => {
-    const previous = document.title;
-    document.title = title;
-    return () => { document.title = previous; };
-  }, [title]);
-
-  if (!siteId || !site) return <div className="py-12"><EmptyState title="Choose a website" description="Client reports are generated for one website so its branding, data and recommendations remain coherent." /></div>;
-  if (live.loading && !live.data) return <div className="space-y-5"><Skeleton className="h-14" /><Skeleton className="mx-auto h-[760px] max-w-[940px]" /></div>;
-  if (live.error && !live.data) return <div className="py-12"><EmptyState title="Report data could not be loaded" description={live.error} /></div>;
-  if (!live.data || !branding) return <div className="py-12"><EmptyState title="Report unavailable" description="The website has no reportable snapshot yet." /></div>;
-
-  return <div className="report-studio space-y-5 pb-12">
-    <div className="report-toolbar sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card/95 p-3 shadow-card backdrop-blur">
-      <div className="flex min-w-0 items-center gap-3"><Link href={`/reports?site=${site.id}`} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border text-muted hover:text-ink" aria-label="Back to reports"><ArrowLeft className="h-4 w-4" /></Link><div className="min-w-0"><div className="truncate text-sm font-extrabold text-ink">{template.name}</div><div className="truncate text-2xs text-muted">{site.name} · client-ready preview</div></div></div>
-      <div className="flex items-center gap-2"><Button size="sm" onClick={() => { live.refresh(); setRevision((value) => value + 1); }}><RefreshCw className="h-3.5 w-3.5" />Refresh data</Button><Link href={`/sites/${site.id}/settings?tab=reporting`} className="inline-flex h-7 items-center justify-center gap-1.5 rounded-md border border-border bg-card px-2.5 text-xs font-medium text-ink transition-colors hover:bg-workspace"><Palette className="h-3.5 w-3.5" />Branding</Link><Button variant="primary" size="sm" disabled={outcomeLoading || live.loading || Boolean(outcomeError) || Boolean(live.error)} onClick={() => window.print()}><Download className="h-3.5 w-3.5" />Save PDF</Button></div>
-    </div>
-    {brandError && <div className="report-toolbar rounded-md border border-warning/25 bg-warning/10 px-4 py-3 text-xs text-[#9A6B08]">{brandError} The website’s default identity is being used.</div>}
-    {outcomeLoading && <p role="status" className="text-sm text-muted">Loading delivery records before export…</p>}
-    {outcomeError && <p role="alert" className="text-sm text-critical">{outcomeError}</p>}
-    <ClientReport site={site} template={template} branding={branding} bundle={live.data} outcomes={outcomes} days={parseInt(range)} />
-  </div>;
+  const params = useSearchParams(), { sites, range } = useDomain(), siteId = params.get("site") ?? "", site = sites.find(s => s.id === siteId);
+  const template = REPORT_TEMPLATES.find(t => t.id === params.get("template")) ?? REPORT_TEMPLATES[1]!;
+  const [selected, setSelected] = useState<Record<string, string[]>>({}), [revision, setRevision] = useState(0);
+  const sections = selected[template.id] ?? template.sections;
+  const [busy, setBusy] = useState(false), [message, setMessage] = useState("");
+  const query = new URLSearchParams({ site: siteId, template: template.id, days: String(parseInt(range)), revision: String(revision) });
+  for (const section of sections) query.append("section", section);
+  const src = `/api/reports/preview?${query}`;
+  async function archive() {
+    setBusy(true); setMessage("");
+    try { const response = await fetch("/api/reports/archive", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ site: siteId, action: "generate", templateId: template.id, definition: { days: parseInt(range), sections } }) }); const body = await response.json(); if (!response.ok) throw new Error(body.error); setMessage(body.message); } catch (error) { setMessage(error instanceof Error ? error.message : "PDF generation failed."); } finally { setBusy(false); }
+  }
+  function move(index: number, delta: number) { const next = [...sections], to = index + delta; if (to < 0 || to >= next.length) return; [next[index], next[to]] = [next[to]!, next[index]!]; setSelected({ ...selected, [template.id]: next }); }
+  if (!site) return <EmptyState title="Choose a website" description="Select the website for this client report." />;
+  return <div className="space-y-4"><div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-4"><Link href={`/reports?site=${siteId}&range=${range}`} className="text-sm text-purple">← Reports</Link><h1 className="mr-auto text-lg font-bold">{template.name}</h1><Link href={`/sites/${siteId}/settings?tab=reporting`} className="text-sm text-purple">Branding</Link><Link href={`/reports?${query}&range=${range}#schedule`} className="text-sm text-purple">Schedule these sections</Link><a href={`${src}&format=csv`} className="text-sm text-purple">Export CSV</a><Button size="sm" onClick={() => setRevision(r => r + 1)}>Refresh saved data</Button><Button size="sm" onClick={() => window.open(src, "_blank", "noopener,noreferrer")}>Open printable report</Button><Button size="sm" variant="primary" disabled={busy} onClick={() => void archive()}>{busy ? "Generating…" : "Archive PDF"}</Button></div><details className="rounded-lg border border-border bg-card p-4"><summary className="cursor-pointer text-sm font-semibold">Choose and order report sections</summary><div className="mt-3 space-y-2">{sections.map((section, i) => <div key={section} className="flex items-center gap-2 text-sm"><span className="mr-auto">{i + 1}. {section}</span><Button size="sm" disabled={!i} aria-label={`Move ${section} up`} onClick={() => move(i, -1)}>↑</Button><Button size="sm" disabled={i === sections.length - 1} aria-label={`Move ${section} down`} onClick={() => move(i, 1)}>↓</Button><Button size="sm" disabled={sections.length === 1} onClick={() => setSelected({ ...selected, [template.id]: sections.filter(s => s !== section) })}>Remove</Button></div>)}{template.sections.filter(s => !sections.includes(s)).map(s => <Button key={s} size="sm" onClick={() => setSelected({ ...selected, [template.id]: [...sections, s] })}>Add {s}</Button>)}</div></details>{message && <p role="status" className="text-sm">{message} <Link href={`/reports?site=${siteId}#report-archive`} className="text-purple">Open archive</Link></p>}<iframe key={src} title={`${template.name} preview`} src={src} className="h-[80vh] min-h-[640px] w-full rounded-xl border border-border bg-white" /><p className="text-xs text-muted">This preview and archived PDF use the same sections, reporting window and saved evidence. Open the printable report to use your browser’s Save as PDF option.</p></div>;
 }

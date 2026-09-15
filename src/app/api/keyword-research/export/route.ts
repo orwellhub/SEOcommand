@@ -49,7 +49,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, message: "Invalid JSON body." }, { status: 400 });
   }
 
-  const rows = Array.isArray(body.rows) ? body.rows.slice(0, 2000) : [];
+  if(Array.isArray(body.rows)&&body.rows.length>100000)return NextResponse.json({ok:false,message:"Export up to 100,000 keyword rows at a time."},{status:400});
+  const rows = Array.isArray(body.rows) ? body.rows : [];
   if (rows.length === 0) {
     return NextResponse.json({ ok: false, message: "No keyword rows to export." }, { status: 400 });
   }

@@ -1,3 +1,4 @@
+import { siteUrl } from "@/lib/command-model";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { hasDatabase } from "@/sync/store";
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
   return NextResponse.json(await latestBrowserCrawl(siteSlug));
 }
 
-const QueueSchema = z.object({ siteSlug: z.string().min(1), maxPages: z.number().int().min(1).max(5_000).optional() });
+const QueueSchema = z.object({ siteSlug: z.string().min(1), maxPages: z.number().int().min(1).max(5_000).optional(), url: z.string().url().max(2000).optional() });
 
 export async function POST(request: Request) {
   const parsed = QueueSchema.safeParse(await request.json().catch(() => null));
@@ -29,7 +30,9 @@ export async function POST(request: Request) {
   if (!(await getManagedSite(parsed.data.siteSlug))) return NextResponse.json({ error: "Website not found." }, { status: 404 });
   if (!await canAccessSite(request, parsed.data.siteSlug)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
   if (!await hasPermission(request, "run_scans", parsed.data.siteSlug)) return NextResponse.json({ error: "Run-scan permission required for this website." }, { status: 403 });
+  const site = (await getManagedSite(parsed.data.siteSlug))!;
+  if (parsed.data.url && !siteUrl(parsed.data.url, site.host)) return NextResponse.json({ error: "Choose a URL on this website." }, { status: 400 });
   if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ job: { id: "qa-browser-crawl", status: "queued", synthetic: true } }, { status: 202 });
   if (!hasDatabase()) return NextResponse.json({ error: "Browser crawl queue requires DATABASE_URL." }, { status: 503 });
-  return NextResponse.json({ job: await queueBrowserCrawl(parsed.data.siteSlug, parsed.data.maxPages) }, { status: 202 });
+  return NextResponse.json({ job: await queueBrowserCrawl(parsed.data.siteSlug, parsed.data.maxPages, parsed.data.url) }, { status: 202 });
 }

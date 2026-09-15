@@ -37,3 +37,6 @@ yarn-error.log*
 *.tsbuildinfo
 
 # Drizzle local artifacts (generated migrations ARE committed; keep journal)
+
+# Isolated local audit builds
+/.next-deep-audit/

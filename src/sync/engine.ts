@@ -1,3 +1,4 @@
+import { scheduledSiteMode } from "./site-schedule";
 import { GSC_DATA_LAG_DAYS, GA4_DATA_LAG_DAYS } from "@/providers/google/config";
 import type { DomainId, Provenance } from "@/lib/types";
 import type { DerivedRecommendation } from "@/lib/live";
@@ -209,9 +210,8 @@ export async function syncDomain(
     () =>
       collect("daily_rankings", async () => {
         if (!dailyRankOk || reusePaid("daily_rankings")) return "skip";
-        const rankings = await fetchDailyTrackedRankings(domainId);
+        const rankings = await fetchDailyTrackedRankings(domainId,rows=>persistDailyRankings(domain,rows));
         if (!rankings.length) return "skip";
-        await persistDailyRankings(domain, rankings);
         const p = dfsProv();
         const snapshots = rankings.map((row) => ({
           keywordId: row.trackedKeywordId,
@@ -576,14 +576,14 @@ export interface FullSyncReport {
 /** Sync every domain in the registry with the given cost tiers. */
 export async function syncAll(tiers: SyncTiers = ALL_TIERS): Promise<FullSyncReport> {
   const startedAt = new Date().toISOString();
-  const sites = (await listManagedSites()).filter((site) => site.source === "registry" || site.lifecycleStatus === "active");
+  const sites = (await listManagedSites()).filter((site) => scheduledSiteMode(site) !== null);
   const reports: DomainSyncReport[] = [];
   const concurrency = Math.min(Math.max(Number(process.env.SYNC_CONCURRENCY ?? "2"), 1), 10);
   let cursor = 0;
   await Promise.all(Array.from({ length: Math.min(concurrency, sites.length) }, async () => {
     while (cursor < sites.length) {
       const site = sites[cursor++];
-      if (site) reports.push(await syncDomain(site.id, tiers));
+      if (site) reports.push(await syncDomain(site.id, scheduledSiteMode(site) === "full" ? tiers : { ...tiers, rankings: false, dfsLight: false, dfsHeavy: false, ai: false }));
     }
   }));
   return { startedAt, completedAt: new Date().toISOString(), domains: reports };

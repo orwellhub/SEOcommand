@@ -1,5 +1,6 @@
 "use client";
 
+import { PageInspector, CrawlStructure } from "@/components/research/page-inspector";
 import { CrawlSettings } from "@/components/research/crawl-settings";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Braces, GitCompareArrows, Network, Play, ScanLine } from "lucide-react";
@@ -16,6 +17,7 @@ interface CrawlData { run: CrawlRun | null; pages: CrawlPage[]; orphanUrls: stri
 
 export default function TechnicalCrawlerPage() {
   const domain = useResolvedDomain();
+  const [inspect, setInspect] = useState<string | null>(null);
   const [data, setData] = useState<CrawlData | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +31,7 @@ export default function TechnicalCrawlerPage() {
   const queue = async () => {
     setBusy(true); setError(null);
     try {
-      const response = await fetch("/api/technical/browser-crawl", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ siteSlug: domain.id, maxPages: 200 }) });
+      const response = await fetch("/api/technical/browser-crawl", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ siteSlug: domain.id }) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Crawl could not be queued.");
       setError("Crawl queued. The hourly browser runner will process it without blocking the dashboard.");
@@ -38,11 +40,11 @@ export default function TechnicalCrawlerPage() {
   };
 
   const columns = useMemo<Column<CrawlPage>[]>(() => [
-    { key: "url", header: "Rendered URL", sortValue: (row) => row.url, render: (row) => <div><div className="max-w-lg truncate font-medium text-ink">{row.url.replace(/^https?:\/\//, "")}</div><div className="mt-0.5 max-w-lg truncate text-2xs text-muted">{row.renderedTitle || "No rendered title"}</div></div> },
+    { key: "url", header: "Rendered URL", sortValue: (row) => row.url, render: (row) => <div><button className="max-w-lg truncate text-left font-medium text-purple" onClick={() => setInspect(row.url)}>{row.url.replace(/^https?:\/\//, "")}</button><div className="mt-0.5 max-w-lg truncate text-2xs text-muted">{row.renderedTitle || "No rendered title"}</div></div> },
     { key: "status", header: "HTTP", align: "right", sortValue: (row) => row.statusCode ?? 0, render: (row) => <span className={(row.statusCode ?? 0) >= 400 ? "font-semibold text-critical" : "text-ink"}>{row.statusCode ?? "—"}</span> },
     { key: "depth", header: "Depth", align: "right", sortValue: (row) => row.depth, render: (row) => row.depth },
-    { key: "render", header: "Rendering", render: (row) => <StatusBadge label={row.jsDependent ? "JS dependent" : "HTML parity"} tone={row.jsDependent ? "warning" : "success"} /> },
-    { key: "index", header: "Indexability", render: (row) => <StatusBadge label={row.indexable ? "Indexable" : "Blocked"} tone={row.indexable ? "success" : "critical"} /> },
+    { key: "render", header: "Rendering", render: (row) => <StatusBadge label={row.issues.includes("browser_render_failed") ? "Unverified" : row.jsDependent ? "JS dependent" : "HTML parity"} tone={row.jsDependent ? "warning" : "success"} /> },
+    { key: "index", header: "Indexability", render: (row) => <StatusBadge label={row.issues.includes("browser_render_failed") ? "Unverified" : row.indexable ? "Indexable" : "Blocked"} tone={row.indexable ? "success" : "critical"} /> },
     { key: "schema", header: "Schema", align: "right", sortValue: (row) => row.schemaTypes.length, render: (row) => row.schemaTypes.length || "—" },
     { key: "links", header: "Internal links", align: "right", sortValue: (row) => row.internalLinks, render: (row) => row.internalLinks },
     { key: "issues", header: "Issues", align: "right", sortValue: (row) => row.issues.length, render: (row) => <details className="max-w-64"><summary className="cursor-pointer font-semibold text-critical">{row.issues.length} findings</summary><ul className="mt-2 space-y-1 text-left text-xs text-muted">{row.issues.map((issue) => <li key={issue}>{issue.replace(/_/g, " ")}</li>)}</ul></details> },
@@ -52,6 +54,8 @@ export default function TechnicalCrawlerPage() {
 
   return <div className="animate-in space-y-5">
     <PageHeader title="Rendered technical crawler" description="Browser-rendered evidence layered over the full DataForSEO crawl: JavaScript parity, internal link graph, schema, hreflang and change detection." actions={<Button variant="primary" onClick={queue} disabled={busy}><Play className="h-4 w-4" />{busy ? "Queuing…" : "Queue rendered crawl"}</Button>} />
+    {inspect && <PageInspector key={`${domain.id}:${inspect}`} site={domain.id} url={inspect} onClose={() => setInspect(null)} />}
+    {data?.pages && <CrawlStructure pages={data.pages} onInspect={setInspect} />}
     <CrawlSettings key={domain.id} site={domain.id} />
     {error && <div role="status" className={`rounded-md border p-3 text-xs ${error.startsWith("Crawl queued") ? "border-success/20 bg-success/5 text-success" : "border-critical/20 bg-critical/5 text-critical"}`}>{error}</div>}
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -61,9 +65,9 @@ export default function TechnicalCrawlerPage() {
       <KpiCard label="Changed pages" value={data?.run ? String(diff.contentChanged ?? 0) : "—"} />
       <KpiCard label="Indexability changes" value={data?.run ? String(diff.indexabilityChanged ?? 0) : "—"} />
     </div>
-    {data?.run ? <><div className="rounded-lg border border-purple/20 bg-purple/5 p-4 text-xs text-muted">Coverage: {data.run.pagesCrawled} inspected · {diff.discovered ?? "unknown"} discovered · {diff.excluded ?? "unknown"} excluded · {diff.unvisited ?? "unknown"} left unvisited. Hreflang: {diff.hreflangChecked ?? "unknown"} relationships checked; {diff.hreflangOutsideCrawl ?? "unknown"} outside this crawl. Cross-page checks only cover inspected pages. Structured-data checks cover JSON-LD syntax and selected common properties; confirm rich-result eligibility in Google’s Rich Results Test.</div>
+    {data?.run ? <><div className="rounded-lg border border-purple/20 bg-purple/5 p-4 text-xs text-muted">{diff.interrupted ? "Interrupted crawl; saved pages are retained. " : diff.timeLimited ? "Time-limited crawl. " : ""}Coverage: {data.run.pagesCrawled} inspected · {diff.discovered ?? "unknown"} discovered · {diff.excluded ?? "unknown"} excluded · {diff.unvisited ?? "unknown"} left unvisited. Hreflang: {diff.hreflangChecked ?? "unknown"} relationships checked; {diff.hreflangOutsideCrawl ?? "unknown"} outside this crawl. Cross-page checks only cover inspected pages. Structured-data checks cover JSON-LD syntax and selected common properties; confirm rich-result eligibility in Google’s Rich Results Test.</div>
       <div className="grid gap-4 xl:grid-cols-5">
-        <Card className="xl:col-span-3"><CardHeader title="Crawl comparison" subtitle="Changes against the previous browser-rendered run" action={<GitCompareArrows className="h-4 w-4 text-purple" />} /><div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-3">{[{ label: "Added", value: diff.added }, { label: "Removed", value: diff.removed }, { label: "Content", value: diff.contentChanged }, { label: "Titles", value: diff.titleChanged }, { label: "Canonicals", value: diff.canonicalChanged }, { label: "Indexability", value: diff.indexabilityChanged }].map((item) => <div key={item.label} className="bg-card p-4"><div className="text-2xs uppercase tracking-wide text-muted">{item.label}</div><div className="mt-1 text-xl font-semibold text-ink">{item.value ?? 0}</div></div>)}</div></Card>
+        <Card className="xl:col-span-3"><CardHeader title="Crawl comparison" subtitle="Changes against the previous browser-rendered run" action={<GitCompareArrows className="h-4 w-4 text-purple" />} /><div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-3">{[{ label: "Added", value: diff.added }, { label: "Removed", value: diff.removalComparisonComplete === 0 ? null : diff.removed }, { label: "Content", value: diff.contentChanged }, { label: "Titles", value: diff.titleChanged }, { label: "Canonicals", value: diff.canonicalChanged }, { label: "Indexability", value: diff.indexabilityChanged }].map((item) => <div key={item.label} className="bg-card p-4"><div className="text-2xs uppercase tracking-wide text-muted">{item.label}</div><div className="mt-1 text-xl font-semibold text-ink">{item.value ?? "—"}</div></div>)}</div></Card>
         <Card className="xl:col-span-2"><CardHeader title="Issue fingerprint" subtitle="Affected rendered pages by rule" action={<ScanLine className="h-4 w-4 text-purple" />} /><div className="max-h-64 divide-y divide-border overflow-y-auto">{issues.length ? issues.map(([issue, count]) => <div key={issue} className="flex items-center justify-between gap-3 px-4 py-2.5"><div className="text-xs text-ink">{issue.replace(/_/g, " ")}</div><span className="tnum text-xs font-semibold text-critical">{count}</span></div>) : <div className="p-4 text-xs text-muted">No rendered issues detected.</div>}</div></Card>
       </div>
       <Card><CardHeader title="Rendered page inventory" subtitle={`${data.run.status} · ${data.run.pagesCrawled.toLocaleString()} of ${data.run.maxPages.toLocaleString()} page allowance`} action={<div className="flex items-center gap-2"><Network className="h-4 w-4 text-purple" /><Braces className="h-4 w-4 text-muted" /></div>} /><DataTable<CrawlPage> rows={data.pages} columns={columns} searchPlaceholder="Search URLs, titles or issues…" rowKey={(row) => row.id} /></Card>

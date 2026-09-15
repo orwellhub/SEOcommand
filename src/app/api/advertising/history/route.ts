@@ -1,0 +1,16 @@
+import {NextResponse} from "next/server";
+import {z} from "zod";
+import {canAccessSite,hasPermission} from "@/platform/access";
+import {workspaceRecords,saveWorkspace} from "@/platform/workspace-store";
+import {getDataForSeoClient} from "@/providers/dataforseo";
+import {ENDPOINTS} from "@/providers/dataforseo/config";
+import {cleanCompetitorHost} from "@/platform/competitive-intelligence";
+import {normalizeHistoricalAds,type HistoricalAdSnapshot} from "@/lib/ad-history";
+const Input=z.object({site:z.string().min(1),domain:z.string().min(3).max(253),keyword:z.string().trim().min(1).max(400),locationCode:z.number().int().positive(),languageCode:z.string().min(2).max(12),from:z.string().date(),to:z.string().date()});
+export async function GET(request:Request){const site=new URL(request.url).searchParams.get("site")??"";if(!site||!await canAccessSite(request,site)||!await hasPermission(request,"research",site))return NextResponse.json({error:"Research access required."},{status:403});return NextResponse.json({records:await workspaceRecords(site,"ad_history")});}
+export async function POST(request:Request){const parsed=Input.safeParse(await request.json().catch(()=>null));if(!parsed.success)return NextResponse.json({error:"Choose a keyword, domain and valid dates."},{status:400});const input=parsed.data;if(!await canAccessSite(request,input.site)||!await hasPermission(request,"research",input.site))return NextResponse.json({error:"Research access required."},{status:403});const today=new Date().toISOString().slice(0,10),earliest=new Date(Date.now()-365*86400000).toISOString().slice(0,10);if(input.from>input.to||input.to>today||input.from<earliest)return NextResponse.json({error:"Choose a date range within the last 365 days."},{status:400});
+ try{const domain=cleanCompetitorHost(input.domain);let snapshots:HistoricalAdSnapshot[],costUsd=0,total:number|null=null;
+ if(process.env.QA_SYNTHETIC==="true"){snapshots=[input.from,input.to].map((date,index)=>({observedAt:`${date}T12:00:00.000Z`,checkUrl:null,ads:[{type:"paid",position:index+1,groupPosition:index+1,url:`https://${domain}/${index?"offers":"services"}`,domain,title:index?"Compare available offers":"Explore our services",description:"Synthetic advertising evidence for preview testing."}]}));total=snapshots.length;}
+ else {const call=await getDataForSeoClient().post<Record<string,unknown>>("labsHistoricalSerps",ENDPOINTS.labsHistoricalSerps,[{keyword:input.keyword,location_code:input.locationCode,language_code:input.languageCode,date_from:input.from,date_to:input.to}],{domainSlug:input.site});costUsd=call.costUsd;const root=call.result[0];if(!root||!Array.isArray(root.items)&&root.total_count!==0)throw new Error("The provider did not return historical SERP data.");snapshots=normalizeHistoricalAds(call.result,domain);total=typeof root.total_count==="number"?root.total_count:null;}
+ const record=await saveWorkspace(input.site,"ad_history",crypto.randomUUID(),{input:{...input,domain},snapshots,costUsd,total,collectedAt:new Date().toISOString()},"completed");return NextResponse.json({record});
+ }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Historical collection failed."},{status:502});}}

@@ -107,7 +107,7 @@ export function analyseKeywordStrategy(keywords: Keyword[], queryPages: GscQuery
       query,
       pages: uniquePages.slice(0, 5).map((row) => ({ page: row.page, clicks: row.clicks, impressions: row.impressions, position: row.position })),
       totalImpressions,
-      severity: totalImpressions >= 1_000 ? "high" as const : totalImpressions >= 200 ? "medium" as const : "low" as const,
+      severity: "low" as const,
     }];
   }).sort((a, b) => b.totalImpressions - a.totalImpressions);
 

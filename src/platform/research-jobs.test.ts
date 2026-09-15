@@ -4,7 +4,8 @@ import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { cancelResearch, processResearchJobs, queueResearch, researchRuns } from "./research-jobs";
+import { resumeResearch, cancelResearch, processResearchJobs, queueResearch, researchRun, researchRuns } from "./research-jobs";
+import { queueBrowserCrawl } from "./advanced-crawler";
 import { uncertainResearchSpend } from "@/providers/dataforseo/reservations";
 import { SpendGuard } from "@/providers/dataforseo/cost";
 import { type ResearchPayload } from "@/lib/research-evidence";
@@ -93,4 +94,47 @@ it("subtracts uncertain charges from headroom without labelling them actual spen
   const guard = new SpendGuard({ monthToDateUsd: async () => 199, reservedUsd: async () => .8, record }, 200);
   expect(await guard.status()).toMatchObject({ spentUsd: 199, reservedUsd: .8, remainingUsd: expect.closeTo(.2, 5) });
   await expect(guard.run({ endpoint: "test", estimateUsd: .3 }, call)).rejects.toThrow(); expect(call).not.toHaveBeenCalled(); expect(record).not.toHaveBeenCalled();
+});
+
+it("resumes cancelled pending work without repeating completed charges", async () => {
+ const run = await queueResearch("a", plan(2), "owner");
+ mocks.post.mockImplementationOnce(async () => { await cancelResearch("a", run.id); return { result: [], costUsd: .01 }; });
+ await processResearchJobs(run.id);
+ await resumeResearch("a", run.id);
+ await processResearchJobs(run.id);
+ expect(mocks.post).toHaveBeenCalledTimes(2);
+ expect((await researchRuns("a", "footprint"))[0]!.status).toBe("completed");
+});
+it("refuses resuming uncertain paid work and inaccessible records", async () => {
+ const run = await queueResearch("a", plan(2), "owner"); mocks.post.mockRejectedValueOnce(new Error("connection lost"));
+ await processResearchJobs(run.id);
+ await expect(resumeResearch("a", run.id)).rejects.toThrow("uncertain");
+ await expect(resumeResearch("b", run.id)).rejects.toThrow();
+ expect(mocks.post).toHaveBeenCalledTimes(1);
+});
+it("background pagination saves every result page and stops at the provider total", async () => {
+ const input=plan(); input.units[0]={...input.units[0]!,endpoint:"labsKeywordIdeas",body:{offset:0,limit:1000},maxRows:50000};
+ const item=(keyword:string)=>({keyword,keyword_info:{search_volume:10}});
+ mocks.post.mockResolvedValueOnce({result:[{items:Array.from({length:1000},(_,i)=>item(`bus ${i}`)),total_count:1001}],costUsd:.02}).mockResolvedValueOnce({result:[{items:[item("last bus")],total_count:1001}],costUsd:.01});
+ const run=await queueResearch("a",input,"owner");await processResearchJobs(run.id);
+ const saved=(await researchRuns("a","footprint"))[0]!;
+ expect(saved.status).toBe("completed");expect(saved.payload.units).toHaveLength(2);expect(saved.payload.report?.tables[0]?.rows).toHaveLength(1001);
+ expect(mocks.post.mock.calls[1]?.[2]).toEqual([expect.objectContaining({offset:1000})]);
+});
+
+it("finds older collection progress beyond the first history page without crossing site boundaries", async()=>{
+ const old=await queueResearch("a",plan(),"owner");
+ await testDb.update(schema.commandRecords).set({status:"completed",createdAt:new Date(0)}).where(eq(schema.commandRecords.id,old.id));
+ await testDb.insert(schema.commandRecords).values(Array.from({length:13},(_,i)=>({siteSlug:"a",kind:"research_footprint",recordKey:String(i),status:"completed",payload:plan()})));
+ expect((await researchRuns("a","footprint")).some(r=>r.id===old.id)).toBe(false);
+ expect((await researchRun("a","footprint",old.id))?.id).toBe(old.id);expect(await researchRun("b","footprint",old.id)).toBeNull();
+});
+
+it("deduplicates browser requests and recovers a dead worker without deleting its evidence", async()=>{
+ await testDb.delete(schema.platformJobs);
+ const [old]=await testDb.insert(schema.platformJobs).values({siteSlug:"a",kind:"browser_crawl",status:"running",startedAt:new Date(0),progress:{heartbeatAt:1,maxPages:20}}).returning();
+ const [first,second]=await Promise.all([queueBrowserCrawl("a",10),queueBrowserCrawl("a",10)]);
+ expect(first.id).toBe(second.id);expect(first.id).not.toBe(old!.id);
+ const [retained]=await testDb.select().from(schema.platformJobs).where(eq(schema.platformJobs.id,old!.id));
+ expect(retained?.status).toBe("failed");expect(retained?.progress).toMatchObject({maxPages:20});
 });

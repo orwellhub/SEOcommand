@@ -1,5 +1,6 @@
 "use client";
 
+import { PositionTracking } from "@/components/reports/position-tracking";
 import { ReportTabs, useReportView } from "@/components/reports/report-layout";
 import { useMemo, useState } from "react";
 import {
@@ -220,6 +221,8 @@ export default function RankingsPage() {
     ],
     [],
   );
+
+  if (!isPortfolio && scopeId && !scopeId.startsWith("group:")) return <PositionTracking key={scopeId} site={scopeId} host={scopeHost} />;
 
   if (error) {
     return (

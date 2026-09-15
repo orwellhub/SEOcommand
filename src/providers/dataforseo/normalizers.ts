@@ -143,7 +143,8 @@ export function normalizeKeywordIdeas(rows: Row[]): KeywordResearchRow[] {
           month: num(m?.month),
           volume: num(m?.search_volume),
         }))
-        .filter((m: KeywordMonthlyPoint) => m.year > 0);
+        .filter((m: KeywordMonthlyPoint) => m.year > 0 && m.month >= 1 && m.month <= 12)
+        .sort((a: KeywordMonthlyPoint, b: KeywordMonthlyPoint) => a.year - b.year || a.month - b.month);
       // trend: oldest→newest, capped to the most recent 12 months for the sparkline.
       const trend = monthly
         .slice()
@@ -162,6 +163,9 @@ export function normalizeKeywordIdeas(rows: Row[]): KeywordResearchRow[] {
         highTopBid: numOrNull(info?.high_top_of_page_bid),
         trend,
         monthlySearches: monthly,
+        serpFeatures: Array.isArray(it?.serp_info?.serp_item_types) ? it.serp_info.serp_item_types.filter((value:unknown):value is string=>typeof value==="string") : [],
+        resultCount: numOrNull(it?.serp_info?.se_results_count),
+        updatedAt: str(info?.last_updated_time)||null,
       };
     })
     .filter((r) => r.keyword.length > 0);
@@ -382,10 +386,13 @@ const CHECK_ISSUES: {
   { key: "duplicate_content", title: "Duplicate content clusters", category: "Content", severity: "medium", fix: "Consolidate or differentiate near-duplicate pages; set canonicals.", impact: "Consolidated ranking signals." },
   { key: "is_http", title: "Pages served over HTTP", category: "HTTPS & security", severity: "high", fix: "Serve all pages and assets over HTTPS with redirects.", impact: "Restored secure-context guarantees." },
   { key: "high_loading_time", title: "Slow-loading pages", category: "Core Web Vitals", severity: "medium", fix: "Compress assets, defer non-critical JS, optimise the critical path.", impact: "Better CWV and user experience." },
-  { key: "is_redirect", title: "Internal links via redirects", category: "Redirects", severity: "low", fix: "Point internal links directly at final URLs.", impact: "Faster crawl, fuller equity transfer." },
+  { key: "has_links_to_redirects", title: "Internal links via redirects", category: "Redirects", severity: "low", fix: "Point internal links directly at final URLs.", impact: "Faster crawl, fuller equity transfer." },
   { key: "no_image_alt", title: "Images missing alt text", category: "Accessibility / Images", severity: "low", fix: "Add descriptive alt text to content images.", impact: "Accessibility + image-search visibility." },
-  { key: "seo_friendly_url_characters_check", title: "Non SEO-friendly URL characters", category: "Content", severity: "low", fix: "Normalise URL slugs on new content.", impact: "Cleaner, more shareable URLs." },
+  { key: "is_orphan_page", title: "Orphaned pages", category: "Internal linking", severity: "medium", fix: "Link relevant orphan pages from the website navigation or related content.", impact: "Improved discovery and internal authority flow." },
+  { key: "canonical_to_broken", title: "Canonical targets return errors", category: "Canonicalisation", severity: "high", fix: "Point canonical tags to working, indexable pages.", impact: "Recover consolidated indexing signals." },
 ];
+
+export const ON_PAGE_ISSUE_CHECKS = CHECK_ISSUES.map(row=>row.key);
 
 export function normalizeOnPageHealth(
   summary: Row | null,
@@ -397,9 +404,9 @@ export function normalizeOnPageHealth(
   healthScore: number;
   methodologyVersion: number;
 } {
-  if (!summary) return { breakdown: [], crawlRun: null, issues: [], healthScore: 0, methodologyVersion: 2 };
+  if (!summary) return { breakdown: [], crawlRun: null, issues: [], healthScore: 0, methodologyVersion: 3 };
   const pm = summary?.page_metrics ?? {};
-  const checks: Row = pm?.checks ?? {};
+  const checks: Row = { ...pm, ...(pm?.checks ?? {}) };
   const onpageScore = num(pm?.onpage_score, num(summary?.onpage_score));
   const domainName = str(summary?.domain_info?.name ?? summary?.target);
   const date = today || str(summary?.crawl_end_time).slice(0, 10);
@@ -439,5 +446,5 @@ export function normalizeOnPageHealth(
     status: summary?.crawl_progress === "finished" ? "completed" : "running",
   };
 
-  return { breakdown, crawlRun, issues, healthScore: Math.round(onpageScore), methodologyVersion: 2 };
+  return { breakdown, crawlRun, issues, healthScore: Math.round(onpageScore), methodologyVersion: 3 };
 }

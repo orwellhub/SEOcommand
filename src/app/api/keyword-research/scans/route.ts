@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db, schema } from "@/db";
 import { hasDatabase } from "@/sync/store";
 import type { KeywordResearchRow } from "@/lib/types";
+import { commandRecords, saveCommandRecord } from "@/platform/command-store";
 import { canAccessSite, hasPermission } from "@/platform/access";
 
 export const runtime = "nodejs";
@@ -19,7 +20,7 @@ export const dynamic = "force-dynamic";
  * from Postgres and never re-queries DataForSEO.
  */
 
-const MAX_ROWS = 1000;
+const MAX_ROWS = 20000;
 const LIST_LIMIT = 50;
 
 const RowSchema = z
@@ -52,7 +53,9 @@ const SaveSchema = z.object({
   locationCode: z.number().int().positive(),
   languageCode: z.string().min(2).max(10),
   locationLabel: z.string().min(1).max(120),
-  rows: z.array(RowSchema).min(1).max(MAX_ROWS),
+  rows: z.array(RowSchema).max(MAX_ROWS),
+  fetchedAt:z.string().optional(),
+  pagination:z.object({nextOffset:z.number().int().min(0),total:z.number().nullable(),hasMore:z.boolean(),sourceType:z.string().max(40)}).optional(),
 });
 
 function unavailable() {
@@ -67,7 +70,7 @@ export async function GET(request: Request) {
     const siteSlug = new URL(request.url).searchParams.get("site")?.trim() || null;
     if (siteSlug && !await canAccessSite(request, siteSlug)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
     if (!await hasPermission(request, "research", siteSlug)) return NextResponse.json({ error: "Research permission required." }, { status: 403 });
-    if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ ok: true, scans: [], synthetic: true });
+    if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ ok: true, scans: (await commandRecords(siteSlug??"__qa_research__")).filter(row=>row.kind==="qa_keyword_scan"&&row.status!=="deleted").map(row=>({...row.payload,id:row.id,rows:undefined,createdAt:row.createdAt})), synthetic: true });
     if (!hasDatabase()) return unavailable();
     const query = db()
       .select({
@@ -116,23 +119,8 @@ export async function POST(request: Request) {
   if (process.env.QA_SYNTHETIC === "true") {
     const volumes = parsed.rows.map((row) => row.volume).filter((value): value is number => value != null);
     const difficulties = parsed.rows.map((row) => row.difficulty).filter((value): value is number => value != null);
-    const encodedSeed = Buffer.from(parsed.seed).toString("base64url");
-    return NextResponse.json({
-      ok: true,
-      synthetic: true,
-      scan: {
-        id: `qa-${encodedSeed}-${parsed.locationCode}`,
-        seed: parsed.seed,
-        locationCode: parsed.locationCode,
-        languageCode: parsed.languageCode,
-        locationLabel: parsed.locationLabel,
-        rowCount: parsed.rows.length,
-        totalVolume: volumes.reduce((total, value) => total + value, 0),
-        avgDifficulty: difficulties.length ? Math.round(difficulties.reduce((total, value) => total + value, 0) / difficulties.length) : null,
-        createdBy: request.headers.get("x-orwell-user-email"),
-        createdAt: new Date().toISOString(),
-      },
-    });
+    const scan=await saveCommandRecord(parsed.siteSlug??"__qa_research__","qa_keyword_scan",crypto.randomUUID(),{...parsed,rowCount:parsed.rows.length,totalVolume:volumes.reduce((a,b)=>a+b,0),avgDifficulty:difficulties.length?Math.round(difficulties.reduce((a,b)=>a+b,0)/difficulties.length):null});
+    return NextResponse.json({ok:true,synthetic:true,scan:{...scan.payload,rows:undefined,id:scan.id,createdAt:scan.createdAt}});
   }
   if (!hasDatabase()) return unavailable();
 
@@ -148,7 +136,7 @@ export async function POST(request: Request) {
         siteSlug: parsed.siteSlug ?? null,
         label: parsed.label ?? null,
         sourceType: parsed.sourceType ?? "seed",
-        sourceValue: parsed.sourceValue ?? parsed.seed,
+        sourceValue: parsed.pagination ? JSON.stringify({version:1,sourceValue:parsed.sourceValue??parsed.seed,pagination:parsed.pagination,fetchedAt:parsed.fetchedAt}) : parsed.sourceValue ?? parsed.seed,
         seed: parsed.seed,
         locationCode: parsed.locationCode,
         languageCode: parsed.languageCode,

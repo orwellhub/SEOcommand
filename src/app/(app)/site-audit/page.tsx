@@ -1,14 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Activity, CheckCircle2, FileWarning, Gauge, Hourglass, ListTodo } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { CheckCircle2, FileWarning, ListTodo } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
-import { KpiCard } from "@/components/ui/kpi-card";
+import Link from "next/link";
+import {ReportTabs,ReportMetric,useReportView} from "@/components/reports/report-layout";
+import {AuditPageWorkspace} from "@/components/reports/audit-page-workspace";
+import {AUDIT_THEMES} from "@/lib/audit-pages";
+import {AuditHistory} from "@/components/reports/audit-history";
+import {ON_PAGE_ISSUE_CHECKS} from "@/providers/dataforseo/normalizers";
 import {
   Card,
-  CardHeader,
   SeverityBadge,
-  StatusBadge,
   EmptyState,
   Skeleton,
   Button,
@@ -21,7 +24,7 @@ import { useScopedLive } from "@/lib/use-live";
 import { formatDate } from "@/lib/dates";
 import { fullNumber } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import type { CrawlRun, Severity, TechnicalIssue } from "@/lib/types";
+import type { Severity, TechnicalIssue } from "@/lib/types";
 import { SiteFindingWorkDrawer, type SiteFinding } from "@/components/workflow/site-finding-work-drawer";
 
 interface CrawlPageRow {
@@ -37,36 +40,41 @@ interface CrawlPageRow {
 }
 
 const SEVERITY_RANK: Record<Severity, number> = { critical: 4, high: 3, medium: 2, low: 1 };
-const SEVERITY_FILTERS: Array<"all" | Severity> = ["all", "critical", "high", "medium", "low"];
-
-function crawlTone(status: CrawlRun["status"]): "success" | "info" | "critical" {
-  return status === "completed" ? "success" : status === "running" ? "info" : "critical";
-}
+const SEVERITY_FILTERS: Array<"all" | "errors" | Severity> = ["all", "errors", "critical", "high", "medium", "low"];
 
 export default function SiteAuditPage() {
   const domain = useResolvedDomain();
   const { scope } = useDomain();
+  const [view,setView]=useReportView(["overview","issues","pages","statistics","compare","progress","thematic"] as const,"overview");
+  const [category,setCategory]=useState("");
+  const [theme,setTheme]=useState("crawlability");
+  const [pageStatus,setPageStatus]=useState("");
+  const [selectedPage,setSelectedPage]=useState<CrawlPageRow|null>(null);
+  const [pagesError,setPagesError]=useState("");
+  const [loadingPages,setLoadingPages]=useState(false);
   const { data: bundle, loading, error, isPortfolio, scopeLabel, scopeHost, scopeId } = useScopedLive();
 
-  const [severityFilter, setSeverityFilter] = useState<"all" | Severity>("all");
+  const [severityFilter, setSeverityFilter] = useState<"all" | "errors" | Severity>("all");
   const [selected, setSelected] = useState<TechnicalIssue | null>(null);
   const [workFinding, setWorkFinding] = useState<SiteFinding | null>(null);
   const [crawlPages, setCrawlPages] = useState<CrawlPageRow[]>([]);
   const [crawlPageTotal, setCrawlPageTotal] = useState(0);
+  const pagesController = useRef<AbortController | null>(null);
 
   useEffect(() => {
+    pagesController.current?.abort();
+    setLoadingPages(false);
     if (isPortfolio || !scopeId) {
       setCrawlPages([]);
       setCrawlPageTotal(0);
       return;
     }
-    fetch(`/api/crawls/${scopeId}/pages?limit=250`)
-      .then((response) => response.ok ? response.json() : null)
-      .then((body) => {
-        setCrawlPages(body?.pages ?? []);
-        setCrawlPageTotal(body?.total ?? 0);
-      })
-      .catch(() => undefined);
+    const controller=new AbortController();pagesController.current=controller;setCrawlPages([]);setCrawlPageTotal(0);setPagesError("");setSelected(null);setSelectedPage(null);setCategory("");
+    fetch(`/api/crawls/${scopeId}/pages?limit=250`,{signal:controller.signal})
+      .then(async response=>{const body=await response.json();if(!response.ok)throw new Error(body.error??"Crawled pages could not load.");return body;})
+      .then(body=>{setCrawlPages(body.pages??[]);setCrawlPageTotal(body.total??0);})
+      .catch(e=>{if(e.name!=="AbortError")setPagesError(e.message);});
+    return()=>controller.abort();
   }, [isPortfolio, scopeId]);
 
   const onpage = bundle?.datasets.onpage?.data ?? null;
@@ -80,8 +88,8 @@ export default function SiteAuditPage() {
   );
 
   const filteredIssues = useMemo(
-    () => (severityFilter === "all" ? issues : issues.filter((i) => i.severity === severityFilter)),
-    [issues, severityFilter],
+    () => issues.filter(i=>(severityFilter === "all" || severityFilter === "errors" && (i.severity === "critical" || i.severity === "high") || i.severity === severityFilter)&&(!category||category.split("|").includes(i.category))),
+    [issues, severityFilter, category],
   );
 
   const issueColumns = useMemo<Column<TechnicalIssue>[]>(
@@ -131,9 +139,11 @@ export default function SiteAuditPage() {
     { key: "words", header: "Words", align: "right", sortValue: (row) => row.wordCount ?? 0, render: (row) => row.wordCount == null ? "—" : fullNumber(row.wordCount) },
     { key: "depth", header: "Depth", align: "right", sortValue: (row) => row.depth ?? 0, render: (row) => row.depth ?? "—" },
     { key: "load", header: "Load", align: "right", sortValue: (row) => row.loadTimeMs ?? 0, render: (row) => row.loadTimeMs == null ? "—" : `${row.loadTimeMs} ms` },
-    { key: "checks", header: "Failed checks", align: "right", sortValue: (row) => Object.values(row.checks).filter(Boolean).length, render: (row) => Object.values(row.checks).filter(Boolean).length },
+    { key: "checks", header: "Failed checks", align: "right", sortValue: (row) => ON_PAGE_ISSUE_CHECKS.filter(key=>row.checks[key]===true || typeof row.checks[key]==="number"&&Number(row.checks[key])>0).length, render: (row) => ON_PAGE_ISSUE_CHECKS.filter(key=>row.checks[key]===true || typeof row.checks[key]==="number"&&Number(row.checks[key])>0).length },
   ], []);
 
+  const visiblePages=crawlPages.filter(row=>!pageStatus||pageStatus==="unknown"? !pageStatus||row.statusCode==null : row.statusCode!=null&&Math.floor(row.statusCode/100)===Number(pageStatus));
+  async function loadMorePages(){const controller=pagesController.current;if(!controller||controller.signal.aborted||loadingPages)return;setLoadingPages(true);setPagesError("");try{const response=await fetch(`/api/crawls/${scopeId}/pages?limit=250&offset=${crawlPages.length}`,{signal:controller.signal});const body=await response.json();if(!response.ok)throw new Error(body.error);if(controller.signal.aborted)return;setCrawlPages(current=>[...new Map([...current,...(body.pages??[])].map(row=>[row.id,row])).values()]);setCrawlPageTotal(body.total??0);}catch(e){if(!controller.signal.aborted)setPagesError(e instanceof Error?e.message:"Could not load more pages.");}finally{if(!controller.signal.aborted)setLoadingPages(false);}}
   function technicalFinding(issue: TechnicalIssue): SiteFinding {
     const priorityScore = issue.severity === "critical" ? 95 : issue.severity === "high" ? 82 : issue.severity === "medium" ? 65 : 45;
     return {
@@ -189,111 +199,29 @@ export default function SiteAuditPage() {
   return (
     <div className="animate-in space-y-5">
       <PageHeader
-        title="Site Audit"
-        description="Provider audit score, crawl coverage and prioritised technical issues."
-        lastSync={bundle?.lastSync ?? null}
+        title={`Site Audit: ${scopeHost}`}
+        actions={<><Link className="rounded border border-border px-3 py-2 text-xs text-purple" href={`/scan-centre?site=${scopeId}`}>Rerun campaign</Link><Link className="rounded border border-border px-3 py-2 text-xs" href={`/sites/${scopeId}/settings`}>Settings</Link><Button size="sm" onClick={()=>window.print()}>Export PDF</Button></>}
+        lastSync={bundle?.datasets.onpage?.provenance.collectedAt ?? null}
         loading={loading}
       />
 
       <ScopeNote isPortfolio={isPortfolio} noun="audit data" />
 
-      {/* KPI row */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard
-          label="Overall health score"
-          value={onpage ? String(onpage.healthScore) : "—"}
-          accent
-          hint="DataForSEO overall score, 0–100"
-        />
-        <KpiCard
-          label="Total issues"
-          value={onpage ? fullNumber(issues.length) : "—"}
-          hint="All severities"
-        />
-        <KpiCard
-          label="Critical + high"
-          value={onpage ? fullNumber(criticalHigh) : "—"}
-          hint="Highest-priority issues"
-        />
-        <KpiCard
-          label="Pages crawled"
-          value={crawlRun?.pagesCrawled != null ? fullNumber(crawlRun.pagesCrawled) : "—"}
-          hint={crawlRun ? `Crawl started ${formatDate(crawlRun.startedAt)}` : "No crawl completed yet"}
-        />
-      </div>
-
-      {/* No-crawl notice (crawls are async — first results arrive when the crawl finishes) */}
-      {!onpage && (
-        <Card className="flex items-start gap-3 border-[color:var(--accent)]/30 bg-[color:var(--accent)]/5 p-4">
-          <Hourglass className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--accent)]" />
-          <div>
-            <p className="text-sm font-semibold text-ink">No crawl completed yet</p>
-            <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted">
-              The OnPage crawl runs on first sync and weekly thereafter; results appear here when the
-              crawl finishes. Crawls are asynchronous, so a sync may complete while the crawl is still
-              pending.
-            </p>
-          </div>
-        </Card>
-      )}
-
-      {/* Health breakdown + latest crawl */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
-        <Card className="xl:col-span-3">
-          <CardHeader
-            title="Issues by category"
-            subtitle="Issue types and affected-page occurrences from the latest crawl"
-            action={<Gauge className="h-4 w-4 text-purple" />}
-          />
-          {onpage ? <div className="divide-y divide-border">{Array.from(new Set(issues.map((issue) => issue.category))).map((category) => {
-            const rows = issues.filter((issue) => issue.category === category);
-            return <div key={category} className="flex flex-wrap justify-between gap-3 px-4 py-3"><span className="font-semibold">{category}</span><span className="text-sm text-muted">{rows.length} issue types · {rows.reduce((sum, issue) => sum + issue.affectedPages, 0)} affected-page occurrences</span></div>;
-          })}{!issues.length && <p className="p-4 text-sm text-muted">No issue types reported by this crawl.</p>}</div> : <p className="p-4 text-sm text-muted">Run a crawl to collect technical evidence.</p>}
-          <p className="border-t border-border p-4 text-sm leading-6 text-muted">The overall score is supplied by DataForSEO. Separate category scores are not available. A page can appear under several issue types; occurrences are not unique pages. Legacy page counts are withheld until a corrected crawl verifies them.</p>
-        </Card>
-
-        <Card className="xl:col-span-2">
-          <CardHeader
-            title="Latest crawl"
-            subtitle="Most recent OnPage crawler run for this domain"
-            action={<Activity className="h-4 w-4 text-muted" />}
-          />
-          {crawlRun ? (
-            <div className="divide-y divide-border">
-              <div className="flex items-center justify-between px-4 py-3">
-                <span className="text-sm text-muted">Status</span>
-                <StatusBadge label={crawlRun.status} tone={crawlTone(crawlRun.status)} />
-              </div>
-              <div className="flex items-center justify-between px-4 py-3">
-                <span className="text-sm text-muted">Started</span>
-                <span className="text-sm font-medium text-ink tnum">{formatDate(crawlRun.startedAt)}</span>
-              </div>
-              <div className="flex items-center justify-between px-4 py-3">
-                <span className="text-sm text-muted">Completed</span>
-                <span className="text-sm font-medium text-ink tnum">
-                  {formatDate(crawlRun.completedAt)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between px-4 py-3">
-                <span className="text-sm text-muted">Pages crawled</span>
-                <span className="text-sm font-medium text-ink tnum">
-                  {crawlRun.pagesCrawled == null ? "Not verified" : fullNumber(crawlRun.pagesCrawled)}
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div className="p-4">
-              <EmptyState
-                title="No crawl run recorded"
-                description="Crawl metadata appears here once the first OnPage crawl finishes."
-              />
-            </div>
-          )}
-        </Card>
-      </div>
-
+      {view!=="thematic"&&view!=="compare"&&<div className="flex flex-wrap items-center gap-3 text-xs text-muted"><span>Last crawl: {crawlRun?.completedAt?formatDate(crawlRun.completedAt):"Not completed"}</span><span>Status: {crawlRun?.status??"Not configured"}</span><span>{crawlRun?.pagesCrawled??"—"} pages crawled</span></div>}
+      <ReportTabs items={[{id:"overview",label:"Overview"},{id:"issues",label:"Issues"},{id:"pages",label:"Crawled Pages"},{id:"statistics",label:"Statistics"},{id:"compare",label:"Compare Crawls"},{id:"progress",label:"Progress"},{id:"thematic",label:"Thematic Reports"}]} value={view} onChange={setView} label="Site Audit reports"/>
+      {view==="overview"&&<>
+        <div className="grid gap-4 xl:grid-cols-3"><Card className="p-4"><h2 className="text-base font-semibold">Site Health</h2><div className="relative mx-auto my-5 flex h-36 w-36 items-center justify-center rounded-full p-3" style={{background:`conic-gradient(var(--chart-orange) ${Math.max(0,Math.min(100,onpage?.healthScore??0))}%, rgb(var(--border)) 0)`}}><strong className="flex h-full w-full items-center justify-center rounded-full bg-card text-4xl font-semibold">{onpage?`${onpage.healthScore}%`:"—"}</strong></div><p className="text-xs leading-5 text-muted">DataForSEO overall score. Its calculation differs from Semrush’s Site Health score.</p></Card>
+          <Card className="p-4"><h2 className="text-base font-semibold">Crawled Pages</h2><ReportMetric label="Pages crawled" value={crawlRun?.pagesCrawled}/><div className="space-y-2">{[["2","Successful responses"],["3","Redirects"],["4","Client errors"],["5","Server errors"]].map(([code,label])=><button key={code} className="flex w-full justify-between text-xs hover:text-purple" onClick={()=>{setPageStatus(code);setView("pages");}}><span>{label}</span><strong>{crawlPages.length?crawlPages.filter(row=>row.statusCode!=null&&Math.floor(row.statusCode/100)===Number(code)).length:"—"}</strong></button>)}</div><p className="mt-4 text-[11px] text-muted">Response breakdown covers {crawlPages.length} loaded page records.</p></Card>
+          <Card className="p-4"><h2 className="text-base font-semibold">Top Issues</h2>{[...issues].sort((a,b)=>SEVERITY_RANK[b.severity]-SEVERITY_RANK[a.severity]||b.affectedPages-a.affectedPages).slice(0,4).map(issue=><button key={issue.id} className="flex w-full items-center justify-between gap-3 border-b border-border py-4 text-left text-xs text-purple" onClick={()=>setSelected(issue)}><span>{issue.title}</span><strong>{issue.affectedPages}</strong></button>)}{!issues.length&&<p className="my-6 text-xs text-muted">{onpage?"No issue types reported by the saved audit.":"Run a crawl to collect issue evidence."}</p>}<Button size="sm" className="mt-4" onClick={()=>{setCategory("");setView("issues");}}>View all issues</Button></Card></div>
+        <Card className="grid divide-x divide-border md:grid-cols-3"><button className="text-left" onClick={()=>{setSeverityFilter("errors");setView("issues");}}><ReportMetric label="Errors" value={onpage?criticalHigh:null} note="Critical and high severity issue types"/></button><button className="text-left" onClick={()=>{setSeverityFilter("medium");setView("issues");}}><ReportMetric label="Warnings" value={onpage?issues.filter(row=>row.severity==="medium").length:null} note="Medium severity issue types"/></button><button className="text-left" onClick={()=>{setSeverityFilter("low");setView("issues");}}><ReportMetric label="Notices" value={onpage?issues.filter(row=>row.severity==="low").length:null} note="Low severity issue types"/></button></Card>
+        <h2 className="text-lg font-semibold">Thematic Reports</h2><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{AUDIT_THEMES.map(report=><Card key={report.id} className="p-4"><h3 className="text-sm font-semibold">{report.label}</h3><p className="my-4 text-xs text-muted">Completed crawl evidence, check coverage and affected URLs.</p><Button size="sm" onClick={()=>{setTheme(report.id);setView("thematic");}}>View details →</Button></Card>)}</div>
+      </>}
+      {view==="progress"&&<AuditHistory key={scopeId} site={scopeId} view="progress"/>}
+      {view==="compare"&&<><AuditPageWorkspace key={scopeId} site={scopeId} compare/><details><summary className="cursor-pointer text-xs text-purple">Compare summary issue counts</summary><AuditHistory site={scopeId} view="compare"/></details></>}
+      {view==="thematic"&&<AuditPageWorkspace key={`${scopeId}:${theme}`} site={scopeId} initialTheme={theme}/>}
+      {view==="statistics"&&<div className="grid gap-4 xl:grid-cols-2">{[{title:"HTTP Status Codes",buckets:["2xx","3xx","4xx","5xx","Unknown"],key:(row:CrawlPageRow)=>row.statusCode==null?"Unknown":`${Math.floor(row.statusCode/100)}xx`},{title:"Crawl Depth",buckets:["0","1","2","3","4+","Unknown"],key:(row:CrawlPageRow)=>row.depth==null?"Unknown":row.depth>=4?"4+":String(row.depth)},{title:"Word Count",buckets:["0–299","300–999","1,000+","Unknown"],key:(row:CrawlPageRow)=>row.wordCount==null?"Unknown":row.wordCount<300?"0–299":row.wordCount<1000?"300–999":"1,000+"},{title:"Page Load Time",buckets:["Under 1s","1–3s","Over 3s","Unknown"],key:(row:CrawlPageRow)=>row.loadTimeMs==null?"Unknown":row.loadTimeMs<1000?"Under 1s":row.loadTimeMs<=3000?"1–3s":"Over 3s"}].map(stat=><Card key={stat.title} className="p-4"><h2 className="mb-4 text-base font-semibold">{stat.title}</h2>{stat.buckets.map(bucket=>{const count=crawlPages.filter(row=>stat.key(row)===bucket).length;return <div key={bucket} className="my-3"><div className="mb-1 flex justify-between text-xs"><span>{bucket}</span><span>{count}</span></div><div className="h-2 rounded bg-workspace"><div className="h-2 rounded bg-purple" style={{width:`${crawlPages.length?count/crawlPages.length*100:0}%`}}/></div></div>;})}<p className="mt-4 text-[11px] text-muted">{crawlPages.length} loaded page records of {crawlPageTotal}. Missing values are kept separate.</p></Card>)}</div>}
       {/* Issues table */}
-      <Card className="p-4">
+      {view === "issues" && <Card className="p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <FileWarning className="h-4 w-4 text-warning" />
@@ -315,6 +243,7 @@ export default function SiteAuditPage() {
           </div>
         </div>
 
+        <select aria-label="Issue category" className="mb-3 h-9 rounded border border-border bg-card px-2 text-xs" value={category} onChange={e=>setCategory(e.target.value)}><option value="">All categories</option>{category&&!issues.some(row=>row.category===category)&&<option value={category}>{category.replace(/\|/g," / ")}</option>}{[...new Set(issues.map(row=>row.category))].map(value=><option key={value}>{value}</option>)}</select>
         {!onpage ? (
           <EmptyState
             title="No crawl completed yet"
@@ -343,21 +272,24 @@ export default function SiteAuditPage() {
             pageSize={12}
           />
         )}
-      </Card>
+      </Card>}
 
-      {!isPortfolio && (
+      {!isPortfolio && view === "pages" && (
         <Card className="p-4">
           <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
             <div>
-              <h3 className="text-sm font-semibold text-ink">Page explorer</h3>
+              <h3 className="text-sm font-semibold text-ink">Crawled Pages</h3>
               <p className="mt-0.5 text-2xs text-muted">URL-level metadata, response codes, crawl depth, loading time and every OnPage check.</p>
             </div>
             <span className="text-2xs text-muted">Showing {crawlPages.length} of {crawlPageTotal.toLocaleString()} pages</span>
           </div>
-          {crawlPages.length ? <DataTable rows={crawlPages} columns={pageColumns} searchKeys={(row) => `${row.url} ${row.title ?? ""} ${row.canonical ?? ""}`} searchPlaceholder="Search crawled URLs…" exportName={`crawl-pages-${scopeId}`} pageSize={25} /> : <EmptyState title="No page-level crawl data yet" description="Detailed pages appear after the next full technical crawl completes." />}
+          {pagesError&&<p role="alert" className="mb-3 text-sm text-critical">{pagesError}</p>}<select aria-label="HTTP status filter" className="mb-3 h-9 rounded border border-border bg-card px-2 text-xs" value={pageStatus} onChange={e=>setPageStatus(e.target.value)}><option value="">All status codes</option>{["2","3","4","5"].map(code=><option key={code} value={code}>{code}xx</option>)}<option value="unknown">Unknown</option></select>
+          {crawlPages.length ? <DataTable rows={visiblePages} columns={pageColumns} onRowClick={setSelectedPage} searchKeys={(row) => `${row.url} ${row.title ?? ""} ${row.canonical ?? ""}`} searchPlaceholder="Search crawled URLs…" exportName={`crawl-pages-${scopeId}`} pageSize={25} /> : <EmptyState title="No page-level crawl data yet" description="Detailed pages appear after the next full technical crawl completes." />}
         </Card>
       )}
 
+      {!isPortfolio && (view==="pages"||view==="statistics")&&crawlPages.length<crawlPageTotal&&<Button disabled={loadingPages} onClick={()=>void loadMorePages()}>{loadingPages?"Loading…":`Load next ${Math.min(250,crawlPageTotal-crawlPages.length)} page records`}</Button>}
+      <Drawer open={!!selectedPage} onClose={()=>setSelectedPage(null)} title="Crawled page" subtitle={selectedPage?.url}>{selectedPage&&<div className="space-y-4"><DrawerField label="URL"><a href={selectedPage.url} target="_blank" rel="noreferrer" className="break-all text-purple">{selectedPage.url}</a></DrawerField><DrawerField label="Canonical">{selectedPage.canonical??"Not recorded"}</DrawerField><DrawerField label="Title">{selectedPage.title??"Not recorded"}</DrawerField><h3 className="text-sm font-semibold">Provider check values</h3><p className="text-xs text-muted">True does not always mean a problem. Positive checks such as HTTPS and canonical are reported as recorded.</p>{Object.entries(selectedPage.checks).map(([key,value])=><div key={key} className="flex justify-between gap-4 border-b border-border py-2 text-xs"><span>{key.replace(/_/g," ")}</span><strong>{String(value)}</strong></div>)}</div>}</Drawer>
       {/* Issue detail drawer */}
       <Drawer
         open={selected !== null}

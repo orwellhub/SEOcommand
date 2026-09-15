@@ -7,6 +7,8 @@ import { cn } from "@/lib/cn";
 
 export interface SavedScan {
   id: string;
+  label?: string | null;
+  sourceType?: string;
   seed: string;
   locationCode: number;
   languageCode: string;
@@ -98,7 +100,7 @@ export function SavedScans({
                   >
                     <div className="flex items-center gap-2">
                       {busy && <Loader2 className="h-3 w-3 shrink-0 animate-spin text-muted" />}
-                      <span className="truncate text-sm font-medium text-ink">{scan.seed}</span>
+                      <span className="truncate text-sm font-medium text-ink">{scan.label || scan.seed}</span>
                     </div>
                     <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-2xs text-muted">
                       <span className="inline-flex items-center gap-1">

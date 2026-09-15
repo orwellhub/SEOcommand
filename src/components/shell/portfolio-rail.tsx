@@ -1,5 +1,6 @@
 "use client";
 
+import { navigateSafely } from "@/components/ui/unsaved-changes";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -57,14 +58,11 @@ export function PortfolioRail() {
   }
 
   function chooseSite(id: string) {
-    setScope(id);
-    router.push(`/sites/${id}`);
+    navigateSafely(() => { setScope(id); router.push(`/sites/${id}`); });
   }
 
   function chooseGroup(id: string) {
-    setScope(`group:${id}`);
-    setExpanded((value) => new Set(value).add(id));
-    router.push(`/portfolio?scope=${encodeURIComponent(`group:${id}`)}`);
+    navigateSafely(() => { setScope(`group:${id}`); setExpanded((value) => new Set(value).add(id)); router.push(`/portfolio?scope=${encodeURIComponent(`group:${id}`)}`); });
   }
 
   async function updateGroup(id: string, body: Record<string, unknown>, success: string) {

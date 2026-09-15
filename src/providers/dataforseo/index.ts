@@ -1,3 +1,4 @@
+import {belongsToHost} from "@/lib/rank-reports";
 import type { AiPlatform, AiPrompt, Backlink, Competitor, DomainId, Keyword, KeywordResearchRow, PositionBucket, RankSnapshot, ReferringDomain } from "@/lib/types";
 import type { OnPageResult } from "@/lib/live";
 import { DOMAINS } from "@/data/domains";
@@ -91,7 +92,7 @@ export async function fetchRankedKeywordsBundle(
   const { result } = await client.post(
     "labsRankedKeywords",
     ENDPOINTS.labsRankedKeywords,
-    labsBody(site),
+    labsBody(site, { item_types: ["organic"] }),
     { domainSlug: domainId },
   );
   const keywords = normalizeRankedKeywords(result as Record<string, unknown>[], domainId);
@@ -121,7 +122,10 @@ export async function fetchRankedKeywordsBundle(
  */
 export async function researchKeywords(opts: {
   seed: string;
-  sourceType?: "seed" | "domain" | "competitor" | "questions";
+  sourceType?: "seed" | "domain" | "competitor" | "questions" | "related";
+  onWarning?: (message:string)=>void;
+  offset?: number;
+  onPagination?: (page:{nextOffset:number;total:number|null;hasMore:boolean})=>void;
   siteSlug?: string | null;
   locationCode: number;
   languageCode: string;
@@ -129,6 +133,14 @@ export async function researchKeywords(opts: {
 }): Promise<KeywordResearchRow[]> {
   const client = getDataForSeoClient();
   const limit = Math.min(Math.max(opts.limit ?? 100, 1), 1000);
+  const offset=Math.max(0,Math.floor(opts.offset??0));
+  const pagination=(result:Record<string,unknown>[])=>{const root=result[0]??{},items=Array.isArray(root.items)?root.items:[],total=typeof root.total_count==="number"?root.total_count:null;opts.onPagination?.({nextOffset:offset+items.length,total,hasMore:items.length>0&&(total==null?items.length>=limit:offset+items.length<total)});};
+  if(opts.sourceType==="related"){
+    const response=await client.post<Record<string,unknown>>("labsRelatedKeywords",ENDPOINTS.labsRelatedKeywords,[{keyword:opts.seed,location_code:opts.locationCode,language_code:opts.languageCode,limit,offset,depth:3,include_serp_info:true}],{domainSlug:opts.siteSlug??null});
+    pagination(response.result);
+    const items=(response.result[0]?.items??[]) as Record<string,unknown>[];
+    return normalizeKeywordIdeas([{items:items.map(row=>row.keyword_data).filter(Boolean)}]).map(row=>({...row,relatedToSeed:true}));
+  }
   if (opts.sourceType === "domain" || opts.sourceType === "competitor") {
     let target = opts.seed.trim().toLowerCase();
     try { target = new URL(target.includes("://") ? target : `https://${target}`).hostname; } catch { target = target.replace(/^https?:\/\//, "").split("/")[0] ?? target; }
@@ -136,10 +148,11 @@ export async function researchKeywords(opts: {
     const { result } = await client.post(
       "labsRankedKeywords",
       ENDPOINTS.labsRankedKeywords,
-      [{ target, location_code: opts.locationCode, language_code: opts.languageCode, limit, order_by: ["keyword_data.keyword_info.search_volume,desc"] }],
+      [{ target, item_types: ["organic"], location_code: opts.locationCode, language_code: opts.languageCode, limit, offset, order_by: ["keyword_data.keyword_info.search_volume,desc"] }],
       { domainSlug: opts.siteSlug ?? null },
     );
     const sourceRows = result as Record<string, unknown>[];
+    pagination(sourceRows);
     const items = (sourceRows[0]?.items ?? sourceRows) as Record<string, unknown>[];
     return normalizeKeywordIdeas([{ items: items.map((item) => item.keyword_data ?? item) }]);
   }
@@ -149,15 +162,23 @@ export async function researchKeywords(opts: {
     [
       {
         keywords: [opts.seed],
+        include_serp_info: true,
         location_code: opts.locationCode,
         language_code: opts.languageCode,
         limit,
+        offset,
         order_by: ["keyword_info.search_volume,desc"],
       },
     ],
     { domainSlug: opts.siteSlug ?? null },
   );
+  pagination(result as Record<string,unknown>[]);
   const rows = normalizeKeywordIdeas(result as Record<string, unknown>[]);
+  if (offset===0 && !rows.some(row => row.keyword.toLowerCase() === opts.seed.trim().toLowerCase())) {
+    try { const exact = await client.post("labsKeywordOverview", ENDPOINTS.labsKeywordOverview, [{ keywords:[opts.seed], location_code:opts.locationCode, language_code:opts.languageCode, include_serp_info:true }], {domainSlug:opts.siteSlug??null});
+    rows.unshift(...normalizeKeywordIdeas(exact.result as Record<string,unknown>[]));
+    } catch { opts.onWarning?.("Keyword ideas were collected, but exact seed metrics could not be refreshed. The collected results have been retained."); }
+  }
   if (opts.sourceType !== "questions") return rows;
   const question = /^(who|what|when|where|why|how|which|can|could|should|is|are|do|does|will)\b/i;
   return rows.slice().sort((left, right) => Number(question.test(right.keyword)) - Number(question.test(left.keyword)));
@@ -184,7 +205,7 @@ export async function fetchCompetitors(domainId: DomainId): Promise<Competitor[]
   const { result } = await client.post(
     "labsCompetitorsDomain",
     ENDPOINTS.labsCompetitorsDomain,
-    labsBody(site),
+    labsBody(site, { item_types: ["organic"] }),
     { domainSlug: domainId },
   );
   return normalizeCompetitors(result as Record<string, unknown>[], domainId).slice(0, 25);
@@ -477,7 +498,7 @@ export async function fetchAiPromptResults(
 }
 
 /** Daily exact SERP checks for approved, explicitly tracked keywords. */
-export async function fetchDailyTrackedRankings(domainId: DomainId): Promise<TrackedRankingResult[]> {
+export async function fetchDailyTrackedRankings(domainId: DomainId,onBatch?:(rows:TrackedRankingResult[])=>Promise<void>): Promise<TrackedRankingResult[]> {
   const site = await siteFor(domainId);
   const tracked = await listRankTrackingKeywords(domainId);
   if (!tracked.length) return [];
@@ -485,7 +506,7 @@ export async function fetchDailyTrackedRankings(domainId: DomainId): Promise<Tra
   const results: TrackedRankingResult[] = [];
   for (let offset = 0; offset < tracked.length; offset += 10) {
     const batch = tracked.slice(offset, offset + 10);
-    const pulled = await Promise.all(batch.map(async (keyword) => {
+    const pulled = await Promise.allSettled(batch.map(async (keyword) => {
       const { result } = await client.post<Record<string, any>>(
         "serpOrganicLive",
         ENDPOINTS.serpOrganicLive,
@@ -493,14 +514,15 @@ export async function fetchDailyTrackedRankings(domainId: DomainId): Promise<Tra
         { domainSlug: domainId, critical: true },
       );
       const root = result?.[0] as any;
-      const items: any[] = root?.items ?? [];
+      if(!root||!Array.isArray(root.items)&&root.items_count!==0)throw new Error("The provider did not return a valid SERP. Previously completed targets remain saved.");
+      const items: any[] = root.items ?? [];
       const owned = items.find((item) => {
         const candidate = String(item?.domain ?? item?.url ?? "").toLowerCase();
-        return candidate.includes(site.host.toLowerCase());
+        return item?.type === "organic" && belongsToHost(candidate, site.host);
       });
-      const organic = items.filter((item) => item?.type === "organic" && item?.rank_absolute).slice(0, 10);
+      const organic = items.filter((item) => item?.type === "organic" && item?.rank_absolute);
       const hosts = organic.map((item) => { try { return new URL(String(item?.url ?? "")).hostname.replace(/^www\./, ""); } catch { return String(item?.domain ?? "").replace(/^www\./, ""); } });
-      const topCompetitors = organic.map((item, index) => ({ host: hosts[index]!, position: Number(item.rank_absolute), url: item?.url ? String(item.url) : null })).filter((item) => item.host && item.host !== site.host.replace(/^www\./, "")).slice(0, 5);
+      const topCompetitors = organic.map((item, index) => ({ host: hosts[index]!, position: Number(item.rank_absolute), url: item?.url ? String(item.url) : null })).filter((item) => item.host && !belongsToHost(item.host,site.host));
       const keywordText = keyword.keyword.toLowerCase();
       const featureTypes = new Set(items.map((item) => String(item?.type ?? "")));
       const inferredIntent = [...featureTypes].some((type) => /shopping|local_pack|maps|paid/.test(type)) ? "transactional" : [...featureTypes].some((type) => /knowledge|people_also_ask|featured_snippet/.test(type)) && !/\b(buy|price|quote|book|hire|near me)\b/.test(keywordText) ? "informational" : /\b(buy|price|quote|book|hire|near me)\b/.test(keywordText) ? "transactional" : /\b(best|compare|review|vs|top)\b/.test(keywordText) ? "commercial" : /\b(how|what|why|guide|can|does)\b/.test(keywordText) ? "informational" : "mixed";
@@ -513,12 +535,15 @@ export async function fetchDailyTrackedRankings(domainId: DomainId): Promise<Tra
         previousPosition: null,
         url: owned?.url ?? null,
         serpFeatures: [...new Set(items.map((item) => String(item?.type ?? "")).filter(Boolean))],
-        ownedFeatures: owned?.type && owned?.type !== "organic" ? [String(owned.type)] : [],
+        ownedFeatures: [...new Set(items.filter(item=>item?.type!=="organic" && belongsToHost(String(item?.domain??item?.url??""),site.host)).map(item=>String(item.type)))],
         intent: inferredIntent,
-        competitors: topCompetitors,
+        competitors: [...new Map(topCompetitors.map(item=>[item.host,topCompetitors.find(first=>first.host===item.host)!])).values()],
       } satisfies TrackedRankingResult;
     }));
-    results.push(...pulled);
+    const completed=pulled.flatMap(result=>result.status==="fulfilled"?[result.value]:[]);
+    if(completed.length&&onBatch)await onBatch(completed);
+    results.push(...completed);
+    const failed=pulled.find(result=>result.status==="rejected");if(failed?.status==="rejected")throw failed.reason;
   }
   return results;
 }

@@ -1,3 +1,4 @@
+import { getDataForSeoClient } from "@/providers/dataforseo";
 import { createHash } from "node:crypto";
 import { getGoogleAccessToken, googleConfigured } from "@/providers/google/auth";
 import { GA4_API, GA4_SCOPE, GSC_SCOPE } from "@/providers/google/config";
@@ -13,10 +14,15 @@ export function normalizeSpeed(body: any, url: string, device: "mobile" | "deskt
   const fieldMetrics = Object.fromEntries(Object.entries(field?.metrics ?? {}).filter(([, value]) => typeof (value as any)?.percentile === "number").map(([key, value]) => [key, { percentile: (value as any).percentile as number, category: String((value as any).category ?? "Unknown") }]));
   return { url, finalUrl: result.finalDisplayedUrl ?? result.finalUrl ?? url, device, testedAt: result.fetchTime ?? new Date().toISOString(), score: typeof result.categories?.performance?.score === "number" ? Math.round(result.categories.performance.score * 100) : null, lcpMs: metric("largest-contentful-paint"), fcpMs: metric("first-contentful-paint"), tbtMs: metric("total-blocking-time"), cls: metric("cumulative-layout-shift"), speedIndexMs: metric("speed-index"), lighthouseVersion: result.lighthouseVersion ?? "Unknown", warnings: Array.isArray(result.runWarnings) ? result.runWarnings.map(String) : [], opportunities: Object.entries(result.audits ?? {}).filter(([, value]) => { const audit = value as any; return typeof audit.score === "number" && audit.score < 0.9 && !["notApplicable", "manual"].includes(audit.scoreDisplayMode); }).map(([id, value]) => { const audit = value as any; return { id, title: String(audit.title), display: String(audit.displayValue ?? "Review this finding"), savingsMs: typeof audit.details?.overallSavingsMs === "number" ? audit.details.overallSavingsMs : null }; }).sort((a, b) => (b.savingsMs ?? 0) - (a.savingsMs ?? 0)).slice(0, 15), field: Object.keys(fieldMetrics).length ? { scope: field === body.loadingExperience ? "page" : "origin", id: String(field.id ?? url), metrics: fieldMetrics } : null };
 }
-export async function collectSpeed(site: ManagedSite, input: string, device: "mobile" | "desktop") {
+export async function collectSpeed(site: ManagedSite, input: string, device: "mobile" | "desktop", provider: "google" | "dataforseo" = "google") {
   const url = siteUrl(input, site.host);
   if (!url) throw new Error("Choose a URL on this website.");
   await assertPublicHostname(new URL(url).hostname);
+  if (provider === "dataforseo") {
+    const response = await getDataForSeoClient().post<Record<string, unknown>>("onPageLighthouse", "/v3/on_page/lighthouse/live/json", [{ url, for_mobile: device === "mobile", categories: ["performance"] }], { domainSlug: site.id, retry: false });
+    const result = normalizeSpeed({ lighthouseResult: response.result[0] }, url, device);
+    return { ...result, provider: "dataforseo", costUsd: response.costUsd, warnings: [...result.warnings, "DataForSEO Lighthouse lab test. Field / real-user metrics are not supplied by this endpoint."] };
+  }
   const endpoint = new URL("https://www.googleapis.com/pagespeedonline/v5/runPagespeed");
   endpoint.searchParams.set("url", url); endpoint.searchParams.set("strategy", device); endpoint.searchParams.set("category", "performance");
   const headers: Record<string, string> = {};

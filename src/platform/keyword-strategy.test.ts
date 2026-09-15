@@ -56,7 +56,7 @@ describe("advanced keyword strategy", () => {
     });
   });
 
-  it("flags only material multi-page cannibalisation", () => {
+  it("keeps multi-page impressions as low-priority candidates without ranking-loss evidence", () => {
     const result = analyseKeywordStrategy([], [
       queryPage("seo audit", "https://example.com/a", 800, 30, 6),
       queryPage("seo audit", "https://example.com/b", 300, 5, 18),
@@ -65,6 +65,6 @@ describe("advanced keyword strategy", () => {
     ]);
 
     expect(result.cannibalisation).toHaveLength(1);
-    expect(result.cannibalisation[0]).toMatchObject({ query: "seo audit", totalImpressions: 1_100, severity: "high" });
+    expect(result.cannibalisation[0]).toMatchObject({ query: "seo audit", totalImpressions: 1_100, severity: "low" });
   });
 });

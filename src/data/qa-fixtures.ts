@@ -1,3 +1,4 @@
+import type {KeywordResearchResult} from "@/lib/types";
 import { shiftDate } from "@/lib/dashboard-data";
 import type { DomainLiveBundle, PortfolioLive } from "@/lib/live";
 import type { ManagedSite, PortfolioGroup } from "@/platform/types";
@@ -40,6 +41,12 @@ export const QA_SITES: ManagedSite[] = Array.from({ length: QA_SITE_COUNT }, (_,
     archivedAt: null, source: "database", createdAt: "2026-08-01T08:00:00.000Z", updatedAt: "2026-08-26T08:00:00.000Z",
   };
 });
+
+// A single-site QA profile keeps browser verification scoped without touching live records.
+if (process.env.QA_SITE_SLUG === "globalbusrental") {
+  QA_SITES.splice(1);
+  Object.assign(QA_SITES[0]!, { id: "globalbusrental", name: "Global Bus Rental", host: "globalbusrental.com", accent: "#EE702B", industry: "Coach and bus rental", gscSite: "sc-domain:globalbusrental.com", ga4PropertyId: "553919279", dataForSeoLocationCode: 2826, primaryMarket: "United Kingdom", spendApproval: "approved", approvedMonthlyUsd: 1.55, siteSettings: { trackedKeywords: ["bus rental", "coach hire"], priorityTopics: ["Bus rental"], competitors: [] } });
+}
 
 for (let index = 0; index < QA_SITES.length; index++) {
   const group = index < 10 ? (index < 6 ? QA_GROUPS[1]! : QA_GROUPS[0]!) : (index < 16 ? QA_GROUPS[2]! : QA_GROUPS[3]!);
@@ -279,6 +286,6 @@ export function qaAiVisibility(scope: string, allowedSiteSlugs?: string[] | null
   };
 }
 
-export function qaKeywordResearch(seed: string, locationCode: number, languageCode: string, locationLabel: string) {
-  return { seed, locationCode, languageCode, locationLabel, fetchedAt: "2026-08-26", rows: Array.from({ length: 18 }, (_, index) => ({ keyword: `${seed} ${["comparison", "rates", "calculator", "guide", "fees", "eligibility"][index % 6]}${index > 5 ? ` ${Math.floor(index / 6) + 1}` : ""}`, volume: 5400 - index * 180, difficulty: 32 + index, cpc: 1.4 + index * 0.12, competition: 0.42 + index * 0.02, competitionLevel: index > 11 ? "high" : index > 5 ? "medium" : "low", intent: index % 3 === 0 ? "transactional" : index % 2 ? "commercial" : "informational", lowTopBid: 1.1 + index * 0.08, highTopBid: 3.2 + index * 0.18, trend: Array.from({ length: 12 }, (_, month) => 4200 - index * 90 + month * 35), monthlySearches: Array.from({ length: 12 }, (_, month) => ({ year: month > 7 ? 2025 : 2026, month: ((month + 8) % 12) + 1, volume: 4200 - index * 90 + month * 35 })) })) };
+export function qaKeywordResearch(seed: string, locationCode: number, languageCode: string, locationLabel: string):KeywordResearchResult {
+  return { seed, locationCode, languageCode, locationLabel, fetchedAt: "2026-08-26", rows: Array.from({ length: 18 }, (_, index) => ({ keyword: `${seed} ${["comparison", "rates", "calculator", "guide", "fees", "eligibility"][index % 6]}${index > 5 ? ` ${Math.floor(index / 6) + 1}` : ""}`, volume: 5400 - index * 180, difficulty: 32 + index, cpc: 1.4 + index * 0.12, competition: 0.42 + index * 0.02, competitionLevel: index > 11 ? "high" : index > 5 ? "medium" : "low", intent: index % 3 === 0 ? "transactional" : index % 2 ? "commercial" : "informational", lowTopBid: 1.1 + index * 0.08, highTopBid: 3.2 + index * 0.18, trend: Array.from({ length: 12 }, (_, month) => 4200 - index * 90 + month * 35), monthlySearches: Array.from({ length: 12 }, (_, month) => ({ year: month < 4 ? 2025 : 2026, month: ((month + 8) % 12) + 1, volume: 4200 - index * 90 + month * 35 })) })) };
 }

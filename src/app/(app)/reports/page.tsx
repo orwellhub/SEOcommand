@@ -2,7 +2,7 @@
 import { ReportArchive } from "@/components/reports/report-archive";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CalendarClock, Download, FileDown, FileText, Send, Trash2, ArrowRight, Palette } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { KpiCard } from "@/components/ui/kpi-card";
@@ -53,206 +53,30 @@ interface PersistedSchedule {
 /* Preview building blocks                                                */
 /* ---------------------------------------------------------------------- */
 
-function SectionNoData({ reason }: { reason?: string }) {
-  return (
-    <p className="rounded-md border border-dashed border-border bg-workspace/50 px-3 py-2 text-xs text-muted">
-      {reason ??
-        "No saved data for this section yet. Open a website report to review its available evidence."}
-    </p>
-  );
-}
-
-function PreviewStat({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return (
-    <div className="rounded-md border border-border p-3">
-      <div className="text-2xs font-medium uppercase tracking-wide text-muted">{label}</div>
-      <div className="mt-1 text-lg font-semibold text-ink tnum">{value}</div>
-      {hint && <div className="mt-0.5 text-2xs text-muted">{hint}</div>}
-    </div>
-  );
-}
-
-/** Domain leaderboard rows for the executive preview — live headlines only. */
-function LeaderboardPreview({ pm }: { pm: PortfolioLive }) {
-  const rows = pm.domains
-    .filter((d) => d.lastSync !== null)
-    .map((d) => {
-      const meta = DOMAINS.find((x) => x.id === d.domainId);
-      return {
-        ...d,
-        name: meta?.name ?? d.domainId,
-        accent: meta?.accent ?? "var(--accent)",
-      };
-    })
-    .sort((a, b) => (b.clicks28d ?? -1) - (a.clicks28d ?? -1));
-
-  if (rows.length === 0) return <SectionNoData />;
-
-  return (
-    <div className="overflow-x-auto rounded-md border border-border">
-      <table className="w-full min-w-[380px] border-collapse text-xs">
-        <thead>
-          <tr className="border-b border-border bg-workspace/70 text-left text-2xs font-semibold uppercase tracking-wide text-muted">
-            <th className="px-3 py-2">Domain</th>
-            <th className="px-3 py-2 text-right">Clicks 28d</th>
-            <th className="px-3 py-2 text-right">Sessions 28d</th>
-            <th className="px-3 py-2 text-right">Conv. 28d</th>
-            <th className="px-3 py-2 text-right">Health</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.domainId} className="border-b border-border/70 last:border-0">
-              <td className="px-3 py-2">
-                <span className="flex items-center gap-2">
-                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: r.accent }} />
-                  <span className="font-medium text-ink">{r.name}</span>
-                </span>
-              </td>
-              <td className="px-3 py-2 text-right text-ink tnum">
-                {r.clicks28d == null ? "—" : fullNumber(r.clicks28d)}
-              </td>
-              <td className="px-3 py-2 text-right text-ink tnum">
-                {r.sessions28d == null ? "—" : fullNumber(r.sessions28d)}
-              </td>
-              <td className="px-3 py-2 text-right text-ink tnum">
-                {r.conversions28d == null ? "—" : fullNumber(r.conversions28d)}
-              </td>
-              <td className="px-3 py-2 text-right text-ink tnum">
-                {r.health == null ? "—" : String(r.health)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-/**
- * Render one report section for the preview drawer, filled with REAL numbers
- * from the live portfolio read-model where they exist. Sections whose data is
- * per-domain (not aggregated into PortfolioLive) honestly say "no data yet".
- */
-function renderSection(template: ReportTemplate, section: string, pm: PortfolioLive): React.ReactNode {
-  const synced = pm.totals.domainsSynced > 0;
-
-  if (template.id === "tpl-exec") {
-    switch (section) {
-      case "Portfolio KPIs":
-      case "Performance KPIs":
-        if (!synced) return <SectionNoData />;
-        return (
-          <div className="grid grid-cols-2 gap-2">
-            <PreviewStat label="Organic clicks" value={fullNumber(pm.totals.clicks28d)} hint="28d · GSC" />
-            <PreviewStat
-              label="Organic sessions"
-              value={fullNumber(pm.totals.sessions28d)}
-              hint="28d · GA4-mapped domains"
-            />
-            <PreviewStat
-              label="Conversions"
-              value={fullNumber(pm.totals.conversions28d)}
-              hint="28d · GA4-mapped domains"
-            />
-            <PreviewStat
-              label="Avg site health"
-              value={pm.totals.avgHealth == null ? "—" : String(Math.round(pm.totals.avgHealth))}
-              hint="Across synced domains"
-            />
-          </div>
-        );
-      case "Visibility trend":
-      case "Search trend":
-        if (pm.totals.avgVisibility == null) return <SectionNoData />;
-        return (
-          <PreviewStat
-            label="Avg visibility index"
-            value={percent(pm.totals.avgVisibility)}
-            hint="The series accumulates one point per sync day — a trend line appears once ≥2 points exist."
-          />
-        );
-      case "Winners & losers":
-      case "Executive summary":
-        return <LeaderboardPreview pm={pm} />;
-      case "Priority actions":
-        return (
-          <SectionNoData reason="Select a website and open its full report to see its priority actions." />
-        );
-    }
-  }
-
-  if (template.id === "tpl-tech" && section === "Health score") {
-    if (pm.totals.avgHealth == null) return <SectionNoData />;
-    return (
-      <PreviewStat
-        label="Avg health score"
-        value={String(Math.round(pm.totals.avgHealth))}
-        hint="Portfolio average across synced domains · per-domain breakdown renders on generation"
-      />
-    );
-  }
-
-  if (template.id === "tpl-backlink" && section === "Referring domains") {
-    if (!synced) return <SectionNoData />;
-    return (
-      <PreviewStat
-        label="Referring domains"
-        value={fullNumber(pm.totals.referringDomains)}
-        hint="Portfolio total from the latest sync"
-      />
-    );
-  }
-
-  if (template.id === "tpl-ai" && section === "Mention rate") {
-    const tracked = pm.domains.filter((d) => d.aiMentionRate != null);
-    if (tracked.length === 0) return <SectionNoData />;
-    return (
-      <div className="space-y-1.5">
-        {tracked.map((d) => {
-          const meta = DOMAINS.find((x) => x.id === d.domainId);
-          return (
-            <div
-              key={d.domainId}
-              className="flex items-center justify-between rounded-md border border-border px-3 py-2"
-            >
-              <span className="flex items-center gap-2 text-xs font-medium text-ink">
-                <span
-                  className="h-2 w-2 shrink-0 rounded-full"
-                  style={{ background: meta?.accent ?? "var(--accent)" }}
-                />
-                {meta?.name ?? d.domainId}
-              </span>
-              <span className="text-xs text-ink tnum">{percent(d.aiMentionRate as number)}</span>
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-
-  return <SectionNoData />;
-}
-
-/* ---------------------------------------------------------------------- */
-/* Page                                                                   */
-/* ---------------------------------------------------------------------- */
-
 const PAGE_TITLE = "Reports";
 const PAGE_DESCRIPTION =
   "Branded client reports, downloadable evidence and persistent delivery schedules.";
 
 export default function ReportsPage() {
-  const router = useRouter();
+  const router = useRouter(), params = useSearchParams();
   const { data: pm, loading, error } = useLivePortfolio();
-  const { sites, groups, activeDomain, scope } = useDomain();
+  const { sites, groups, activeDomain, scope, range } = useDomain();
   const [scopeType, setScopeType] = useState<"portfolio" | "group" | "site" | "campaign">(activeDomain ? "site" : "portfolio");
   const [scopeId, setScopeId] = useState(activeDomain?.id ?? "");
   const [campaignOptions, setCampaignOptions] = useState<{ id: string; name: string }[]>([]);
 
   const [previewTemplate, setPreviewTemplate] = useState<ReportTemplate | null>(null);
 
-  const [draftTemplateId, setDraftTemplateId] = useState<string>(REPORT_TEMPLATES[0]?.id ?? "");
+  const [draftTemplateId, setDraftTemplateId] = useState<string>(REPORT_TEMPLATES.find(t => t.id === params.get("template"))?.id ?? REPORT_TEMPLATES[0]?.id ?? "");
+  const [draftFormat, setDraftFormat] = useState<"PDF" | "CSV" | "PDF+CSV">("PDF");
+  const [sectionDrafts, setSectionDrafts] = useState<Record<string, string[]>>(() => {
+    const t = REPORT_TEMPLATES.find(t => t.id === params.get("template"));
+    const selected = t ? params.getAll("section").filter(s => t.sections.includes(s)) : [];
+    return t && selected.length ? { [t.id]: [...new Set(selected)] } : {};
+  });
+  const draftSections = sectionDrafts[draftTemplateId] ?? REPORT_TEMPLATES.find(t => t.id === draftTemplateId)?.sections ?? [];
+  function updateSections(next: string[]) { setSectionDrafts(s => ({ ...s, [draftTemplateId]: next })); }
+  function moveSection(index: number, delta: number) { const next = [...draftSections], to = index + delta; if (to < 0 || to >= next.length) return; [next[index], next[to]] = [next[to]!, next[index]!]; updateSections(next); }
   const [draftCadence, setDraftCadence] = useState<Cadence>("weekly");
   const [draftRecipients, setDraftRecipients] = useState("");
   const [schedules, setSchedules] = useState<PersistedSchedule[]>([]);
@@ -330,7 +154,7 @@ export default function ReportsPage() {
       const response = await fetch("/api/reports/schedules", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ templateId: draftTemplateId, cadence: draftCadence, recipients, format: "PDF", scopeType, scopeId: scopeType === "portfolio" ? null : scopeId, definition: { documentVersion: "client-report-v2", branding: scopeType === "site" ? "website" : "portfolio", sections: REPORT_TEMPLATES.find((template) => template.id === draftTemplateId)?.sections ?? [] } }),
+        body: JSON.stringify({ templateId: draftTemplateId, cadence: draftCadence, recipients, format: draftFormat, scopeType, scopeId: scopeType === "portfolio" ? null : scopeId, definition: { documentVersion: "client-report-v3", days: parseInt(range), branding: scopeType === "site" ? "website" : "portfolio", sections: draftSections } }),
       });
       const body = (await response.json()) as { schedule?: PersistedSchedule; error?: string };
       if (!response.ok || !body.schedule) throw new Error(body.error || "Could not save the schedule.");
@@ -358,6 +182,7 @@ export default function ReportsPage() {
   }
 
   function downloadCsv() {
+    if (previewTemplate) { window.open(previewUrl(previewTemplate) + "&format=csv", "_blank", "noopener,noreferrer"); return; }
     const header = ["Domain", "Clicks 28d", "Impressions 28d", "Sessions 28d", "Conversions 28d", "Health", "Visibility"];
     const rows = scopedPm?.domains.map((row) => {
       const domain = sites.find((candidate) => candidate.id === row.domainId) ?? DOMAINS.find((candidate) => candidate.id === row.domainId);
@@ -374,36 +199,11 @@ export default function ReportsPage() {
     URL.revokeObjectURL(url);
   }
 
+  function previewUrl(template: ReportTemplate) {
+    return `/api/reports/preview?scopeType=${scopeType}&scopeId=${encodeURIComponent(scopeId)}&template=${template.id}&days=${parseInt(range)}`;
+  }
   function printReport() {
-    if (!scopedPm || !previewTemplate) return;
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
-    printWindow.opener = null;
-    printWindow.document.title = previewTemplate.name;
-    const style = printWindow.document.createElement("style");
-    style.textContent = "body{font-family:Arial,sans-serif;color:#11182b;padding:32px}h1{margin-bottom:4px}p{color:#5b6474}table{border-collapse:collapse;width:100%;margin-top:24px}th,td{border:1px solid #dfe4ec;padding:8px;text-align:right}th:first-child,td:first-child{text-align:left}";
-    printWindow.document.head.appendChild(style);
-    const title = printWindow.document.createElement("h1");
-    title.textContent = previewTemplate.name;
-    const meta = printWindow.document.createElement("p");
-    meta.textContent = `Generated ${new Date().toLocaleString()} from live portfolio snapshots.`;
-    const table = printWindow.document.createElement("table");
-    table.innerHTML = "<thead><tr><th>Domain</th><th>Clicks</th><th>Sessions</th><th>Conversions</th><th>Health</th></tr></thead>";
-    const body = printWindow.document.createElement("tbody");
-    for (const row of scopedPm.domains) {
-      const tr = printWindow.document.createElement("tr");
-      const values = [sites.find((candidate) => candidate.id === row.domainId)?.name ?? row.domainId, row.clicks28d, row.sessions28d, row.conversions28d, row.health];
-      for (const value of values) {
-        const td = printWindow.document.createElement("td");
-        td.textContent = value == null ? "—" : String(value);
-        tr.appendChild(td);
-      }
-      body.appendChild(tr);
-    }
-    table.appendChild(body);
-    printWindow.document.body.append(title, meta, table);
-    printWindow.focus();
-    printWindow.print();
+    if (previewTemplate) window.open(previewUrl(previewTemplate), "_blank", "noopener,noreferrer");
   }
 
   if (loading && !pm) {
@@ -442,7 +242,7 @@ export default function ReportsPage() {
     );
   }
 
-  const reportData = scopedPm ?? pm;
+    const reportData = scopedPm ?? pm;
   const scopeLabel = scopeType === "portfolio" ? "Portfolio" : scopeType === "group" ? groups.find((group) => group.id === scopeId)?.name ?? "Folder" : scopeType === "site" ? sites.find((site) => site.id === scopeId)?.name ?? "Website" : campaignOptions.find((campaign) => campaign.id === scopeId)?.name ?? "Campaign";
   const reportSite = scopeType === "site" ? sites.find((site) => site.id === scopeId) : null;
   const scopedSchedules = schedules.filter((schedule) => scopeType === "portfolio" || (schedule.scopeType === scopeType && schedule.scopeId === scopeId));
@@ -535,7 +335,7 @@ export default function ReportsPage() {
       </Card>
 
       {/* Scheduling */}
-      <Card className="p-4">
+      <section id="schedule" className="scroll-mt-6"><Card className="p-4">
         <CardHeader
           title="Scheduled delivery"
           subtitle="Automatically deliver reports after the daily data refresh"
@@ -603,6 +403,10 @@ export default function ReportsPage() {
             </Button>
           </div>
 
+          <div className="space-y-3 rounded-md border border-border p-3">
+            <label className="flex items-center gap-3 text-xs font-semibold">Attachment format<select aria-label="Report attachment format" value={draftFormat} onChange={e => setDraftFormat(e.target.value as typeof draftFormat)} className="rounded border border-border bg-card p-2"><option>PDF</option><option>CSV</option><option>PDF+CSV</option></select></label>
+            <details><summary className="cursor-pointer text-xs font-semibold">Report sections and order · {draftSections.length} selected · {parseInt(range)} days</summary><div className="mt-3 space-y-2">{draftSections.map((section, i) => <div key={section} className="flex items-center gap-2 text-xs"><span className="mr-auto">{i+1}. {section}</span><Button size="sm" disabled={!i} aria-label={`Move ${section} up`} onClick={() => moveSection(i,-1)}>↑</Button><Button size="sm" disabled={i===draftSections.length-1} aria-label={`Move ${section} down`} onClick={() => moveSection(i,1)}>↓</Button><Button size="sm" disabled={draftSections.length===1} onClick={() => updateSections(draftSections.filter(s=>s!==section))}>Remove</Button></div>)}{REPORT_TEMPLATES.find(t=>t.id===draftTemplateId)?.sections.filter(s=>!draftSections.includes(s)).map(s=><Button key={s} size="sm" onClick={()=>updateSections([...draftSections,s])}>Add {s}</Button>)}</div></details>
+          </div>
           {scheduleError && <div role="alert"><EvidenceMessage detail={scheduleError} /></div>}
           {scheduleNotice && <p role="status" className="text-sm text-success">{scheduleNotice}</p>}
 
@@ -642,6 +446,8 @@ export default function ReportsPage() {
         </div>
       </Card>
 
+      </section>
+
       {/* Report preview drawer */}
       <Drawer
         open={previewTemplate !== null}
@@ -654,7 +460,7 @@ export default function ReportsPage() {
         }
         footer={
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <span className="text-2xs text-muted">Print opens the browser’s Save as PDF flow.</span>
+            <span className="text-2xs text-muted">Open the report, then choose Print / Save as PDF in your browser.</span>
             <div className="flex gap-2">
               <Button variant="secondary" size="sm" onClick={printReport}>
                 <Download className="h-3.5 w-3.5" /> Print / PDF
@@ -666,26 +472,8 @@ export default function ReportsPage() {
           </div>
         }
       >
-        {previewTemplate && (
-          <div className="space-y-4">
-            <p className="text-sm text-muted">{previewTemplate.description}</p>
-            {previewTemplate.sections.map((s, i) => (
-              <div key={s}>
-                <div className="mb-1.5 flex items-center gap-2">
-                  <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-purple/10 text-2xs font-semibold text-purple tnum">
-                    {i + 1}
-                  </span>
-                  <span className="text-sm font-semibold text-ink">{s}</span>
-                </div>
-                {renderSection(previewTemplate, s, reportData)}
-              </div>
-            ))}
-            <p className="text-2xs text-muted">
-              This preview uses saved snapshots for the report’s scope. Open a website’s full client
-              report for dated performance comparisons and detailed recommendations.
-            </p>
-          </div>
-        )}
+        {previewTemplate && <iframe title="Report PDF preview" src={previewUrl(previewTemplate)} className="h-[70vh] w-full rounded border border-border" />}
+
       </Drawer>
     </div>
   );

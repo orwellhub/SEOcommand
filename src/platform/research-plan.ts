@@ -8,6 +8,7 @@ import type { ManagedSite } from "./types";
 
 const hostSchema = z.string().trim().toLowerCase().transform((value) => value.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "")).pipe(z.string().max(253).regex(/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,63}$/, "Enter a domain without a path."));
 export const researchInputSchema = z.object({
+  maxRows: z.number().int().min(1000).max(50000).optional(),
   market: z.object({ locationCode: z.number().int().positive(), languageCode: z.string().min(2).max(8), label: z.string().min(1).max(200) }).optional(),
   feature: z.enum(RESEARCH_FEATURES.map((feature) => feature.id) as [ResearchFeature, ...ResearchFeature[]]),
   keywords: z.array(z.string().trim().min(1).max(250)).max(100).default([]),
@@ -41,12 +42,25 @@ export async function buildResearchPlan(site: ManagedSite, input: ResearchInput,
   const historyEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0));
   const historyStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 12, 1));
   switch (clean.feature) {
+    case "keyword_bulk": {
+      if (clean.keywords.length !== 1) throw new Error("Choose one seed for a background keyword collection.");
+      add("labsKeywordIdeas", "dataforseo_labs/google/keyword_ideas/live", { keywords: clean.keywords, ...location, limit: 1000, offset: 0, include_serp_info: true, order_by: ["keyword_info.search_volume,desc"] }, .15, clean.keywords[0]!);
+      units[0]!.maxRows = clean.maxRows ?? 1000;
+      notes.push("Pages are saved before the next paid request. Collection stops at the selected ceiling or when the provider has no further rows. Results can change while paging; duplicate keywords are merged. The estimate is a maximum, not a promise that this many keywords exist.");
+      break;
+    }
+    case "traffic": for (const target of clean.domains) {
+      add("labsDomainRankOverview", "dataforseo_labs/google/domain_rank_overview/live", { target, ...location, use_new_etv: true }, .03, target);
+      add("labsHistoricalRankOverview", "dataforseo_labs/google/historical_rank_overview/live", { target, ...location, date_from: date(historyStart), date_to: date(historyEnd), include_clickstream_data: false }, .15, target);
+      add("labsRelevantPages", "dataforseo_labs/google/relevant_pages/live", { target, ...location, limit: 100, use_new_etv: true }, .04, target);
+    } notes.push("Current search estimates use DataForSEO ETV 2026. Historical estimates use the provider's historical model; no growth percentage is calculated between these two methodologies. Total visits, direct/social/referral traffic and unique visitors are unavailable from this provider."); break;
     case "autocomplete": for (const keyword of clean.keywords) add("serpAutocomplete", "serp/google/autocomplete/live/advanced", { keyword, ...location, client: "gws-wiz-serp" }, .003, keyword); break;
     case "countries": for (const target of clean.domains) add("labsDomainCountries", "dataforseo_labs/google/domain_rank_overview/live", { target, limit: 1000 }, .15, target); notes.push("Country and language rows are separate provider markets. They must not be summed as unique visitors."); break;
     case "footprint": for (const target of clean.domains) {
       const escaped = (clean.path ?? "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const filters = clean.path ? clean.pathMode === "folder" ? ["ranked_serp_element.serp_item.relative_url", "regex", `^${escaped.replace(/\/$/, "")}(?:/|$)`] : ["ranked_serp_element.serp_item.relative_url", "=", clean.path] : undefined;
       add("labsRankedKeywords", "dataforseo_labs/google/ranked_keywords/live", { target, ...location, limit: 1000, item_types: ["organic"], order_by: ["keyword_data.keyword_info.search_volume,desc"], ...(filters ? { filters } : {}) }, .15, `${target}${clean.path ?? ""}`);
+      units.at(-1)!.maxRows = clean.maxRows ?? 1000;
       if (!clean.path) add("labsRelevantPages", "dataforseo_labs/google/relevant_pages/live", { target, ...location, limit: 100 }, .04, target);
     } break;
     case "history": for (const target of clean.domains) add("labsHistoricalRankOverview", "dataforseo_labs/google/historical_rank_overview/live", { target, ...location, date_from: date(historyStart), date_to: date(historyEnd), correlate: true, include_clickstream_data: false }, .15, target); break;
@@ -69,5 +83,5 @@ export async function buildResearchPlan(site: ManagedSite, input: ResearchInput,
       notes.push("Collects up to 100 newest reviews, including text and owner replies. Older reviews remain outside this sample."); break;
     }
   }
-  return { input: clean, market: { locationCode: location.location_code, languageCode: location.language_code, label: input.market?.label ?? site.primaryMarket }, units, estimateUsd: Math.round(units.reduce((sum, unit) => sum + unit.estimateUsd, 0) * 1000000) / 1000000, notes };
+  return { input: clean, market: { locationCode: location.location_code, languageCode: location.language_code, label: input.market?.label ?? site.primaryMarket }, units, estimateUsd: Math.round(units.reduce((sum, unit) => sum + unit.estimateUsd * Math.ceil((unit.maxRows ?? 1000) / 1000), 0) * 1000000) / 1000000, notes };
 }

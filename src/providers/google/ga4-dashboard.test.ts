@@ -50,3 +50,12 @@ it("does not include the open US property day when UTC has rolled over", async (
     expect(JSON.parse(fetcher.mock.calls.at(-1)![1].body).dateRanges[0]).toEqual({ startDate: "2026-08-12", endDate: "2026-09-08" });
   } finally { vi.useRealTimers(); }
 });
+
+
+it("reads whole-period user and session-duration metrics without summing daily users", async () => {
+  const fetcher=vi.fn().mockResolvedValue({ok:true,json:async()=>({rows:[{metricValues:["100","74","40","60","0.6","8","180","97.5"].map(value=>({value}))}]})});
+  vi.stubGlobal("fetch",fetcher);
+  const result=await ga4OrganicOverview("example",28);
+  expect(result.totalUsers).toBe(74);expect(result.averageSessionDuration).toBe(97.5);
+  expect(JSON.parse(fetcher.mock.calls[0][1].body).metrics).toContainEqual({name:"averageSessionDuration"});
+});

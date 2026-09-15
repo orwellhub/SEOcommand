@@ -1,0 +1,10 @@
+import {NextResponse} from "next/server";
+import {createHash} from "node:crypto";
+import {z} from "zod";
+import {canAccessSite,hasPermission} from "@/platform/access";
+import {getManagedSite} from "@/platform/site-store";
+import {workspaceRecords,mergeWorkspaceBatch} from "@/platform/workspace-store";
+import {PublicUrlSchema} from "@/lib/content-workspace";
+export async function GET(request:Request){const site=new URL(request.url).searchParams.get("site")??"";if(!await getManagedSite(site)||!await canAccessSite(request,site))return NextResponse.json({error:"Website access required."},{status:403});return NextResponse.json({decisions:(await workspaceRecords(site,"backlink_decisions")).map(row=>({...row.payload,updatedAt:row.updatedAt}))});}
+const Input=z.object({site:z.string(),rows:z.array(z.object({sourceUrl:PublicUrlSchema,targetUrl:PublicUrlSchema})).min(1).max(200),decision:z.enum(["audit","whitelist","remove","disavow"]),scope:z.enum(["url","domain"]).default("url"),note:z.string().trim().max(4000).optional()});
+export async function POST(request:Request){const parsed=Input.safeParse(await request.json().catch(()=>null));if(!parsed.success)return NextResponse.json({error:"Select up to 200 valid links and a review decision."},{status:400});const input=parsed.data;if(!await getManagedSite(input.site)||!await canAccessSite(request,input.site)||!await hasPermission(request,"manage_content",input.site))return NextResponse.json({error:"Content permission required."},{status:403});try{await mergeWorkspaceBatch(input.site,"backlink_decisions",input.rows.map(row=>({key:createHash("sha256").update(input.scope==="domain"?`domain:${new URL(row.sourceUrl).hostname}`:`${row.sourceUrl}\n${row.targetUrl}`).digest("hex"),payload:{...row,scope:input.scope,decision:input.decision,...(input.note!==undefined?{note:input.note}:{})}})));return NextResponse.json({ok:true});}catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Decisions could not be saved."},{status:503});}}

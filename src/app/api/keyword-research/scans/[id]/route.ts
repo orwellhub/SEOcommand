@@ -3,7 +3,8 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { hasDatabase } from "@/sync/store";
 import type { KeywordResearchResult, KeywordResearchRow } from "@/lib/types";
-import { qaKeywordResearch } from "@/data/qa-fixtures";
+import {commandRecords,saveCommandRecord} from "@/platform/command-store";
+import { listManagedSites } from "@/platform/site-store";
 import { canAccessSite, hasPermission } from "@/platform/access";
 
 export const runtime = "nodejs";
@@ -18,6 +19,10 @@ export const dynamic = "force-dynamic";
  * DELETE → remove a saved search.
  */
 
+async function previewScans() {
+  return (await Promise.all(["__qa_research__", ...(await listManagedSites()).map(s => s.id)].map(commandRecords))).flat();
+}
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function unavailable() {
@@ -29,17 +34,10 @@ function unavailable() {
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (process.env.QA_SYNTHETIC === "true" && id.startsWith("qa-")) {
-    const pieces = id.split("-");
-    const locationCode = Number(pieces.pop());
-    const seed = Buffer.from(pieces.slice(1).join("-"), "base64url").toString("utf8");
-    return NextResponse.json({
-      ok: true,
-      configured: true,
-      fromCache: true,
-      synthetic: true,
-      result: qaKeywordResearch(seed || "mortgage comparison", locationCode || 2784, "en", locationCode === 2826 ? "United Kingdom" : "United Arab Emirates"),
-    });
+  if(process.env.QA_SYNTHETIC==="true"){
+    if(!await hasPermission(request,"research"))return NextResponse.json({error:"Research permission required."},{status:403});
+    const row=(await previewScans()).find(row=>row.kind==="qa_keyword_scan"&&row.id===id&&row.status!=="deleted");
+    return row?NextResponse.json({ok:true,fromCache:true,synthetic:true,result:{...row.payload,fetchedAt:row.payload.fetchedAt??row.createdAt}}):NextResponse.json({error:"Saved search not found."},{status:404});
   }
   if (!hasDatabase()) return unavailable();
   if (!UUID_RE.test(id)) {
@@ -55,12 +53,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ ok: false, error: "Saved search not found." }, { status: 404 });
     }
     if (row.siteSlug && !await canAccessSite(request, row.siteSlug)) return NextResponse.json({ ok: false, error: "Saved search not found." }, { status: 404 });
+    if(!await hasPermission(request,"research",row.siteSlug))return NextResponse.json({error:"Research permission required."},{status:403});
+    let meta:{pagination?:KeywordResearchResult["pagination"];fetchedAt?:string}={};try{if(row.sourceValue?.startsWith("{"))meta=JSON.parse(row.sourceValue);}catch{}
     const result: KeywordResearchResult = {
+      pagination:meta.pagination,
       seed: row.seed,
       locationCode: row.locationCode,
       languageCode: row.languageCode,
       locationLabel: row.locationLabel,
-      fetchedAt: row.createdAt.toISOString().slice(0, 10),
+      fetchedAt: meta.fetchedAt??row.createdAt.toISOString(),
       rows: (row.rows ?? []) as KeywordResearchRow[],
     };
     return NextResponse.json({ ok: true, configured: true, fromCache: true, result });
@@ -74,9 +75,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (process.env.QA_SYNTHETIC === "true" && id.startsWith("qa-")) {
-    if (!await hasPermission(request, "research")) return NextResponse.json({ ok: false, error: "Research permission required." }, { status: 403 });
-    return NextResponse.json({ ok: true, synthetic: true });
+  if(process.env.QA_SYNTHETIC==="true"){
+    if(!await hasPermission(request,"research"))return NextResponse.json({error:"Research permission required."},{status:403});const row=(await previewScans()).find(row=>row.id===id&&row.kind==="qa_keyword_scan");if(!row)return NextResponse.json({error:"Saved search not found."},{status:404});await saveCommandRecord(row.siteSlug,row.kind,row.recordKey,row.payload,{status:"deleted"});return NextResponse.json({ok:true,synthetic:true});
   }
   if (!hasDatabase()) return unavailable();
   if (!UUID_RE.test(id)) {

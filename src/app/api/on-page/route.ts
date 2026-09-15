@@ -1,0 +1,33 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { canAccessSite,hasPermission } from "@/platform/access";
+import { getManagedSite } from "@/platform/site-store";
+import { saveWorkspace,workspaceRecords,updateWorkspace } from "@/platform/workspace-store";
+import { readPageBenchmark } from "@/platform/page-benchmark";
+import { getDataForSeoClient } from "@/providers/dataforseo";
+import { ENDPOINTS } from "@/providers/dataforseo/config";
+import { buildDomainBundle } from "@/sync/bundle";
+import { onPageIdeas,savedPageIdeas,type OnPageReport,type SerpPage } from "@/lib/on-page-analysis";
+import { PublicUrlSchema } from "@/lib/content-workspace";
+export const runtime="nodejs";export const maxDuration=120;
+const Input=z.object({site:z.string().min(1),resumeId:z.string().uuid().optional(),template:z.boolean().optional(),keyword:z.string().trim().min(1).max(160),url:PublicUrlSchema,locationCode:z.number().int().positive(),languageCode:z.string().min(2).max(12)});
+export async function GET(request:Request){const site=new URL(request.url).searchParams.get("site")??"";if(!await getManagedSite(site)||!await canAccessSite(request,site))return NextResponse.json({error:"Choose a website you can access."},{status:403});return NextResponse.json({records:await workspaceRecords(site,"onpage"),estimateUsd:.003});}
+export async function POST(request:Request){const parsed=Input.safeParse(await request.json().catch(()=>null));if(!parsed.success)return NextResponse.json({error:"Enter a target page, keyword and search database."},{status:400});const input=parsed.data,site=await getManagedSite(input.site);if(!site||!await canAccessSite(request,input.site)||!await hasPermission(request,"research",input.site))return NextResponse.json({error:"Research permission required."},{status:403});if(new URL(input.url).hostname.replace(/^www\./,"")!==site.host.replace(/^www\./,""))return NextResponse.json({error:"The target page must belong to the selected website."},{status:400});
+ if(process.env.QA_SYNTHETIC==="true")return NextResponse.json({error:"Paid page collection is disabled in the synthetic preview."},{status:409});
+ const id=input.resumeId??crypto.randomUUID();const previous=input.resumeId?(await workspaceRecords(input.site,"onpage")).find(row=>row.recordKey===id):null;
+ if(input.resumeId&&(!previous||!Array.isArray(previous.payload.serp)||previous.status==="completed"))return NextResponse.json({error:"This scan has no unfinished saved search results to resume."},{status:409});
+ if(previous&&JSON.stringify({...input,resumeId:undefined})!==JSON.stringify(previous.payload.input))return NextResponse.json({error:"Resume using the original page, keyword and market."},{status:409});
+ let costUsd=Number(previous?.payload.costUsd??0),paidStarted=Boolean(previous?.payload.paidStarted);let checkpoint:Record<string,unknown>=previous?.payload??{input:{...input,resumeId:undefined}};
+ let serp=previous?.payload.serp as SerpPage[]|undefined,features=previous?.payload.features as string[]|undefined;
+ try{if(!serp){await saveWorkspace(input.site,"onpage",id,checkpoint,"running");paidStarted=true;const response=await getDataForSeoClient().post<Record<string,unknown>>("serpOrganicLive",ENDPOINTS.serpOrganicLive,[{keyword:input.keyword,location_code:input.locationCode,language_code:input.languageCode,device:"desktop",depth:10}],{domainSlug:input.site});costUsd=response.costUsd;
+ const raw=(response.result[0]?.items??[]) as Record<string,unknown>[];serp=raw.filter(item=>item.type==="organic"&&typeof item.url==="string"&&PublicUrlSchema.safeParse(item.url).success).slice(0,10).map(item=>({url:String(item.url),title:String(item.title??""),position:Number(item.rank_group??item.rank_absolute),description:String(item.description??"")}));features=[...new Set(raw.map(item=>String(item.type)))];
+ checkpoint={...checkpoint,serp,features,costUsd,paidStarted};await saveWorkspace(input.site,"onpage",id,checkpoint,"reading_pages");}
+ features=features??[];
+ const urls=[...new Set([...(input.template?[]:[input.url]),...serp.map(page=>page.url)])],pages:Awaited<ReturnType<typeof readPageBenchmark>>[]=[],failures:OnPageReport["failures"]=[];
+ for(let offset=0;offset<urls.length;offset+=3){await Promise.all(urls.slice(offset,offset+3).map(async url=>{try{pages.push(await readPageBenchmark(url));}catch(e){failures.push({url,reason:e instanceof Error?e.message:"Could not read page."});}}));}
+ const own=input.template?null:pages.find(page=>page.url===input.url)??null,benchmarks=pages.filter(page=>input.template||page.url!==input.url),report:OnPageReport={id,...input,kind:input.template?"template":"page",collectedAt:new Date().toISOString(),serp,features,own,benchmarks,failures,ideas:onPageIdeas(own,benchmarks,input.keyword,serp,features),costUsd,decisions:{}};
+ const bundle=await buildDomainBundle(input.site);if(!input.template)report.ideas.push(...savedPageIdeas(input.url,bundle));report.supplemental={links:bundle.datasets.backlinks?.capturedOn??null,analytics:bundle.datasets.ga4_landing_pages?.capturedOn??null};
+ const record=await saveWorkspace(input.site,"onpage",id,{input,report},"completed");return NextResponse.json({record});
+ }catch(e){const error=e instanceof Error?e.message:"Page analysis failed.";await saveWorkspace(input.site,"onpage",id,{...checkpoint,costUsd,error,paidStarted},"failed").catch(()=>undefined);return NextResponse.json({error,id,costUsd},{status:502});}}
+const Decision=z.object({site:z.string(),id:z.string().uuid(),idea:z.string().max(100),decision:z.enum(["open","done","dismissed"]),updatedAt:z.string().datetime()});
+export async function PATCH(request:Request){const parsed=Decision.safeParse(await request.json().catch(()=>null));if(!parsed.success)return NextResponse.json({error:"Choose an idea and status."},{status:400});const input=parsed.data;if(!await canAccessSite(request,input.site)||!await hasPermission(request,"manage_content",input.site))return NextResponse.json({error:"Content permission required."},{status:403});const row=(await workspaceRecords(input.site,"onpage")).find(row=>row.recordKey===input.id);const report=row?.payload.report as OnPageReport|undefined;if(!row||!report?.ideas.some(idea=>idea.id===input.idea))return NextResponse.json({error:"Idea not found."},{status:404});if(row.updatedAt!==input.updatedAt)return NextResponse.json({error:"This report changed. Reload before saving your decision."},{status:409});const record=await updateWorkspace(row,{...row.payload,report:{...report,decisions:{...report.decisions,[input.idea]:input.decision}}});if(!record)return NextResponse.json({error:"This report changed while saving. Reload and try again."},{status:409});return NextResponse.json({record});}

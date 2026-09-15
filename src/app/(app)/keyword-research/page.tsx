@@ -1,228 +1,70 @@
 "use client";
-import { ResearchHandoff } from "@/components/research/research-handoff";
-import { ResearchEvidencePanel } from "@/components/research/evidence-panel";
-
-import { ReportTabs } from "@/components/reports/report-layout";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { BarChart3, ChevronRight, Download, FolderKanban, Globe2, History, Layers3, Loader2, MapPin, Plus, Radar, ScanSearch, Search, Sparkles, Target, X } from "lucide-react";
-import { PageHeader } from "@/components/ui/page-header";
-import { Button, Card, EmptyState, Skeleton, StatusBadge } from "@/components/ui/primitives";
-import { DataTable, type Column } from "@/components/ui/data-table";
-import { Sparkline } from "@/components/charts/sparkline";
+import { ChevronRight, Download, FolderKanban, Layers3, Loader2, Plus, Radar, Search } from "lucide-react";
+import { KeywordWorkbench } from "@/components/keyword-research/keyword-workbench";
 import { SavedScans, type SavedScan } from "@/components/keyword-research/saved-scans";
+import { ResearchEvidencePanel } from "@/components/research/evidence-panel";
+import { ReportTabs } from "@/components/reports/report-layout";
+import { Button, Card, EmptyState, StatusBadge } from "@/components/ui/primitives";
+import { Drawer } from "@/components/ui/drawer";
 import { useDomain } from "@/components/shell/domain-context";
-import { compactNumber, currency } from "@/lib/format";
-import { cn } from "@/lib/cn";
 import { DEFAULT_MARKET } from "@/lib/markets";
-import type { Domain, KeywordResearchResult, KeywordResearchRow } from "@/lib/types";
+import { keywordKey, type WorkbenchKeyword } from "@/lib/keyword-workbench";
+import type { Domain, KeywordResearchResult } from "@/lib/types";
 
-type View = "discover" | "projects" | "saved" | "tracking" | "autocomplete";
+type View = "overview" | "discover" | "autocomplete" | "projects" | "saved" | "lists" | "tracking";
 type SearchLocation = { code: number; name: string; parent: string | null; countryCode: string | null; type: string; language: string };
 type Project = { id: string; siteSlug: string | null; name: string; description: string | null; status: string; tags: string[]; updatedAt: string };
 type Campaign = { id: string; name: string; defaultCadence: string; searchEngine: string; updatedAt: string };
 type TrackedKeyword = { id: string; keyword: string; locationCode: number; device: string; cadence: string; campaignId: string | null; active: boolean };
-type ResearchRow = KeywordResearchRow & { marketCode: number; marketLabel: string; languageCode: string };
-
-const DEPTHS = [50, 100, 250, 500];
-const SOURCE_TYPES = [
-  { id: "seed", label: "Seed keyword", hint: "Expand a topic into related demand" },
-  { id: "domain", label: "Website or page", hint: "Use a domain or URL as the research anchor" },
-  { id: "competitor", label: "Competitor", hint: "Explore a competing brand or domain" },
-  { id: "questions", label: "Questions", hint: "Find informational and AI-search opportunities" },
-];
-const INTENT_COLORS: Record<string, string> = { informational: "#335CFF", commercial: "#7137F5", transactional: "#16A879", navigational: "#FF6B5E", unknown: "#9AA5B5" };
-
-function fmtVolume(value: number | null) { return value == null ? "—" : compactNumber(value); }
-function fmtCpc(value: number | null) { return value == null ? "—" : currency(value); }
-function difficultyTone(value: number | null): "success" | "warning" | "critical" | "neutral" { return value == null ? "neutral" : value < 30 ? "success" : value < 60 ? "warning" : "critical"; }
-function mean(values: number[]) { return values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0; }
+const field="h-9 rounded border border-border bg-card px-3 text-sm text-ink";
 
 export default function KeywordResearchPage() {
   const { sites, activeDomain } = useDomain();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const view = (["projects", "saved", "tracking", "autocomplete"].includes(searchParams.get("view") ?? "") ? searchParams.get("view") : "discover") as View;
-  function setView(next: View) { const query = new URLSearchParams(searchParams); query.set("view", next); router.push(`/keyword-research?${query}`, { scroll: false }); }
-  const [sourceType, setSourceType] = useState("seed");
-  const [seed, setSeed] = useState("");
-  const [depth, setDepth] = useState(100);
-  const [locations, setLocations] = useState<SearchLocation[]>([]);
-  const [locationQuery, setLocationQuery] = useState("");
-  const [locationOpen, setLocationOpen] = useState(false);
-  const [selectedLocations, setSelectedLocations] = useState<SearchLocation[]>([{ code: DEFAULT_MARKET.code, name: DEFAULT_MARKET.label, parent: null, countryCode: "AE", type: "Country", language: DEFAULT_MARKET.language }]);
-  const [results, setResults] = useState<KeywordResearchResult[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
-  const [scans, setScans] = useState<SavedScan[]>([]);
-  const [scansLoading, setScansLoading] = useState(true);
-  const [activeScanId, setActiveScanId] = useState<string | null>(null);
-  const [busyScanId, setBusyScanId] = useState<string | null>(null);
-  const [replayed, setReplayed] = useState(false);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [projectId, setProjectId] = useState("");
-  const [newProject, setNewProject] = useState("");
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [tracked, setTracked] = useState<TrackedKeyword[]>([]);
-  const [campaignName, setCampaignName] = useState("");
-  const [cadence, setCadence] = useState<"daily" | "weekly">("weekly");
-  const [tracking, setTracking] = useState(false);
-  const [trackingSiteId, setTrackingSiteId] = useState("");
-  const trackingSite = sites.find((site) => site.id === trackingSiteId) ?? null;
+  const router=useRouter(),params=useSearchParams();
+  const requested=params.get("view"),view:View=(["discover","autocomplete","projects","saved","lists","tracking"].includes(requested??"")?requested:"overview") as View;
+  function setView(next:View){const query=new URLSearchParams(params);query.set("view",next);router.push(`/keyword-research?${query}`,{scroll:false});}
+  const [seed,setSeed]=useState(params.get("q")??""),[sourceType,setSourceType]=useState("seed"),[depth,setDepth]=useState(100);
+  const [locations,setLocations]=useState<SearchLocation[]>([]),[locationQuery,setLocationQuery]=useState("");
+  const [market,setMarket]=useState({code:DEFAULT_MARKET.code,name:DEFAULT_MARKET.label,language:DEFAULT_MARKET.language});
+  const [extraMarkets,setExtraMarkets]=useState<{code:number;name:string;language:string}[]>([]);
+  const [results,setResults]=useState<KeywordResearchResult[]>([]),[visibleRows,setVisibleRows]=useState<WorkbenchKeyword[]>([]),[loading,setLoading]=useState(false),[exporting,setExporting]=useState(false),[error,setError]=useState("");
+  const [selectedRows,setSelectedRows]=useState<Set<string>>(new Set()),[scans,setScans]=useState<(SavedScan&{sourceType?:string;label?:string|null})[]>([]),[scansLoading,setScansLoading]=useState(true),[activeScanId,setActiveScanId]=useState<string|null>(null),[busyScanId,setBusyScanId]=useState<string|null>(null);
+  const [projects,setProjects]=useState<Project[]>([]),[projectId,setProjectId]=useState(""),[newProject,setNewProject]=useState("");
+  const [campaigns,setCampaigns]=useState<Campaign[]>([]),[tracked,setTracked]=useState<TrackedKeyword[]>([]),[campaignName,setCampaignName]=useState(""),[cadence,setCadence]=useState<"daily"|"weekly">("weekly"),[trackingDevice,setTrackingDevice]=useState("desktop"),[tracking,setTracking]=useState(false),[trackingOpen,setTrackingOpen]=useState(false),[trackingSiteId,setTrackingSiteId]=useState("");
+  const [evidenceExporter,setEvidenceExporter]=useState<(()=>void)|null>(null);
+  const registerExport=useCallback((action:(()=>void)|null)=>setEvidenceExporter(()=>action),[]);
+  const rows=useMemo<WorkbenchKeyword[]>(()=>results.flatMap(result=>result.rows.map(row=>({...row,marketCode:result.locationCode,marketLabel:result.locationLabel,languageCode:result.languageCode}))),[results]);
+  const loadWorkspace=useCallback(async()=>{try{const [scanResponse,projectResponse,trackingResponse]=await Promise.all([fetch(`/api/keyword-research/scans${trackingSiteId?`?site=${encodeURIComponent(trackingSiteId)}`:""}`,{cache:"no-store"}),fetch("/api/keyword-projects",{cache:"no-store"}),trackingSiteId?fetch(`/api/rank-tracking?site=${encodeURIComponent(trackingSiteId)}`,{cache:"no-store"}):null]);const [scanBody,projectBody,trackingBody]=await Promise.all([scanResponse.json(),projectResponse.json(),trackingResponse?.json()]);if(!scanResponse.ok)throw new Error(scanBody.error??"Could not load saved searches.");setScans(scanBody.scans??[]);setProjects(projectBody.projects??[]);setCampaigns(trackingBody?.campaigns??[]);setTracked(trackingBody?.keywords??[]);}catch(reason){setError(reason instanceof Error?reason.message:"Could not load research workspace.");}finally{setScansLoading(false);}},[trackingSiteId]);
+  useEffect(()=>{void loadWorkspace();},[loadWorkspace]);
+  useEffect(()=>{setTrackingSiteId(activeDomain?.id??"");},[activeDomain?.id]);
+  useEffect(()=>{const timer=window.setTimeout(()=>{void fetch(`/api/locations?q=${encodeURIComponent(locationQuery)}&limit=60`).then(async response=>{if(response.ok)setLocations((await response.json()).locations??[]);}).catch(()=>{});},200);return()=>window.clearTimeout(timer);},[locationQuery]);
+  async function saveResult(result:KeywordResearchResult,label?:string,list=false,source=sourceType){const response=await fetch("/api/keyword-research/scans",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({projectId:projectId||null,siteSlug:trackingSiteId??null,label:label??`${result.seed} · ${result.locationLabel}`,sourceType:list?"list":source,sourceValue:result.seed,...result})});const body=await response.json();if(!response.ok)throw new Error(body.error??"Could not save collected evidence.");return body.scan?.id as string|undefined;}
+  async function runResearch(override?:string){if(!seed.trim()||loading)return;const chosenSource=override??sourceType;setSourceType(chosenSource);setLoading(true);setError("");const collected:KeywordResearchResult[]=[];try{let firstId:string|undefined;for(const destination of [market,...extraMarkets.filter(item=>item.code!==market.code||item.language!==market.language)]){const query=new URLSearchParams({...(trackingSiteId?{site:trackingSiteId}:{}),seed:seed.trim(),sourceType:chosenSource,location:String(destination.code),locationLabel:destination.name,language:destination.language,limit:String(depth)});const response=await fetch(`/api/keyword-research?${query}`);const body=await response.json();if(!response.ok||!body.ok)throw new Error(body.message??"Research could not complete.");const result=body.result as KeywordResearchResult;if(body.warnings?.length)setError(body.warnings.join(" "));collected.push(result);setResults([...collected]);setSelectedRows(new Set());const id=await saveResult(result,undefined,false,chosenSource);firstId??=id;}setActiveScanId(firstId??null);const next=new URLSearchParams(params);next.set("q",seed.trim());if(firstId)next.set("scan",firstId);router.replace(`/keyword-research?${next}`,{scroll:false});await loadWorkspace();}catch(reason){setError(`${reason instanceof Error?reason.message:"Research failed."}${collected.length?" Completed databases remain available and are not automatically collected again.":""}`);}finally{setLoading(false);}}
 
-  const rows = useMemo<ResearchRow[]>(() => results.flatMap((result) => result.rows.map((row) => ({ ...row, marketCode: result.locationCode, marketLabel: result.locationLabel, languageCode: result.languageCode }))), [results]);
-  const keyFor = (row: ResearchRow) => `${row.marketCode}:${row.keyword}`;
-  const loadWorkspace = useCallback(async () => {
-    try {
-      const [scanResponse, projectResponse, trackingResponse] = await Promise.all([
-        fetch("/api/keyword-research/scans", { cache: "no-store" }),
-        fetch("/api/keyword-projects", { cache: "no-store" }),
-        trackingSiteId ? fetch(`/api/rank-tracking?site=${encodeURIComponent(trackingSiteId)}`, { cache: "no-store" }) : null,
-      ]);
-      const [scanBody, projectBody, trackingBody] = await Promise.all([scanResponse.json(), projectResponse.json(), trackingResponse?.json()]);
-      setScans(scanBody.ok ? scanBody.scans ?? [] : []);
-      setProjects(projectBody.ok ? projectBody.projects ?? [] : []);
-      setCampaigns(trackingBody?.ok ? trackingBody.campaigns ?? [] : []);
-      setTracked(trackingBody?.ok ? trackingBody.keywords ?? [] : []);
-    } catch { setScans([]); }
-    finally { setScansLoading(false); }
-  }, [trackingSiteId]);
-  useEffect(() => { void loadWorkspace(); }, [loadWorkspace]);
-  useEffect(() => { setTrackingSiteId(activeDomain?.id ?? ""); }, [activeDomain?.id]);
-  useEffect(() => {
-    const timer = window.setTimeout(async () => {
-      const response = await fetch(`/api/locations?q=${encodeURIComponent(locationQuery)}&limit=40`).catch(() => null);
-      if (!response?.ok) return;
-      const body = await response.json() as { locations?: SearchLocation[] };
-      setLocations(body.locations ?? []);
-    }, 180);
-    return () => window.clearTimeout(timer);
-  }, [locationQuery]);
-
-  const kpis = useMemo(() => {
-    const volumes = rows.map((row) => row.volume).filter((value): value is number => value != null);
-    const difficulty = rows.map((row) => row.difficulty).filter((value): value is number => value != null);
-    const cpc = rows.map((row) => row.cpc).filter((value): value is number => value != null);
-    return { count: rows.length, totalVolume: volumes.reduce((sum, value) => sum + value, 0), avgDifficulty: Math.round(mean(difficulty)), avgCpc: mean(cpc), opportunities: rows.filter((row) => (row.volume ?? 0) >= 100 && (row.difficulty ?? 100) < 35).length };
-  }, [rows]);
-  const intents = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const row of rows) counts.set(row.intent ?? "unknown", (counts.get(row.intent ?? "unknown") ?? 0) + 1);
-    return [...counts].sort((a, b) => b[1] - a[1]);
-  }, [rows]);
-
-  async function saveResult(result: KeywordResearchResult) {
-    const response = await fetch("/api/keyword-research/scans", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ projectId: projectId || null, siteSlug: null, label: `${seed} · ${result.locationLabel}`, sourceType, sourceValue: seed, seed: result.seed, locationCode: result.locationCode, languageCode: result.languageCode, locationLabel: result.locationLabel, rows: result.rows }) }).catch(() => null);
-    if (response?.ok) { const body = await response.json(); if (body.scan?.id) setActiveScanId(body.scan.id); }
-  }
-  async function runResearch(event?: React.FormEvent) {
-    event?.preventDefault();
-    if (!seed.trim() || !selectedLocations.length || loading) return;
-    setLoading(true); setError(null); setResults([]); setSelectedRows(new Set()); setReplayed(false);
-    try {
-      const collected: KeywordResearchResult[] = [];
-      for (const location of selectedLocations) {
-        const params = new URLSearchParams({ seed: seed.trim(), sourceType, location: String(location.code), locationLabel: location.parent ? `${location.name}, ${location.parent}` : location.name, language: location.language || "en", limit: String(depth) });
-        const response = await fetch(`/api/keyword-research?${params}`); const body = await response.json();
-        if (!response.ok || !body.ok) throw new Error(body.message ?? `Research failed for ${location.name}.`);
-        const result = body.result as KeywordResearchResult; collected.push(result); await saveResult(result);
-      }
-      setResults(collected); await loadWorkspace();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Keyword research failed."); }
-    finally { setLoading(false); }
-  }
-  async function openScan(scan: SavedScan) {
-    setBusyScanId(scan.id); setError(null);
-    try {
-      const response = await fetch(`/api/keyword-research/scans/${scan.id}`); const body = await response.json();
-      if (!response.ok || !body.ok) throw new Error(body.error ?? "Could not open that saved search.");
-      setResults([body.result as KeywordResearchResult]); setActiveScanId(scan.id); setSeed(scan.seed); setReplayed(true); setView("discover");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not open that saved search."); }
-    finally { setBusyScanId(null); }
-  }
-  async function deleteScan(scan: SavedScan) {
-    if (!window.confirm(`Delete the saved search “${scan.seed}”?`)) return;
-    setBusyScanId(scan.id); const response = await fetch(`/api/keyword-research/scans/${scan.id}`, { method: "DELETE" }).catch(() => null); setBusyScanId(null);
-    if (!response?.ok) setError("Could not delete that saved search."); else await loadWorkspace();
-  }
-  async function createProject() {
-    if (!newProject.trim()) return;
-    const response = await fetch("/api/keyword-projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ siteSlug: null, name: newProject.trim() }) });
-    const body = await response.json(); if (!response.ok) { setError(body.error ?? "Could not create the project."); return; }
-    setNewProject(""); setProjectId(body.project.id); await loadWorkspace();
-  }
-  async function addTracking() {
-    const chosen = rows.filter((row) => selectedRows.has(keyFor(row)));
-    if (!trackingSite || !chosen.length || tracking) return;
-    setTracking(true); setError(null);
-    try {
-      let campaignId: string | null = null;
-      for (const locationCode of [...new Set(chosen.map((row) => row.marketCode))]) {
-        const marketRows = chosen.filter((row) => row.marketCode === locationCode);
-        const response: Response = await fetch("/api/rank-tracking", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ siteSlug: trackingSite.id, campaignId, campaignName: campaignName.trim() || `${seed} tracking`, cadence, searchEngine: "google", locationCode, languageCode: marketRows[0]?.languageCode ?? "en", device: "desktop", keywords: marketRows.map((row) => ({ keyword: row.keyword })) }) });
-        const body: { error?: string; campaignId?: string; campaign?: { id?: string } } = await response.json(); if (!response.ok) throw new Error(body.error ?? "Could not create tracking."); campaignId = body.campaignId ?? body.campaign?.id ?? campaignId;
-      }
-      setSelectedRows(new Set()); setCampaignName(""); setView("tracking"); await loadWorkspace();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not create tracking."); }
-    finally { setTracking(false); }
-  }
-  async function downloadExcel() {
-    if (!rows.length || exporting) return; setExporting(true);
-    try {
-      const response = await fetch("/api/keyword-research/export", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ seed: seed || "keyword-research", locationLabel: selectedLocations.map((item) => item.name).join(", "), fetchedAt: new Date().toISOString().slice(0, 10), rows }) });
-      if (!response.ok) throw new Error(); const blob = await response.blob(); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `keyword-research-${Date.now()}.xlsx`; anchor.click(); URL.revokeObjectURL(url);
-    } catch { setError("Excel export failed."); } finally { setExporting(false); }
-  }
-
-  const columns: Column<ResearchRow>[] = [
-    { key: "select", header: "", width: "38px", render: (row) => <input type="checkbox" aria-label={`Select ${row.keyword}`} checked={selectedRows.has(keyFor(row))} onChange={() => setSelectedRows((current) => { const next = new Set(current); const key = keyFor(row); if (next.has(key)) next.delete(key); else next.add(key); return next; })} className="h-4 w-4 accent-purple" /> },
-    { key: "keyword", header: "Keyword", width: "30%", sortValue: (row) => row.keyword, render: (row) => <div><div className="font-semibold text-ink">{row.keyword}</div><div className="mt-0.5 flex items-center gap-1 text-[12px] text-muted"><MapPin className="h-2.5 w-2.5" />{row.marketLabel}</div></div> },
-    { key: "volume", header: "Volume", align: "right", sortValue: (row) => row.volume ?? -1, render: (row) => <span className="font-semibold tnum">{fmtVolume(row.volume)}</span> },
-    { key: "difficulty", header: "Difficulty", align: "right", sortValue: (row) => row.difficulty ?? -1, render: (row) => <StatusBadge label={row.difficulty == null ? "—" : String(Math.round(row.difficulty))} tone={difficultyTone(row.difficulty)} /> },
-    { key: "intent", header: "Intent", align: "center", sortValue: (row) => row.intent ?? "", render: (row) => <span className="inline-flex items-center gap-1.5 text-xs capitalize text-muted"><span className="h-1.5 w-1.5 rounded-full" style={{ background: INTENT_COLORS[row.intent ?? "unknown"] }} />{row.intent ?? "Unknown"}</span> },
-    { key: "cpc", header: "CPC", align: "right", sortValue: (row) => row.cpc ?? -1, render: (row) => <span className="tnum">{fmtCpc(row.cpc)}</span> },
-    { key: "trend", header: "Trend", align: "right", render: (row) => row.trend.length > 1 ? <Sparkline data={row.trend} className="ml-auto h-7 w-20" /> : <span>—</span> },
-  ];
-
-  return <div>
-    <PageHeader title="Keyword research" description="Discover worldwide demand, organise repeatable research and turn the best opportunities into monitored campaigns." actions={<Button variant="secondary" onClick={() => void downloadExcel()} disabled={!rows.length || exporting}>{exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Export</Button>} />
-    <ReportTabs items={[{id:"discover",label:"Keyword overview"},{id:"autocomplete",label:"Autocomplete"},{id:"projects",label:"Projects"},{id:"saved",label:"Saved searches"},{id:"tracking",label:"Tracking"}]} value={view} onChange={setView} label="Keyword research views" />
-    {error && <div className="mb-5 flex items-center gap-2 rounded-lg border border-critical/20 bg-critical/5 px-4 py-3 text-sm text-critical"><X className="h-4 w-4" />{error}</div>}
-    {view === "autocomplete" && <ResearchEvidencePanel features={["autocomplete"]} />}
-    {view === "discover" && selectedRows.size > 0 && <div className="flex justify-end"><ResearchHandoff keywords={rows.filter(r=>selectedRows.has(keyFor(r))).map(r=>r.keyword)} evidence={{scanId:activeScanId, rows:rows.filter(r=>selectedRows.has(keyFor(r)))}} sourceUrl={`/keyword-research?site=${activeDomain?.id ?? ""}&view=saved`}/></div>}
-    {view === "discover" && <DiscoverView sourceType={sourceType} setSourceType={setSourceType} seed={seed} setSeed={setSeed} depth={depth} setDepth={setDepth} selectedLocations={selectedLocations} setSelectedLocations={setSelectedLocations} locationOpen={locationOpen} setLocationOpen={setLocationOpen} locationQuery={locationQuery} setLocationQuery={setLocationQuery} locations={locations} projects={projects} projectId={projectId} setProjectId={setProjectId} loading={loading} runResearch={runResearch} rows={rows} kpis={kpis} intents={intents} columns={columns} selectedRows={selectedRows} tracking={tracking} addTracking={addTracking} campaignName={campaignName} setCampaignName={setCampaignName} cadence={cadence} setCadence={setCadence} replayed={replayed} sites={sites} trackingSiteId={trackingSiteId} setTrackingSiteId={setTrackingSiteId} />}
-    {view === "projects" && <ProjectsView projects={projects} newProject={newProject} setNewProject={setNewProject} createProject={createProject} open={(id) => { setProjectId(id); setView("discover"); }} />}
-    {view === "saved" && <SavedScans scans={scans} loading={scansLoading} activeId={activeScanId} busyId={busyScanId} onOpen={openScan} onDelete={deleteScan} />}
-    {view === "tracking" && <TrackingView campaigns={campaigns} tracked={tracked} siteName={trackingSite?.name ?? "No website selected"} sites={sites} trackingSiteId={trackingSiteId} setTrackingSiteId={setTrackingSiteId} />}
+  async function loadMore(index:number){const previous=results[index];if(!previous?.pagination?.hasMore||loading)return;setLoading(true);setError("");try{const query=new URLSearchParams({...(trackingSiteId?{site:trackingSiteId}:{}),seed:previous.seed,sourceType:previous.pagination.sourceType,location:String(previous.locationCode),locationLabel:previous.locationLabel,language:previous.languageCode,limit:String(Math.min(depth,20000-previous.rows.length)),offset:String(previous.pagination.nextOffset)});const response=await fetch(`/api/keyword-research?${query}`);const body=await response.json();if(!response.ok||!body.ok)throw new Error(body.message??body.error??"More results could not be collected.");const next=body.result as KeywordResearchResult;const combined={...next,rows:[...new Map([...previous.rows.map(row=>({...row,updatedAt:row.updatedAt??previous.fetchedAt})),...next.rows].map(row=>[row.keyword.toLowerCase(),row])).values()]};setResults(current=>current.map((row,i)=>i===index?combined:row));const id=await saveResult(combined,undefined,false,previous.pagination.sourceType);if(results.length===1&&id){setActiveScanId(id);const search=new URLSearchParams(params);search.set("scan",id);router.replace(`/keyword-research?${search}`,{scroll:false});}await loadWorkspace();}catch(reason){setError(`${reason instanceof Error?reason.message:"Collection failed."} Previously collected rows remain available.`);}finally{setLoading(false);}}
+  async function openScan(scan:SavedScan){setBusyScanId(scan.id);setError("");try{const response=await fetch(`/api/keyword-research/scans/${scan.id}`);const body=await response.json();if(!response.ok||!body.ok)throw new Error(body.error??"Could not open saved search.");setResults([body.result]);setSeed(body.result.seed);setMarket({code:body.result.locationCode,name:body.result.locationLabel,language:body.result.languageCode});setActiveScanId(scan.id);setSelectedRows(new Set());const next=new URLSearchParams(params);next.set("view","discover");next.set("scan",scan.id);next.set("q",body.result.seed);router.push(`/keyword-research?${next}`,{scroll:false});}catch(reason){setError(reason instanceof Error?reason.message:"Could not open saved search.");}finally{setBusyScanId(null);}}
+  const requestedScan=params.get("scan");
+  useEffect(()=>{if(!requestedScan||requestedScan===activeScanId)return;let ignore=false;void fetch(`/api/keyword-research/scans/${encodeURIComponent(requestedScan)}`).then(async response=>{const body=await response.json();if(!response.ok||!body.ok)throw new Error(body.error??"Saved research unavailable.");if(!ignore){setResults([body.result]);setSeed(body.result.seed);setMarket({code:body.result.locationCode,name:body.result.locationLabel,language:body.result.languageCode});setActiveScanId(requestedScan);}}).catch(reason=>{if(!ignore)setError(reason instanceof Error?reason.message:"Saved research unavailable.");});return()=>{ignore=true;};},[requestedScan,activeScanId]);
+  async function deleteScan(scan:SavedScan){if(!window.confirm(`Delete the saved search “${scan.seed}”?`))return;setBusyScanId(scan.id);const response=await fetch(`/api/keyword-research/scans/${scan.id}`,{method:"DELETE"}).catch(()=>null);setBusyScanId(null);if(!response?.ok)setError("Could not delete saved search.");else await loadWorkspace();}
+  async function createProject(){if(!newProject.trim())return;const response=await fetch("/api/keyword-projects",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({siteSlug:null,name:newProject.trim()})});const body=await response.json();if(!response.ok){setError(body.error??"Could not create project.");return;}setNewProject("");setProjectId(body.project.id);await loadWorkspace();}
+  async function saveList(chosen:WorkbenchKeyword[],name:string){for(const key of new Set(chosen.map(row=>`${row.marketCode}:${row.languageCode}`))){const marketRows=chosen.filter(row=>`${row.marketCode}:${row.languageCode}`===key),first=marketRows[0]!;await saveResult({seed:seed||name,locationCode:first.marketCode,languageCode:first.languageCode,locationLabel:first.marketLabel,fetchedAt:results[0]?.fetchedAt??new Date().toISOString(),rows:marketRows},name,true);}await loadWorkspace();}
+  async function addTracking(){const chosen=rows.filter(row=>selectedRows.has(keywordKey(row)));if(!trackingSiteId||!chosen.length||tracking)return;setTracking(true);setError("");try{let campaignId:string|null=null;for(const key of new Set(chosen.map(row=>`${row.marketCode}:${row.languageCode}`))){const marketRows=chosen.filter(row=>`${row.marketCode}:${row.languageCode}`===key);for(let offset=0;offset<marketRows.length;offset+=500){const batch=marketRows.slice(offset,offset+500);const response:Response=await fetch("/api/rank-tracking",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({siteSlug:trackingSiteId,campaignId,campaignName:campaignName.trim()||`${seed} tracking`,cadence,searchEngine:"google",locationCode:marketRows[0]!.marketCode,languageCode:marketRows[0]!.languageCode,device:trackingDevice,keywords:batch.map(row=>({keyword:row.keyword}))})});const body=await response.json();if(!response.ok)throw new Error(body.error??"Could not save tracking.");campaignId=body.campaignId??body.campaign?.id??campaignId;}}setTrackingOpen(false);setView("tracking");await loadWorkspace();}catch(reason){setError(reason instanceof Error?reason.message:"Could not save tracking.");}finally{setTracking(false);}}
+  async function downloadExcel(){if(view==="autocomplete"){evidenceExporter?.();return;}const chosen=visibleRows.filter(row=>selectedRows.has(keywordKey(row))),output=chosen.length?chosen:visibleRows;if(!output.length||exporting)return;setExporting(true);try{const response=await fetch("/api/keyword-research/export",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({seed,locationLabel:market.name,fetchedAt:results[0]?.fetchedAt,rows:output})});if(!response.ok)throw new Error("Export failed.");const url=URL.createObjectURL(await response.blob());const anchor=document.createElement("a");anchor.href=url;anchor.download=`${seed||"keywords"}.xlsx`;anchor.click();window.setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(reason){setError(reason instanceof Error?reason.message:"Export failed.");}finally{setExporting(false);}}
+  const reportView=view==="overview"||view==="discover";
+  const title={overview:"Keyword Overview",discover:"Keyword Magic Tool",autocomplete:"Autocomplete Suggestions",projects:"Research Projects",saved:"Search History",lists:"Saved Keyword Lists",tracking:"Position Tracking Setup"}[view];
+  return <div className="space-y-4 pb-8">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-4"><div><p className="mb-2 text-xs text-muted">SEO › Keyword Research</p><h1 className="text-xl font-bold">{title}{reportView&&seed&&<>: <span className="font-medium text-muted">{seed}</span></>}</h1></div><div className="flex gap-2"><Button size="sm" onClick={()=>setView("saved")}>View search history</Button>{(reportView||view==="autocomplete")&&<Button size="sm" onClick={()=>void downloadExcel()} disabled={exporting||(view==="autocomplete"?!evidenceExporter:!visibleRows.length)}><Download className="h-3.5 w-3.5"/>Export</Button>}</div></div>
+    <ReportTabs items={[{id:"overview",label:"Overview"},{id:"discover",label:"Keyword Magic"},{id:"autocomplete",label:"Autocomplete"},{id:"lists",label:"Keyword lists"},{id:"projects",label:"Projects"},{id:"tracking",label:"Tracking"}]} value={view} onChange={setView} label="Keyword research views"/>
+    {error&&<p role="alert" className="rounded border border-critical/20 bg-critical/5 p-3 text-sm text-critical">{error}</p>}
+    {reportView&&<><details className="rounded border border-border bg-card p-4"><summary className="cursor-pointer text-sm font-semibold">Large collections · background progress and saved evidence</summary><div className="mt-4"><ResearchEvidencePanel features={["keyword_bulk"]} targetMarket={{locationCode:market.code,languageCode:market.language,label:market.name}} /></div></details><form onSubmit={event=>{event.preventDefault();void runResearch();}} className="flex flex-wrap items-center gap-2 border-b border-border pb-4"><input aria-label="Research keyword" className={`${field} min-w-52 flex-1`} placeholder="Enter a keyword or topic" value={seed} onChange={e=>setSeed(e.target.value)}/><select aria-label="Research source" className={field} value={sourceType} onChange={e=>setSourceType(e.target.value)}><option value="seed">Keyword</option><option value="domain">Website</option><option value="competitor">Competitor</option><option value="questions">Questions</option><option value="related">Related keywords</option></select><select aria-label="Research database" className={`${field} max-w-60`} value={market.code} onChange={e=>{const next=locations.find(row=>row.code===Number(e.target.value));if(next)setMarket({code:next.code,name:next.name,language:next.language||"en"});}}><option value={market.code}>{market.name}</option>{locations.filter(row=>row.code!==market.code).map(row=><option key={row.code} value={row.code}>{row.name}</option>)}</select><details className="relative"><summary className={`${field} flex cursor-pointer items-center text-xs`}>More databases{extraMarkets.length>0&&` (${extraMarkets.length} added)`}</summary><div className="absolute right-0 z-30 mt-1 w-72 rounded border border-border bg-card p-3 shadow-pop"><input aria-label="Find a research database" className={`${field} w-full`} placeholder="Search country or city" value={locationQuery} onChange={e=>setLocationQuery(e.target.value)}/><p className="my-2 text-xs text-muted">Add up to four more databases. Each collection uses the existing spend limits.</p><div className="mt-2 max-h-60 overflow-auto">{locations.map(row=><button type="button" key={row.code} className="block w-full px-2 py-2 text-left text-xs hover:bg-workspace" onClick={()=>setExtraMarkets(current=>current.some(item=>item.code===row.code)?current.filter(item=>item.code!==row.code):current.length<4?[...current,{code:row.code,name:row.name,language:row.language||"en"}]:current)}>{extraMarkets.some(item=>item.code===row.code)?"✓ ":"+ "}{row.name}</button>)}</div></div></details><select aria-label="Research result limit" className={field} value={depth} onChange={e=>setDepth(Number(e.target.value))}>{[50,100,250,500,1000].map(value=><option key={value} value={value}>{value} results</option>)}</select><Button type="submit" variant="primary" disabled={!seed.trim()||loading}>{loading?<Loader2 className="h-4 w-4 animate-spin"/>:<Search className="h-4 w-4"/>}Analyze</Button><span className="text-[11px] text-muted">New collection est. ${(Math.max(.05,.012+depth*.00012)+(sourceType==="seed"||sourceType==="questions"?.02:0)).toFixed(3)} per database</span><select aria-label="Research project" className={field} value={projectId} onChange={e=>setProjectId(e.target.value)}><option value="">Unfiled research</option>{projects.map(project=><option key={project.id} value={project.id}>{project.name}</option>)}</select></form>{results.length>0&&<div className="flex flex-wrap gap-3">{results.map((result,index)=><div key={`${result.locationCode}:${result.languageCode}`} className="flex flex-wrap items-center gap-3 rounded border border-border bg-card px-3 py-2 text-xs"><span>{result.locationLabel}: <strong>{result.rows.length.toLocaleString()}</strong> saved rows{result.pagination?.total!=null&&` / ${result.pagination.total.toLocaleString()} provider results`}</span>{result.pagination?.hasMore&&result.pagination.nextOffset<20000&&result.rows.length<20000&&<Button size="sm" disabled={loading} onClick={()=>void loadMore(index)}>Load {depth} more · est. ${Math.max(.05,.012+depth*.00012).toFixed(3)}</Button>}{!result.pagination&&<span className="text-muted">Earlier saved collection; run a new search to enable continuation.</span>}</div>)}</div>}<KeywordWorkbench key={`${activeDomain?.id}:${results[0]?.seed}:${results[0]?.locationCode}:${results[0]?.pagination?.sourceType}:${view}`} rows={rows} seed={results[0]?.seed??seed} site={activeDomain?.id} scanId={activeScanId} collectedAt={results[0]?.fetchedAt} selected={selectedRows} onSelect={setSelectedRows} onTrack={()=>setTrackingOpen(true)} onSaveList={saveList} onVisibleRows={setVisibleRows} overview={view==="overview"} onOpenMagic={()=>setView("discover")} onCollectRelated={()=>setSourceType("related")}/></>}
+    {view==="autocomplete"&&<ResearchEvidencePanel features={["autocomplete"]} onExportReady={registerExport}/>}
+    {view==="projects"&&<ProjectsView projects={projects} newProject={newProject} setNewProject={setNewProject} createProject={createProject} open={id=>{setProjectId(id);setView("discover");}}/>}
+    {(view==="saved"||view==="lists")&&<SavedScans scans={view==="lists"?scans.filter(scan=>scan.sourceType==="list"):scans.filter(scan=>scan.sourceType!=="list")} loading={scansLoading} activeId={activeScanId} busyId={busyScanId} onOpen={openScan} onDelete={deleteScan}/>}
+    {view==="tracking"&&<TrackingView campaigns={campaigns} tracked={tracked} siteName={sites.find(site=>site.id===trackingSiteId)?.name??"No website selected"} sites={sites} trackingSiteId={trackingSiteId} setTrackingSiteId={setTrackingSiteId}/>}
+    <Drawer open={trackingOpen} onClose={()=>setTrackingOpen(false)} title="Send keywords to Position Tracking" footer={<Button variant="primary" disabled={tracking||!trackingSiteId||!selectedRows.size} onClick={()=>void addTracking()}>{tracking?"Saving…":"Create tracking campaign"}</Button>}><div className="space-y-4"><p className="text-sm">{selectedRows.size} keywords selected. Collection follows your website’s existing limits.</p><label className="block text-sm">Website<select className={`${field} mt-2 w-full`} value={trackingSiteId} onChange={e=>setTrackingSiteId(e.target.value)}><option value="">Choose a website</option>{sites.map(site=><option key={site.id} value={site.id}>{site.name}</option>)}</select></label><label className="block text-sm">Campaign name<input className={`${field} mt-2 w-full`} placeholder={`${seed} tracking`} value={campaignName} onChange={e=>setCampaignName(e.target.value)}/></label><label className="block text-sm">Device<select className={`${field} mt-2 w-full`} value={trackingDevice} onChange={e=>setTrackingDevice(e.target.value)}><option value="desktop">Desktop</option><option value="mobile">Mobile</option></select></label><label className="block text-sm">Frequency<select className={`${field} mt-2 w-full`} value={cadence} onChange={e=>setCadence(e.target.value as "daily"|"weekly")}><option value="weekly">Weekly</option><option value="daily">Daily</option></select></label>{error&&<p role="alert" className="text-sm text-critical">{error}</p>}</div></Drawer>
   </div>;
-}
-
-type DiscoverProps = {
-  sourceType: string; setSourceType: (value: string) => void; seed: string; setSeed: (value: string) => void; depth: number; setDepth: (value: number) => void;
-  selectedLocations: SearchLocation[]; setSelectedLocations: React.Dispatch<React.SetStateAction<SearchLocation[]>>; locationOpen: boolean; setLocationOpen: (value: boolean) => void; locationQuery: string; setLocationQuery: (value: string) => void; locations: SearchLocation[];
-  projects: Project[]; projectId: string; setProjectId: (value: string) => void; loading: boolean; runResearch: () => Promise<void>; rows: ResearchRow[];
-  kpis: { count: number; totalVolume: number; avgDifficulty: number; avgCpc: number; opportunities: number }; intents: [string, number][]; columns: Column<ResearchRow>[]; selectedRows: Set<string>; tracking: boolean; addTracking: () => Promise<void>; campaignName: string; setCampaignName: (value: string) => void; cadence: "daily" | "weekly"; setCadence: (value: "daily" | "weekly") => void; replayed: boolean;
-  sites: Domain[]; trackingSiteId: string; setTrackingSiteId: (value: string) => void;
-};
-
-function DiscoverView(props: DiscoverProps) {
-  return <>
-    <Card className="mb-5 overflow-visible"><div className="grid gap-5 p-5 xl:grid-cols-[220px_minmax(260px,1fr)_minmax(300px,1.2fr)_120px_auto] xl:items-end">
-      <label><span className="mb-1.5 block text-2xs font-bold uppercase tracking-wide text-muted">Research source</span><select value={props.sourceType} onChange={(event) => props.setSourceType(event.target.value)} className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-ink outline-none focus:border-purple">{SOURCE_TYPES.map((type) => <option key={type.id} value={type.id}>{type.label}</option>)}</select></label>
-      <label><span className="mb-1.5 block text-2xs font-bold uppercase tracking-wide text-muted">{SOURCE_TYPES.find((type) => type.id === props.sourceType)?.label}</span><input value={props.seed} onChange={(event) => props.setSeed(event.target.value)} placeholder={props.sourceType === "seed" ? "e.g. UAE mortgage rates" : "Enter a website, competitor or topic"} className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-ink outline-none placeholder:text-muted focus:border-purple" /><span className="mt-1 block text-[12px] text-muted">{SOURCE_TYPES.find((type) => type.id === props.sourceType)?.hint}</span></label>
-      <div className="relative"><span className="mb-1.5 block text-2xs font-bold uppercase tracking-wide text-muted">Markets · up to 5</span><button type="button" onClick={() => props.setLocationOpen(!props.locationOpen)} className="flex min-h-10 w-full flex-wrap items-center gap-1.5 rounded-md border border-border bg-card px-2 py-1.5 text-left">{props.selectedLocations.map((location) => <span key={location.code} className="inline-flex items-center gap-1 rounded-full bg-purple/10 px-2 py-1 text-[12px] font-semibold text-purple">{location.name}<span onClick={(event) => { event.stopPropagation(); if (props.selectedLocations.length > 1) props.setSelectedLocations((current) => current.filter((item) => item.code !== location.code)); }}><X className="h-3 w-3" /></span></span>)}<Plus className="ml-auto h-3.5 w-3.5 text-muted" /></button>{props.locationOpen && <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-lg border border-border bg-card shadow-pop"><div className="flex items-center gap-2 border-b border-border px-3 py-2"><Globe2 className="h-4 w-4 text-purple" /><input autoFocus value={props.locationQuery} onChange={(event) => props.setLocationQuery(event.target.value)} placeholder="Search any country, city or region" className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none" /></div><div className="max-h-64 overflow-y-auto p-1.5">{props.locations.map((location) => <button key={location.code} disabled={props.selectedLocations.some((item) => item.code === location.code) || props.selectedLocations.length >= 5} onClick={() => { props.setSelectedLocations((current) => [...current, location]); props.setLocationOpen(false); props.setLocationQuery(""); }} className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-workspace disabled:opacity-40"><span className="flex h-8 w-8 items-center justify-center rounded-md bg-[#12B8C4]/10 text-[#0E98A3]"><MapPin className="h-4 w-4" /></span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-ink">{location.name}</span><span className="block truncate text-[12px] text-muted">{location.parent ?? location.countryCode ?? "Worldwide"} · {location.type}</span></span></button>)}</div></div>}</div>
-      <label><span className="mb-1.5 block text-2xs font-bold uppercase tracking-wide text-muted">Depth</span><select value={props.depth} onChange={(event) => props.setDepth(Number(event.target.value))} className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-ink outline-none focus:border-purple">{DEPTHS.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
-      <Button variant="primary" className="h-10" onClick={() => void props.runResearch()} disabled={!props.seed.trim() || !props.selectedLocations.length || props.loading}>{props.loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanSearch className="h-4 w-4" />} Research</Button>
-    </div><div className="flex flex-wrap items-center gap-2 border-t border-border bg-workspace/45 px-5 py-3"><FolderKanban className="h-3.5 w-3.5 text-muted" /><span className="text-xs text-muted">Save into</span><select value={props.projectId} onChange={(event) => props.setProjectId(event.target.value)} className="h-8 rounded-md border border-border bg-card px-2 text-xs font-semibold text-ink"><option value="">Unfiled research</option>{props.projects.filter((project) => project.status === "active").map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select><span className="ml-auto text-[12px] text-muted">Each market is stored separately, so reopening results is free.</span></div></Card>
-    {props.loading ? <div className="space-y-4"><div className="grid grid-cols-2 gap-3 lg:grid-cols-5">{Array.from({ length: 5 }, (_, index) => <Skeleton key={index} className="h-24" />)}</div><Skeleton className="h-80" /></div> : props.rows.length ? <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">{[["Keyword-market pairs",compactNumber(props.kpis.count),`${props.selectedLocations.length} markets`,"#335CFF"],["Total demand",compactNumber(props.kpis.totalVolume),"Monthly searches","#12B8C4"],["Average difficulty",String(props.kpis.avgDifficulty),"0–100 scale","#7137F5"],["Average CPC",fmtCpc(props.kpis.avgCpc),"Commercial signal","#FF6B5E"],["Quick wins",compactNumber(props.kpis.opportunities),"Volume ≥100 · KD <35","#16A879"]].map(([label,value,hint,color]) => <Card key={label} className="relative overflow-hidden p-4"><span className="absolute inset-x-0 top-0 h-1" style={{ background: color }} /><div className="text-2xs font-bold uppercase tracking-wide text-muted">{label}</div><div className="mt-2 text-2xl font-black tracking-tight text-ink tnum">{value}</div><div className="mt-1 text-[12px] text-muted">{hint}</div></Card>)}</div>
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]"><Card className="overflow-hidden p-4"><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div><h2 className="text-sm font-bold text-ink">Opportunity table</h2><p className="mt-0.5 text-2xs text-muted">Select keywords, then explicitly map them to a website for tracking.</p></div>{props.selectedRows.size > 0 && <div className="flex items-center gap-2"><span className="text-xs font-bold text-purple">{props.selectedRows.size} selected</span><Button size="sm" variant="primary" onClick={() => void props.addTracking()} disabled={props.tracking || !props.trackingSiteId}>{props.tracking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Target className="h-3.5 w-3.5" />} Map and track</Button></div>}</div><DataTable rows={props.rows} columns={props.columns} rowKey={(row) => `${row.marketCode}:${row.keyword}`} searchKeys={(row) => `${row.keyword} ${row.marketLabel} ${row.intent ?? ""}`} searchPlaceholder="Filter keywords, markets or intent…" pageSize={20} />{props.replayed && <p className="mt-3 text-2xs font-semibold text-success">Reopened from saved evidence—no provider call was made.</p>}</Card>
-        <div className="space-y-4"><Card className="p-4"><div className="flex items-center gap-2"><BarChart3 className="h-4 w-4 text-purple" /><h3 className="text-sm font-bold text-ink">Search intent</h3></div><div className="mt-4 space-y-3">{props.intents.map(([intent,count]) => <div key={intent}><div className="mb-1 flex justify-between text-xs"><span className="capitalize text-muted">{intent}</span><span className="font-bold text-ink tnum">{count}</span></div><div className="h-2 overflow-hidden rounded-full bg-workspace"><div className="h-full rounded-full" style={{ width: `${Math.max(4,(count / props.rows.length) * 100)}%`, background: INTENT_COLORS[intent] ?? INTENT_COLORS.unknown }} /></div></div>)}</div></Card><Card className="border-purple/20 bg-gradient-to-br from-purple/10 to-[#12B8C4]/5 p-4"><Sparkles className="h-5 w-5 text-purple" /><h3 className="mt-3 text-sm font-bold text-ink">Map to website</h3><p className="mt-1 text-xs leading-5 text-muted">Research stays global until you choose the destination below.</p><select value={props.trackingSiteId} onChange={(event) => props.setTrackingSiteId(event.target.value)} className="mt-3 h-9 w-full rounded-md border border-border bg-card px-3 text-xs font-semibold text-ink"><option value="">Choose a website</option>{props.sites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}</select><input value={props.campaignName} onChange={(event) => props.setCampaignName(event.target.value)} placeholder={`${props.seed || "Topic"} tracking`} className="mt-2 h-9 w-full rounded-md border border-border bg-card px-3 text-xs text-ink outline-none focus:border-purple" /><select value={props.cadence} onChange={(event) => props.setCadence(event.target.value as "daily" | "weekly")} className="mt-2 h-9 w-full rounded-md border border-border bg-card px-3 text-xs text-ink"><option value="weekly">Weekly · standard</option><option value="daily">Daily · priority</option></select></Card></div>
-      </div>
-    </div> : <EmptyState title="Start with a market question" description="Choose up to five markets, enter a topic, domain, competitor or question and build a reusable research project." icon={<Globe2 className="h-7 w-7" />} />}
-  </>;
 }
 
 function ProjectsView({ projects, newProject, setNewProject, createProject, open }: { projects: Project[]; newProject: string; setNewProject: (value: string) => void; createProject: () => Promise<void>; open: (id: string) => void }) {

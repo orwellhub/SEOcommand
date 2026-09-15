@@ -1,7 +1,9 @@
 import { afterEach, expect, it, vi } from "vitest";
+import { getDataForSeoClient } from "@/providers/dataforseo";
 import { collectSpeed, inspectIndex, normalizeSpeed } from "./command-collect";
 import { getGoogleAccessToken, googleConfigured } from "@/providers/google/auth";
 import type { ManagedSite } from "./types";
+vi.mock("@/providers/dataforseo", () => ({ getDataForSeoClient: vi.fn() }));
 vi.mock("@/providers/google/auth", () => ({ getGoogleAccessToken: vi.fn(async () => "test-token"), googleConfigured: vi.fn(() => false) }));
 vi.mock("./public-network", () => ({ assertPublicHostname: vi.fn(async () => undefined), fetchPublic: vi.fn() }));
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.clearAllMocks(); vi.mocked(googleConfigured).mockReturnValue(false); });
@@ -36,4 +38,12 @@ it("prefers an explicitly configured PageSpeed key and explains quota failures",
   const fetcher = vi.fn(async () => Response.json({ error: { message: "Quota exceeded" } }, { status: 429 })); vi.stubGlobal("fetch", fetcher);
   await expect(collectSpeed({ host: "example.com" } as ManagedSite, "/", "desktop")).rejects.toThrow("quota");
   expect(getGoogleAccessToken).not.toHaveBeenCalled(); expect(String((fetcher.mock.calls[0] as any)[0])).toContain("key=test-key");
+});
+
+it("uses an explicit paid Lighthouse request once and preserves provider cost", async () => {
+ const post=vi.fn(async()=>({result:[{categories:{performance:{score:.75}},lighthouseVersion:"13.0"}],costUsd:.00425}));
+ vi.mocked(getDataForSeoClient).mockReturnValue({post} as never);
+ const result=await collectSpeed({id:"globalbusrental",host:"globalbusrental.com"} as ManagedSite,"/","mobile","dataforseo");
+ expect(result).toMatchObject({score:75,provider:"dataforseo",costUsd:.00425,field:null});
+ expect(post).toHaveBeenCalledExactlyOnceWith("onPageLighthouse","/v3/on_page/lighthouse/live/json",[{url:"https://globalbusrental.com/",for_mobile:true,categories:["performance"]}],{domainSlug:"globalbusrental",retry:false});
 });

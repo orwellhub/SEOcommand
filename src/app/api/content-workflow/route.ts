@@ -1,68 +1,35 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { db, schema } from "@/db";
 import { canAccessSite, hasPermission } from "@/platform/access";
 import { getManagedSite } from "@/platform/site-store";
-import { hasDatabase } from "@/sync/store";
-
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
-const CONTENT_STAGES = ["brief", "draft", "review", "published"] as const;
-const BriefSchema = z.object({
-  primaryKeyword: z.string().trim().max(160).default(""),
-  secondaryKeywords: z.array(z.string().trim().min(1).max(160)).max(30).default([]),
-  searchIntent: z.enum(["informational", "commercial", "transactional", "navigational", "mixed"]).default("mixed"),
-  titleRecommendation: z.string().trim().max(300).default(""),
-  metaRecommendation: z.string().trim().max(500).default(""),
-  headingPlan: z.array(z.string().trim().min(1).max(300)).max(30).default([]),
-  coverageNotes: z.array(z.string().trim().min(1).max(500)).max(50).default([]),
-  internalLinks: z.array(z.string().trim().min(1).max(1000)).max(50).default([]),
-  schemaRecommendations: z.array(z.string().trim().min(1).max(300)).max(20).default([]),
-});
-const UpdateSchema = z.discriminatedUnion("action", [
-  z.object({ id: z.string().uuid(), action: z.literal("update_brief"), brief: BriefSchema }),
-  z.object({ id: z.string().uuid(), action: z.literal("advance"), stage: z.enum(CONTENT_STAGES), draftUrl: z.string().trim().max(1000).nullable().optional(), publishedUrl: z.string().trim().max(1000).nullable().optional() }),
+import { workspaceRecords } from "@/platform/workspace-store";
+import type { OnPageReport } from "@/lib/on-page-analysis";
+import { sessionFromRequest } from "@/lib/auth";
+import { BriefSchema, CONTENT_STAGES, DueDateSchema, PublicUrlSchema, stageError } from "@/lib/content-workspace";
+import { createContent, getContent, listContent, patchContent, serializeContent } from "@/platform/content-store";
+export const runtime="nodejs";export const dynamic="force-dynamic";
+const metadata={title:z.string().trim().min(1).max(300),ownerEmail:z.string().trim().email().max(254).nullable(),dueDate:DueDateSchema};
+const CreateSchema=z.object({site:z.string().min(1),...metadata,brief:BriefSchema.default({}),targetUrl:PublicUrlSchema.nullable().optional(),plannedUrl:z.string().trim().max(2000).nullable().optional(),analysisId:z.string().uuid().optional()});
+const revision={id:z.string().uuid(),updatedAt:z.string().datetime().optional()};
+const UpdateSchema=z.discriminatedUnion("action",[
+ z.object({...revision,action:z.literal("update_brief"),brief:BriefSchema}),
+ z.object({...revision,action:z.literal("schedule"),...metadata}),
+ z.object({...revision,action:z.literal("links"),draftUrl:PublicUrlSchema.nullable(),publishedUrl:PublicUrlSchema.nullable()}),
+ z.object({...revision,action:z.literal("advance"),stage:z.enum(CONTENT_STAGES),draftUrl:PublicUrlSchema.nullable().optional(),publishedUrl:PublicUrlSchema.nullable().optional()}),
 ]);
-
-function contentData(item: typeof schema.workflowItems.$inferSelect) {
-  const data = item.executionData ?? {};
-  return { ...item, contentStage: CONTENT_STAGES.includes(data.contentStage as typeof CONTENT_STAGES[number]) ? data.contentStage : "brief", brief: data.brief ?? {}, draftUrl: data.draftUrl ?? null, publishedUrl: data.publishedUrl ?? null };
-}
-
-export async function GET(request: Request) {
-  const siteSlug = new URL(request.url).searchParams.get("site")?.trim() ?? "";
-  if (!siteSlug || !await getManagedSite(siteSlug)) return NextResponse.json({ error: "Choose a website first." }, { status: 400 });
-  if (!await canAccessSite(request, siteSlug)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
-  if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ items: [{ id: "74000000-0000-4000-8000-000000000001", domainSlug: siteSlug, title: "Refresh the UAE mortgage comparison guide", executionType: "refresh_brief", priorityScore: 84, targetUrl: `https://${siteSlug}.example/mortgage-guide`, plannedUrl: null, ownerEmail: "qa@orwell.local", dueDate: "2026-09-10", sourceUrl: `/content?site=${siteSlug}`, sourceEvidence: { kind: "gsc_page", clicks: 420, impressions: 12400 }, executionData: { targetKeywords: ["uae mortgage comparison"] }, contentStage: "brief", brief: { primaryKeyword: "uae mortgage comparison", searchIntent: "commercial" }, draftUrl: null, publishedUrl: null }, { id: "74000000-0000-4000-8000-000000000002", domainSlug: siteSlug, title: "Review the first-time buyer draft", executionType: "content_brief", priorityScore: 72, targetUrl: null, plannedUrl: "/guides/first-time-buyer", ownerEmail: "qa@orwell.local", dueDate: "2026-09-14", sourceUrl: `/keyword-strategy?site=${siteSlug}`, sourceEvidence: { kind: "keyword_cluster" }, executionData: { targetKeywords: ["first time buyer mortgage uae"] }, contentStage: "review", brief: { primaryKeyword: "first time buyer mortgage uae", searchIntent: "informational" }, draftUrl: "https://docs.example/draft", publishedUrl: null }], synthetic: true });
-  if (!hasDatabase()) return NextResponse.json({ error: "Content workflow requires DATABASE_URL." }, { status: 503 });
-  const rows = await db().select().from(schema.workflowItems).where(and(eq(schema.workflowItems.domainSlug, siteSlug), eq(schema.workflowItems.decision, "approved"), inArray(schema.workflowItems.executionType, ["content_brief", "refresh_brief"]))).orderBy(desc(schema.workflowItems.priorityScore), desc(schema.workflowItems.updatedAt));
-  return NextResponse.json({ items: rows.map(contentData) });
-}
-
-export async function PATCH(request: Request) {
-  const parsed = UpdateSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: "Complete the content workflow update." }, { status: 400 });
-  if (process.env.QA_SYNTHETIC === "true") {
-    if (!await hasPermission(request, "manage_content")) return NextResponse.json({ error: "Content workflow permission required." }, { status: 403 });
-    return NextResponse.json({ item: { id: parsed.data.id, ...(parsed.data.action === "advance" ? { contentStage: parsed.data.stage, draftUrl: parsed.data.draftUrl ?? null, publishedUrl: parsed.data.publishedUrl ?? null } : { brief: parsed.data.brief }), updatedAt: new Date().toISOString() }, synthetic: true });
-  }
-  if (!hasDatabase()) return NextResponse.json({ error: "Content workflow requires DATABASE_URL." }, { status: 503 });
-  const [current] = await db().select().from(schema.workflowItems).where(eq(schema.workflowItems.id, parsed.data.id)).limit(1);
-  if (!current || !await canAccessSite(request, current.domainSlug)) return NextResponse.json({ error: "Content work not found." }, { status: 404 });
-  if (!await hasPermission(request, "manage_content", current.domainSlug)) return NextResponse.json({ error: "Content workflow permission required for this website." }, { status: 403 });
-  if (!current.executionType || !["content_brief", "refresh_brief"].includes(current.executionType)) return NextResponse.json({ error: "This is not content work." }, { status: 400 });
-  const data = current.executionData ?? {};
-  if (parsed.data.action === "advance") {
-    const currentStage = CONTENT_STAGES.includes(data.contentStage as typeof CONTENT_STAGES[number]) ? data.contentStage as typeof CONTENT_STAGES[number] : "brief";
-    if (CONTENT_STAGES.indexOf(parsed.data.stage) !== CONTENT_STAGES.indexOf(currentStage) + 1) return NextResponse.json({ error: "Move content through each editorial stage in order." }, { status: 409 });
-    if (parsed.data.stage === "review" && !parsed.data.draftUrl?.trim() && !(data.editor as { text?: string } | undefined)?.text?.trim()) return NextResponse.json({ error: "Save an internal draft or add a draft URL before review." }, { status: 400 });
-    if (parsed.data.stage === "published" && !parsed.data.publishedUrl?.trim()) return NextResponse.json({ error: "Add the live published URL." }, { status: 400 });
-    const nextData = { ...data, contentStage: parsed.data.stage, draftUrl: parsed.data.draftUrl ?? data.draftUrl ?? null, publishedUrl: parsed.data.publishedUrl ?? data.publishedUrl ?? null };
-    const [updated] = await db().update(schema.workflowItems).set({ executionData: nextData, targetUrl: parsed.data.stage === "published" && parsed.data.publishedUrl ? parsed.data.publishedUrl : current.targetUrl, updatedAt: new Date() }).where(eq(schema.workflowItems.id, current.id)).returning();
-    return NextResponse.json({ item: contentData(updated!) });
-  }
-  const [updated] = await db().update(schema.workflowItems).set({ executionData: { ...data, brief: parsed.data.brief }, updatedAt: new Date() }).where(eq(schema.workflowItems.id, current.id)).returning();
-  return NextResponse.json({ item: contentData(updated!) });
-}
+export async function GET(request:Request){const site=new URL(request.url).searchParams.get("site")??"";if(!site||!await getManagedSite(site))return NextResponse.json({error:"Choose a website first."},{status:400});if(!await canAccessSite(request,site))return NextResponse.json({error:"Website access required."},{status:403});try{return NextResponse.json({items:(await listContent(site)).map(serializeContent)});}catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Content unavailable."},{status:503});}}
+export async function POST(request:Request){const parsed=CreateSchema.safeParse(await request.json().catch(()=>null));if(!parsed.success)return NextResponse.json({error:"Add a title, valid owner email and calendar date. URLs must use HTTP or HTTPS."},{status:400});const input=parsed.data;const site=await getManagedSite(input.site);if(!site||!await canAccessSite(request,input.site)||!await hasPermission(request,"manage_content",input.site))return NextResponse.json({error:"Content permission required for this website."},{status:403});try{const analysis=input.analysisId?(await workspaceRecords(input.site,"onpage")).find(row=>row.recordKey===input.analysisId):null;
+ if(input.analysisId&&!analysis?.payload.report)return NextResponse.json({error:"The selected page analysis is no longer available."},{status:404});
+ const report=analysis?.payload.report as OnPageReport|undefined;
+ const session=await sessionFromRequest(request);const row=await createContent({domainSlug:input.site,recommendationKey:`content:${crypto.randomUUID()}`,decision:"approved",title:input.title,module:"content",effort:"medium",priorityScore:50,status:"approved",executionType:input.targetUrl?"refresh_brief":"content_brief",ownerEmail:input.ownerEmail,dueDate:input.dueDate,targetUrl:input.targetUrl??null,plannedUrl:input.plannedUrl??null,sourceUrl:`/content?site=${input.site}&view=briefs`,sourceEvidence:{kind:"editorial_brief",createdDirectly:true},executionData:{contentStage:"brief",brief:input.brief,...(report?{contentBenchmarks:report.benchmarks,analysisId:report.id}:{}),targetKeywords:[input.brief.primaryKeyword,...input.brief.secondaryKeywords].filter(Boolean)},createdBy:session?.email??null});return NextResponse.json({item:serializeContent(row)},{status:201});}catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Content could not be created."},{status:503});}}
+export async function PATCH(request:Request){const parsed=UpdateSchema.safeParse(await request.json().catch(()=>null));if(!parsed.success)return NextResponse.json({error:"Complete the content update using valid dates and HTTP or HTTPS URLs."},{status:400});try{const input=parsed.data,current=await getContent(input.id);if(!current||!await canAccessSite(request,current.domainSlug))return NextResponse.json({error:"Content work not found."},{status:404});if(!await hasPermission(request,"manage_content",current.domainSlug))return NextResponse.json({error:"Content permission required."},{status:403});if(!["content_brief","refresh_brief"].includes(current.executionType??""))return NextResponse.json({error:"Choose a content task."},{status:400});if(input.updatedAt&&input.updatedAt!==current.updatedAt.toISOString())return NextResponse.json({error:"This item changed in another session. Reopen it before saving."},{status:409});
+ let saved;
+ if(input.action==="schedule")saved=await patchContent(current,{title:input.title,ownerEmail:input.ownerEmail,dueDate:input.dueDate});
+ else if(input.action==="update_brief")saved=await patchContent(current,{}, {brief:input.brief,targetKeywords:[input.brief.primaryKeyword,...input.brief.secondaryKeywords].filter(Boolean)});
+ else if(input.action==="links"){
+  if(current.executionData.contentStage==="published"&&!input.publishedUrl)return NextResponse.json({error:"A published article must retain its live URL."},{status:400});
+  saved=await patchContent(current,current.executionData.contentStage==="published"?{targetUrl:input.publishedUrl}: {},{draftUrl:input.draftUrl,publishedUrl:input.publishedUrl});
+ }
+ else {const error=stageError(current.executionData,input.stage,input.draftUrl,input.publishedUrl);if(error)return NextResponse.json({error},{status:409});saved=await patchContent(current,input.stage==="published"?{targetUrl:input.publishedUrl??current.targetUrl,status:"done",shippedAt:new Date()}:{status:"in_progress"},{contentStage:input.stage,draftUrl:input.draftUrl??current.executionData.draftUrl??null,publishedUrl:input.publishedUrl??current.executionData.publishedUrl??null});}
+ if(!saved)return NextResponse.json({error:"This item changed while saving. Reopen it and try again."},{status:409});return NextResponse.json({item:serializeContent(saved)});
+ }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Content could not be saved."},{status:503});}}

@@ -79,6 +79,7 @@ export async function ga4OrganicOverview(domainId: DomainId, days = 28): Promise
     "engagementRate",
     "keyEvents",
     "screenPageViews",
+    "averageSessionDuration",
   ];
   const payload = await runReport(property, {
     dateRanges: [dateRange(days)],
@@ -94,6 +95,7 @@ export async function ga4OrganicOverview(domainId: DomainId, days = 28): Promise
     engagementRate: Math.round(num(mv[4]) * 1000) / 10,
     conversions: num(mv[5]),
     screenPageViews: num(mv[6]),
+    averageSessionDuration: mv[7] == null ? null : num(mv[7]),
   };
 }
 

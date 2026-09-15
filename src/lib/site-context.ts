@@ -5,6 +5,13 @@
  */
 const SITE_CONTEXT_ROUTES = [
   "/domain",
+  "/advertising",
+  "/compare-domains",
+  "/keyword-gap",
+  "/on-page",
+  "/content-template",
+  "/topic-research",
+  "/organic-traffic", "/ai-research",
   "/traffic-analytics",
   "/pages",
   "/questions",
@@ -19,6 +26,7 @@ const SITE_CONTEXT_ROUTES = [
   "/monitoring",
   "/content",
   "/backlinks",
+  "/backlink-audit",
   "/link-building",
   "/local-seo",
   "/recommendations",

@@ -42,6 +42,7 @@ export async function seedTrackedKeywords(site: ManagedSite, keywords: Keyword[]
 export async function persistDailyRankings(site: ManagedSite, rows: TrackedRankingResult[]) {
   if (!rows.length) return;
   const ids = rows.map((row) => row.trackedKeywordId);
+  const today = isoDate(new Date());
   const previous = await db()
     .selectDistinctOn([schema.dailyRankHistory.trackedKeywordId], {
       trackedKeywordId: schema.dailyRankHistory.trackedKeywordId,
@@ -51,11 +52,13 @@ export async function persistDailyRankings(site: ManagedSite, rows: TrackedRanki
       competitors: schema.dailyRankHistory.competitors,
     })
     .from(schema.dailyRankHistory)
-    .where(inArray(schema.dailyRankHistory.trackedKeywordId, ids))
+    .where(and(inArray(schema.dailyRankHistory.trackedKeywordId, ids),eq(schema.dailyRankHistory.siteSlug,site.id),lt(schema.dailyRankHistory.capturedOn,today)))
     .orderBy(schema.dailyRankHistory.trackedKeywordId, desc(schema.dailyRankHistory.capturedOn));
   const prior = new Map(previous.map((row) => [row.trackedKeywordId, row.position]));
   const priorDetail = new Map(previous.map((row) => [row.trackedKeywordId, row]));
-  const today = isoDate(new Date());
+  const campaigns=await db().select().from(schema.rankTrackingCampaigns).where(eq(schema.rankTrackingCampaigns.siteSlug,site.id));
+  const tracked=await db().select({id:schema.rankTrackingKeywords.id,campaignId:schema.rankTrackingKeywords.campaignId}).from(schema.rankTrackingKeywords).where(inArray(schema.rankTrackingKeywords.id,ids));
+  const thresholds=new Map(tracked.map(row=>[row.id,campaigns.find(campaign=>campaign.id===row.campaignId)?.alertThreshold??5]));
   await db().insert(schema.dailyRankHistory).values(rows.map((row) => ({
     trackedKeywordId: row.trackedKeywordId,
     siteSlug: site.id,
@@ -82,7 +85,7 @@ export async function persistDailyRankings(site: ManagedSite, rows: TrackedRanki
   for (const row of rows) {
     const before = prior.get(row.trackedKeywordId);
     const detail = priorDetail.get(row.trackedKeywordId);
-    if (before != null && row.position != null && row.position - before >= 5) {
+    if (before != null && row.position != null && row.position - before >= (thresholds.get(row.trackedKeywordId)??5)) {
       await createNotification({
         siteSlug: site.id,
         eventType: "rank_drop",

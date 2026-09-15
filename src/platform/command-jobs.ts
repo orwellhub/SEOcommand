@@ -14,7 +14,7 @@ export async function queueCommandCheck(siteSlug: string, kind: string, payload:
     const row = await db().transaction(async (tx) => {
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`command:${siteSlug}:${kind}`}))`);
       const active = await tx.select().from(schema.commandRecords).where(and(eq(schema.commandRecords.siteSlug, siteSlug), eq(schema.commandRecords.kind, kind), inArray(schema.commandRecords.status, ["queued", "running"])));
-      const same = active.find((item) => item.payload.url === payload.url && item.payload.device === payload.device);
+      const same = active.find((item) => item.payload.url === payload.url && item.payload.device === payload.device && (item.payload.provider ?? "google") === (payload.provider ?? "google"));
       if (same) return same;
       if (active.length >= 20) throw new Error("Twenty checks are already pending for this tool. Wait for them to finish.");
       const [created] = await tx.insert(schema.commandRecords).values({ siteSlug, kind, recordKey: crypto.randomUUID(), payload, createdBy: actor, status: "queued" }).returning();
@@ -23,7 +23,7 @@ export async function queueCommandCheck(siteSlug: string, kind: string, payload:
     return { ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(), nextRunAt: row.nextRunAt?.toISOString() ?? null };
   }
   const recent = (await commandRecords(siteSlug)).filter((row) => row.kind === kind && ["queued", "running"].includes(row.status));
-  const same = recent.find((row) => row.payload.url === payload.url && row.payload.device === payload.device);
+  const same = recent.find((row) => row.payload.url === payload.url && row.payload.device === payload.device && (row.payload.provider ?? "google") === (payload.provider ?? "google"));
   if (same) return same;
   if (recent.length >= 20) throw new Error("Twenty checks are already pending for this tool. Wait for them to finish.");
   return saveCommandRecord(siteSlug, kind, crypto.randomUUID(), payload, { actor, status: "queued" });
@@ -41,7 +41,7 @@ export async function processCommandChecks(id?: string, stopped: () => boolean =
     try {
       const site = await getManagedSite(row.siteSlug); if (!site) throw new Error("Website no longer available.");
       let result: unknown;
-      if (row.kind === "speed") result = await collectSpeed(site, String(row.payload.url), row.payload.device === "desktop" ? "desktop" : "mobile");
+      if (row.kind === "speed") result = await collectSpeed(site, String(row.payload.url), row.payload.device === "desktop" ? "desktop" : "mobile", row.payload.provider === "dataforseo" ? "dataforseo" : "google");
       else if (row.kind === "indexing") result = await inspectIndex(site, String(row.payload.url));
       else if (row.kind === "business") {
         const settings = (await commandRecords(site.id)).find((item) => item.kind === "settings")?.payload ?? {};

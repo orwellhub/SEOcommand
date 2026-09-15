@@ -1,11 +1,15 @@
-import { and, asc, desc, eq, lte, or, like } from "drizzle-orm";
+import { and, asc, desc, eq, lte, or, like, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { queueBrowserCrawl, runBrowserCrawl } from "./advanced-crawler";
 import { listDueLocalLocations, syncLocalLocation } from "./local-seo";
 import { checkReliability } from "./reliability";
 import { getManagedSite, listManagedSites } from "./site-store";
 
-export async function processBrowserCrawlJobs(now = new Date()) {
+export async function processBrowserCrawlJobs(now = new Date(), shouldStop: () => boolean = () => false) {
+  const cutoff = now.getTime() - 30 * 60000;
+  // A dead worker must not block all future scans for this website. Retain every checkpoint.
+  await db().update(schema.platformJobs).set({ status: "failed", completedAt: now, lastError: "Browser worker interrupted. Saved page evidence is retained. Queue a new crawl to continue checking the website." }).where(and(eq(schema.platformJobs.kind, "browser_crawl"), eq(schema.platformJobs.status, "running"), lte(schema.platformJobs.startedAt, new Date(cutoff)), sql`coalesce((${schema.platformJobs.progress}->>'heartbeatAt')::numeric, 0) < ${cutoff}`));
+  await db().update(schema.browserCrawlRuns).set({ status: "failed", completedAt: now, lastError: "Crawl interrupted; completed page evidence was retained." }).where(and(eq(schema.browserCrawlRuns.status, "running"), lte(schema.browserCrawlRuns.startedAt, new Date(cutoff)), sql`coalesce((${schema.browserCrawlRuns.diffSummary}->>'heartbeatAt')::numeric, 0) < ${cutoff}`));
   const limit = Math.min(Math.max(Number(process.env.BROWSER_CRAWL_JOBS_PER_RUN ?? "1"), 1), 5);
   const jobs = await db().select().from(schema.platformJobs)
     .where(and(eq(schema.platformJobs.kind, "browser_crawl"), eq(schema.platformJobs.status, "queued"), or(lte(schema.platformJobs.runAfter, now), like(schema.platformJobs.lastError, "browserType.launch: Executable doesn%"))))
@@ -13,13 +17,14 @@ export async function processBrowserCrawlJobs(now = new Date()) {
   let completed = 0;
   let failed = 0;
   for (const job of jobs) {
+    if (shouldStop()) break;
     try {
       const [claimed] = await db().update(schema.platformJobs).set({ status: "running", attempts: job.attempts + 1, startedAt: new Date() }).where(and(eq(schema.platformJobs.id, job.id), eq(schema.platformJobs.status, "queued"))).returning({ id: schema.platformJobs.id });
       if (!claimed) continue;
       const site = await getManagedSite(job.siteSlug);
       if (!site) throw new Error("Website no longer exists.");
       const maxPages = Number(job.progress?.maxPages) || undefined;
-      const result = await runBrowserCrawl(site, maxPages);
+      const result = await runBrowserCrawl(site, maxPages, { jobId: job.id, url: typeof job.progress.url === "string" ? job.progress.url : undefined, shouldStop });
       await db().update(schema.platformJobs).set({ status: "completed", completedAt: new Date(), progress: result as unknown as Record<string, unknown>, lastError: null }).where(and(eq(schema.platformJobs.id, job.id), eq(schema.platformJobs.status, "running")));
       completed++;
     } catch (error) {

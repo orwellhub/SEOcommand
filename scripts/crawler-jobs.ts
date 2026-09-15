@@ -9,7 +9,7 @@ import { closeDb } from "../src/db";
 import { processBrowserCrawlJobs, processDueLocalSeo, queueDueBrowserCrawls, runReliabilityChecks } from "../src/platform/operational-jobs";
 
 import { processCommandChecks, queueCommandSchedules } from "../src/platform/command-jobs";
-import { notifyOutreachFollowups } from "../src/platform/outreach-monitor";
+import { notifyOutreachFollowups, processOutreachMonitoring } from "../src/platform/outreach-monitor";
 import { processResearchJobs } from "../src/platform/research-jobs";
 
 import { processReportArchives } from "../src/reports/archive";
@@ -27,6 +27,7 @@ async function main() {
   if (shuttingDown) return;
   await queueCommandSchedules();
   await notifyOutreachFollowups();
+  await processOutreachMonitoring(() => shuttingDown);
   await processCommandChecks(undefined, () => shuttingDown);
   if (shuttingDown) return;
   await processResearchJobs(undefined, () => shuttingDown);
@@ -41,7 +42,7 @@ async function main() {
   if (shuttingDown) return;
   const scheduled = await queueDueBrowserCrawls();
   console.log(`[orwell-operations] Browser schedule: ${scheduled.queued} queued across ${scheduled.considered} websites.`);
-  const crawls = await processBrowserCrawlJobs();
+  const crawls = await processBrowserCrawlJobs(new Date(), () => shuttingDown);
   console.log(`[orwell-operations] Browser crawls: ${crawls.completed}/${crawls.due} complete, ${crawls.failed} failed.`);
   if (shuttingDown) return;
   const local = await processDueLocalSeo();
