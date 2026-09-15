@@ -1,5 +1,6 @@
+import { keywordGroups, keywordWords, type WorkbenchKeyword } from "@/lib/keyword-workbench";
 import { NextResponse, type NextRequest } from "next/server";
-import { buildXlsx, type XlsxColumn } from "@/lib/xlsx";
+import { buildXlsxWorkbook, type XlsxColumn, type XlsxSheet } from "@/lib/xlsx";
 import type { KeywordResearchRow } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -12,6 +13,12 @@ export const dynamic = "force-dynamic";
  */
 
 const COLUMNS: XlsxColumn[] = [
+  { header: "Country", key: "marketLabel" },
+  { header: "Language", key: "languageCode" },
+  { header: "Metrics updated", key: "updatedAt" },
+  { header: "Collected", key: "collectedAt" },
+  { header: "SERP features", key: "serpFeatures" },
+  { header: "Results", key: "resultCount" },
   { header: "Keyword", key: "keyword" },
   { header: "Search volume", key: "volume" },
   { header: "Keyword difficulty", key: "difficulty" },
@@ -38,7 +45,8 @@ interface ExportBody {
   seed?: string;
   locationLabel?: string;
   fetchedAt?: string;
-  rows?: KeywordResearchRow[];
+  rows?: (KeywordResearchRow & Partial<WorkbenchKeyword>)[];
+  grouped?: boolean;
 }
 
 export async function POST(req: NextRequest) {
@@ -57,6 +65,7 @@ export async function POST(req: NextRequest) {
 
   const sheetRows = rows.map((r) => ({
     keyword: r.keyword,
+    marketLabel:r.marketLabel ?? body.locationLabel ?? "", languageCode:r.languageCode ?? "", updatedAt:r.updatedAt, collectedAt:r.collectedAt??body.fetchedAt, serpFeatures:r.serpFeatures?.join("; "), resultCount:r.resultCount,
     volume: r.volume,
     difficulty: r.difficulty,
     cpc: r.cpc,
@@ -70,11 +79,13 @@ export async function POST(req: NextRequest) {
       .join("; "),
   }));
 
-  const bytes = buildXlsx({
-    name: "Keyword Research",
-    columns: COLUMNS,
-    rows: sheetRows,
-  });
+  const sheets: XlsxSheet[] = [{name:"Keyword Research",columns:COLUMNS,rows:sheetRows}];
+  if(body.grouped){
+    const groups=keywordGroups(rows as WorkbenchKeyword[],body.seed??"");
+    sheets.push({name:"Groups",columns:[{header:"Group (collected rows)",key:"term"},{header:"Keywords",key:"count"},{header:"Known volume",key:"volume"}],rows:groups});
+    sheets.push({name:"Group membership",columns:[{header:"Group",key:"group"},...COLUMNS],rows:sheetRows.flatMap(row=>{const terms=new Set(keywordWords(row.keyword));const matches=groups.filter(group=>terms.has(group.term));return matches.length?matches.map(group=>({...row,group:group.term})):[{...row,group:"Ungrouped"}];})});
+  }
+  const bytes = buildXlsxWorkbook(sheets);
 
   const seed = slug(body.seed ?? "keywords");
   const date = (body.fetchedAt ?? new Date().toISOString()).slice(0, 10);

@@ -135,6 +135,7 @@ export interface KeywordMonthlyPoint {
  * low-signal keywords rather than returning zero.
  */
 export interface KeywordResearchRow {
+  collectedAt?: string;
   relatedToSeed?: boolean;
   serpFeatures?: string[];
   resultCount?: number | null;
@@ -154,7 +155,16 @@ export interface KeywordResearchRow {
 
 /** Result of one keyword-research scan against a chosen SERP market. */
 export interface KeywordResearchResult {
-  pagination?: { nextOffset: number; total: number | null; hasMore: boolean; sourceType: string };
+  pagination?: { nextOffset: number; total: number | null; hasMore: boolean; sourceType: string; nextToken?: string };
+  query?: import("./keyword-query").KeywordQuery;
+  report?: {
+    primary?: KeywordResearchRow;
+    variations?: {rows: KeywordResearchRow[]; total: number | null};
+    questions?: {rows: KeywordResearchRow[]; total: number | null};
+    related?: {rows: KeywordResearchRow[]; total: number | null};
+    global?: {volume: number | null; countries: {code: string; volume: number | null; percentage: number | null}[]; fetchedAt: string; source: "clickstream"};
+    warnings?: string[];
+  };
   seed: string;
   locationCode: number;
   languageCode: string;

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { inflateRawSync } from "node:zlib";
-import { buildXlsx } from "./xlsx";
+import { buildXlsx, buildXlsxWorkbook } from "./xlsx";
 
 const decoder = new TextDecoder();
 
@@ -63,4 +63,9 @@ describe("buildXlsx", () => {
     // deflate-based writer without updating the stored-method assumptions.
     expect(typeof inflateRawSync).toBe("function");
   });
+});
+
+it("writes grouped workbooks with unique worksheet relationships and safe names",()=>{
+ const text=new TextDecoder().decode(buildXlsxWorkbook([{name:"Keywords",columns:[{header:"Volume",key:"v"}],rows:[{v:0}]},{name:"keywords",columns:[{header:"Group",key:"group"}],rows:[{group:"=HYPERLINK(example)"}]}]));
+ expect(text).toContain('name="keywords (2)"');expect(text).toContain('Target="worksheets/sheet2.xml"');expect(text).toContain('PartName="/xl/worksheets/sheet2.xml"');expect(text).toContain('<v>0</v>');expect(text).not.toContain('<f>');
 });

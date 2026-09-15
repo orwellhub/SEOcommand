@@ -32,3 +32,16 @@ export function marketLabel(code: number): string {
   // Official Labs catalogue: https://cdn.dataforseo.com/v3/locations/locations_and_languages_dataforseo_labs_2026_09_01.csv
   return marketByCode(code)?.label ?? (countryNames as Record<string, string>)[String(code)] ?? `Location ${code}`;
 }
+
+/** Resolve a clickstream country into the corresponding Labs country database. */
+export function marketForIsoCountry(iso: string): {code:number;label:string} | null {
+  try {
+    const label = new Intl.DisplayNames(["en"], {type:"region"}).of(iso.toUpperCase());
+    const aliases: Record<string,string> = {TR:"Turkey",CZ:"Czechia",KR:"South Korea",RU:"Russia",VN:"Vietnam"};
+    const target = aliases[iso.toUpperCase()] ?? label;
+    const entry = Object.entries(countryNames).find(([,name])=>name === target || name === label);
+    return entry ? {code:Number(entry[0]),label:entry[1]} : null;
+  } catch { return null; }
+}
+
+export function isKeywordDatabase(code: number): boolean { return Object.hasOwn(countryNames, String(code)); }

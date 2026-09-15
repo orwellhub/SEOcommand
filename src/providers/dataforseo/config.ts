@@ -92,6 +92,8 @@ export const ENDPOINTS = {
   labsRankedKeywords: "/v3/dataforseo_labs/google/ranked_keywords/live",
   labsRelatedKeywords: "/v3/dataforseo_labs/google/related_keywords/live",
   labsKeywordOverview: "/v3/dataforseo_labs/google/keyword_overview/live",
+  labsKeywordSuggestions: "/v3/dataforseo_labs/google/keyword_suggestions/live",
+  keywordGlobalVolume: "/v3/keywords_data/clickstream_data/global_search_volume/live",
   labsKeywordIdeas: "/v3/dataforseo_labs/google/keyword_ideas/live",
   labsCompetitorsDomain: "/v3/dataforseo_labs/google/competitors_domain/live",
   labsDomainIntersection: "/v3/dataforseo_labs/google/domain_intersection/live",
@@ -123,6 +125,8 @@ export const COST_ESTIMATE_USD: Record<string, number> = {
   googleAiModeLive: 0.008,
   labsHistoricalSerps: 0.003,
   labsRankedKeywords: 0.05,
+  labsKeywordSuggestions: 0.05,
+  keywordGlobalVolume: 0.18,
   labsKeywordIdeas: 0.05,
   labsKeywordOverview: 0.02,
   labsRelatedKeywords: 0.05,
@@ -154,7 +158,8 @@ export function requestCostEstimate(key: string, body: unknown, override?: numbe
   const tasks = Array.isArray(body) ? body as Record<string, unknown>[] : [];
   const dynamic = tasks.reduce((sum, task) => {
     const limit = typeof task.limit === "number" ? task.limit : 100;
-    if (["labsRankedKeywords", "labsRelevantPages", "labsKeywordIdeas", "labsRelatedKeywords", "labsDomainIntersection", "labsCompetitorsDomain"].includes(key)) return sum + .012 + Math.max(0, limit) * .00012;
+    if (["labsRankedKeywords", "labsRelevantPages", "labsKeywordIdeas", "labsKeywordSuggestions", "labsRelatedKeywords", "labsDomainIntersection", "labsCompetitorsDomain"].includes(key)) return sum + .012 + Math.max(0, limit) * .00012;
+    if (key === "labsKeywordOverview") return sum + .012 + (Array.isArray(task.keywords) ? task.keywords.length : 1) * .00012;
     if (["backlinksList", "backlinksReferringDomains", "backlinksBrokenPages", "backlinksDomainPages"].includes(key)) return sum + .02 + Math.max(0, limit) * .00004;
     if (["serpOrganicLive", "researchSerp"].includes(key)) return sum + .003 * Math.ceil(Math.max(10, Number(task.depth) || 10) / 10);
     if (key === "onPageTaskPost") return sum + Math.max(1, Number(task.max_crawl_pages) || 100) * .000125;

@@ -55,14 +55,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (row.siteSlug && !await canAccessSite(request, row.siteSlug)) return NextResponse.json({ ok: false, error: "Saved search not found." }, { status: 404 });
     if(!await hasPermission(request,"research",row.siteSlug))return NextResponse.json({error:"Research permission required."},{status:403});
     let meta:{pagination?:KeywordResearchResult["pagination"];fetchedAt?:string}={};try{if(row.sourceValue?.startsWith("{"))meta=JSON.parse(row.sourceValue);}catch{}
+    const settings = (row.settings ?? {}) as Partial<KeywordResearchResult>;
     const result: KeywordResearchResult = {
-      pagination:meta.pagination,
+      query:settings.query, report:settings.report,
+      pagination:settings.pagination ?? meta.pagination,
       seed: row.seed,
       locationCode: row.locationCode,
       languageCode: row.languageCode,
       locationLabel: row.locationLabel,
-      fetchedAt: meta.fetchedAt??row.createdAt.toISOString(),
-      rows: (row.rows ?? []) as KeywordResearchRow[],
+      fetchedAt: settings.fetchedAt??meta.fetchedAt??row.createdAt.toISOString(),
+      rows: ((row.rows ?? []) as KeywordResearchRow[]).map(keyword=>({...keyword,collectedAt:keyword.collectedAt??settings.fetchedAt??meta.fetchedAt??row.createdAt.toISOString()})),
     };
     return NextResponse.json({ ok: true, configured: true, fromCache: true, result });
   } catch (err) {

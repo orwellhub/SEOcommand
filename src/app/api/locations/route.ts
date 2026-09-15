@@ -48,7 +48,8 @@ export async function GET(request: Request) {
   const query = (params.get("q") ?? "").trim().toLowerCase();
   const limit = Math.min(Math.max(Number(params.get("limit")) || 30, 1), 100);
   try {
-    const rows = await locations();
+    const requestedType=params.get("type");
+    const rows = (await locations()).filter(row=>!requestedType||row.type.toLowerCase()===requestedType.toLowerCase());
     const filtered = query ? rows.filter((row) => `${row.name} ${row.parent ?? ""} ${row.countryCode ?? ""}`.toLowerCase().includes(query)) : rows;
     return NextResponse.json({ ok: true, locations: filtered.slice(0, limit), configured: dataForSeoConfigured(), worldwide: true });
   } catch (error) {

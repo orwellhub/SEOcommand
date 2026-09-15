@@ -1,3 +1,4 @@
+import { KeywordQuerySchema } from "@/lib/keyword-query";
 import {validResearchProject} from "@/platform/research-projects";
 import { NextResponse } from "next/server";
 import { desc, eq, isNull, sql } from "drizzle-orm";
@@ -56,7 +57,9 @@ const SaveSchema = z.object({
   locationLabel: z.string().min(1).max(120),
   rows: z.array(RowSchema).max(MAX_ROWS),
   fetchedAt:z.string().optional(),
-  pagination:z.object({nextOffset:z.number().int().min(0),total:z.number().nullable(),hasMore:z.boolean(),sourceType:z.string().max(40)}).optional(),
+  pagination:z.object({nextOffset:z.number().int().min(0),total:z.number().nullable(),hasMore:z.boolean(),sourceType:z.string().max(40),nextToken:z.string().max(10000).optional()}).optional(),
+  query:KeywordQuerySchema.optional(),
+  report:z.object({primary:RowSchema.optional(),variations:z.object({rows:z.array(RowSchema).max(5),total:z.number().nullable()}).optional(),questions:z.object({rows:z.array(RowSchema).max(5),total:z.number().nullable()}).optional(),related:z.object({rows:z.array(RowSchema).max(5),total:z.number().nullable()}).optional(),global:z.object({source:z.literal("clickstream"),volume:z.number().nullable(),countries:z.array(z.object({code:z.string().max(3),volume:z.number().nullable(),percentage:z.number().nullable()})).max(300),fetchedAt:z.string()} ).optional(),warnings:z.array(z.string()).optional()}).optional(),
 });
 
 function unavailable() {
@@ -141,6 +144,7 @@ export async function POST(request: Request) {
         label: parsed.label ?? null,
         sourceType: parsed.sourceType ?? "seed",
         sourceValue: parsed.pagination ? JSON.stringify({version:1,sourceValue:parsed.sourceValue??parsed.seed,pagination:parsed.pagination,fetchedAt:parsed.fetchedAt}) : parsed.sourceValue ?? parsed.seed,
+        settings: {version:2,query:parsed.query,report:parsed.report,fetchedAt:parsed.fetchedAt,pagination:parsed.pagination},
         seed: parsed.seed,
         locationCode: parsed.locationCode,
         languageCode: parsed.languageCode,

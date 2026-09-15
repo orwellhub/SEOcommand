@@ -12,5 +12,5 @@ export default defineConfig([
       "react-hooks/set-state-in-effect": "off",
     },
   },
-  globalIgnores([".next/**", ".next-deep-audit/**", ".next-audit-completion/**", ".next-audit-release/**", "node_modules/**", "coverage/**"]),
+  globalIgnores([".next/**", ".next-deep-audit/**", ".next-audit-completion/**", ".next-audit-release/**", ".next-keyword-rebuild/**", ".next-keyword-release/**", "node_modules/**", "coverage/**"]),
 ]);

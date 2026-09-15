@@ -28,6 +28,7 @@ export function DataTable<T>({
   toolbar,
   rowKey,
   columnControls = true,
+  serverSort,
 }: {
   rows: T[];
   columns: Column<T>[];
@@ -40,10 +41,12 @@ export function DataTable<T>({
   toolbar?: React.ReactNode;
   rowKey?: (row: T) => string;
   columnControls?: boolean;
+  serverSort?: {key: string; direction: "asc" | "desc"; onChange: (key: string, direction: "asc" | "desc") => void};
 }) {
   const [query, setQuery] = useState("");
-  const [sortKey, setSortKey] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [localSortKey, setSortKey] = useState<string | null>(null);
+  const [localSortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const sortKey = serverSort?.key ?? localSortKey, sortDir = serverSort?.direction ?? localSortDir;
   const [page, setPage] = useState(0);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [rowsPerPage, setRowsPerPage] = useState(pageSize);
@@ -55,7 +58,7 @@ export function DataTable<T>({
       const q = query.toLowerCase();
       out = out.filter((r) => searchKeys(r).toLowerCase().includes(q));
     }
-    if (sortKey) {
+    if (sortKey && !serverSort) {
       const col = columns.find((c) => c.key === sortKey);
       if (col?.sortValue) {
         out = [...out].sort((a, b) => {
@@ -68,13 +71,14 @@ export function DataTable<T>({
       }
     }
     return out;
-  }, [rows, query, sortKey, sortDir, columns, searchKeys]);
+  }, [rows, query, sortKey, sortDir, columns, searchKeys, serverSort]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
   const clampedPage = Math.min(page, pageCount - 1);
   const pageRows = filtered.slice(clampedPage * rowsPerPage, (clampedPage + 1) * rowsPerPage);
 
   function toggleSort(key: string) {
+    if (serverSort) {serverSort.onChange(key, sortKey === key && sortDir === "desc" ? "asc" : "desc"); setPage(0); return;}
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {

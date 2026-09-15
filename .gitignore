@@ -45,3 +45,6 @@ yarn-error.log*
 /.next-audit-release/
 
 /public/audit-responsive.html
+
+/.next-keyword-rebuild/
+/.next-keyword-release/

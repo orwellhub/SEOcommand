@@ -138,6 +138,7 @@ export function normalizeKeywordIdeas(rows: Row[]): KeywordResearchRow[] {
     .map((it): KeywordResearchRow => {
       const info = it?.keyword_info ?? {};
       const monthly: KeywordMonthlyPoint[] = (info?.monthly_searches ?? [])
+        .filter((m: Row) => typeof m?.search_volume === "number" && Number.isFinite(m.search_volume))
         .map((m: Row) => ({
           year: num(m?.year),
           month: num(m?.month),

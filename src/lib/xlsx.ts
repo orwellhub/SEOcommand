@@ -187,52 +187,23 @@ function zipStored(files: ZipFile[]): Uint8Array {
 
 /* ------------------------------ public --------------------------------- */
 
-/** Build a single-sheet .xlsx workbook and return its raw bytes. */
-export function buildXlsx(sheet: XlsxSheet): Uint8Array {
-  const safeSheet: XlsxSheet = { ...sheet, name: sanitizeSheetName(sheet.name) };
+/** Build one or more sheets while preserving numeric and missing cells. */
+export function buildXlsx(sheet: XlsxSheet): Uint8Array { return buildXlsxWorkbook([sheet]); }
+export function buildXlsxWorkbook(sheets: XlsxSheet[]): Uint8Array {
+  if (!sheets.length || sheets.length > 100) throw new Error("A workbook needs 1–100 sheets.");
+  const names = new Set<string>();
+  const safe = sheets.map(sheet => {
+    const base = sanitizeSheetName(sheet.name); let name = base, suffix = 1;
+    while(names.has(name.toLowerCase())) name = `${base.slice(0, 26)} (${++suffix})`;
+    names.add(name.toLowerCase()); return {...sheet, name};
+  });
+  const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`;
   const files: ZipFile[] = [
-    {
-      name: "[Content_Types].xml",
-      data: encoder.encode(
-        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-          `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
-          `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
-          `<Default Extension="xml" ContentType="application/xml"/>` +
-          `<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>` +
-          `<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` +
-          `</Types>`,
-      ),
-    },
-    {
-      name: "_rels/.rels",
-      data: encoder.encode(
-        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-          `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
-          `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>` +
-          `</Relationships>`,
-      ),
-    },
-    {
-      name: "xl/workbook.xml",
-      data: encoder.encode(
-        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-          `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
-          `<sheets><sheet name="${escapeXml(safeSheet.name)}" sheetId="1" r:id="rId1"/></sheets></workbook>`,
-      ),
-    },
-    {
-      name: "xl/_rels/workbook.xml.rels",
-      data: encoder.encode(
-        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-          `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
-          `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>` +
-          `</Relationships>`,
-      ),
-    },
-    {
-      name: "xl/worksheets/sheet1.xml",
-      data: encoder.encode(sheetXml(safeSheet)),
-    },
+    {name:"[Content_Types].xml",data:encoder.encode(xml + `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>` + safe.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("") + `</Types>`)},
+    {name:"_rels/.rels",data:encoder.encode(xml + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`)},
+    {name:"xl/workbook.xml",data:encoder.encode(xml + `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>` + safe.map((sheet,i)=>`<sheet name="${escapeXml(sheet.name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join("") + `</sheets></workbook>`)},
+    {name:"xl/_rels/workbook.xml.rels",data:encoder.encode(xml + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` + safe.map((_,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join("") + `</Relationships>`)},
+    ...safe.map((sheet,i)=>({name:`xl/worksheets/sheet${i+1}.xml`,data:encoder.encode(sheetXml(sheet))})),
   ];
   return zipStored(files);
 }

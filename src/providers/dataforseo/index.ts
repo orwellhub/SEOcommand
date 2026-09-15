@@ -1,5 +1,6 @@
+import { DEFAULT_KEYWORD_QUERY, KeywordQuerySchema, providerKeywordQuery, type KeywordQuery } from "@/lib/keyword-query";
 import {belongsToHost} from "@/lib/rank-reports";
-import type { AiPlatform, AiPrompt, Backlink, Competitor, DomainId, Keyword, KeywordResearchRow, PositionBucket, RankSnapshot, ReferringDomain } from "@/lib/types";
+import type { AiPlatform, AiPrompt, Backlink, Competitor, DomainId, Keyword, KeywordResearchRow, KeywordResearchResult, PositionBucket, RankSnapshot, ReferringDomain } from "@/lib/types";
 import type { OnPageResult } from "@/lib/live";
 import { DOMAINS } from "@/data/domains";
 import { TRACKED_AI_PROMPTS } from "@/data/ai-prompts";
@@ -115,17 +116,16 @@ export async function fetchRankedKeywordsBundle(
   return { keywords, rankSnapshots };
 }
 
-/**
- * Seed keyword research (not tied to a portfolio domain). One guarded Labs
- * "keyword_ideas" call returns the keyword universe around a seed term for a
- * chosen SERP market, with volume, keyword difficulty, CPC and competition.
- */
+/** Keyword discovery applies its match, filters and order in the provider database. */
 export async function researchKeywords(opts: {
   seed: string;
   sourceType?: "seed" | "domain" | "competitor" | "questions" | "related";
-  onWarning?: (message:string)=>void;
+  onWarning?: (message: string) => void;
   offset?: number;
-  onPagination?: (page:{nextOffset:number;total:number|null;hasMore:boolean})=>void;
+  offsetToken?: string;
+  query?: KeywordQuery;
+  onPrimary?: (row: KeywordResearchRow) => void;
+  onPagination?: (page: NonNullable<KeywordResearchResult["pagination"]>) => void;
   siteSlug?: string | null;
   locationCode: number;
   languageCode: string;
@@ -133,55 +133,53 @@ export async function researchKeywords(opts: {
 }): Promise<KeywordResearchRow[]> {
   const client = getDataForSeoClient();
   const limit = Math.min(Math.max(opts.limit ?? 100, 1), 1000);
-  const offset=Math.max(0,Math.floor(opts.offset??0));
-  const pagination=(result:Record<string,unknown>[])=>{const root=result[0]??{},items=Array.isArray(root.items)?root.items:[],total=typeof root.total_count==="number"?root.total_count:null;opts.onPagination?.({nextOffset:offset+items.length,total,hasMore:items.length>0&&(total==null?items.length>=limit:offset+items.length<total)});};
-  if(opts.sourceType==="related"){
-    const response=await client.post<Record<string,unknown>>("labsRelatedKeywords",ENDPOINTS.labsRelatedKeywords,[{keyword:opts.seed,location_code:opts.locationCode,language_code:opts.languageCode,limit,offset,depth:3,include_serp_info:true}],{domainSlug:opts.siteSlug??null});
-    pagination(response.result);
-    const items=(response.result[0]?.items??[]) as Record<string,unknown>[];
-    return normalizeKeywordIdeas([{items:items.map(row=>row.keyword_data).filter(Boolean)}]).map(row=>({...row,relatedToSeed:true}));
-  }
+  const offset = Math.max(0, Math.floor(opts.offset ?? 0));
+  const query = KeywordQuerySchema.parse({...DEFAULT_KEYWORD_QUERY, ...opts.query, ...(opts.sourceType === "questions" ? {questions:true} : {}), ...(opts.sourceType === "related" ? {match:"related"} : {})});
+  const nested = query.match === "related" || opts.sourceType === "domain" || opts.sourceType === "competitor";
+  const clauses = providerKeywordQuery(opts.seed, query, nested, opts.languageCode);
+  const common = {location_code: opts.locationCode, language_code: opts.languageCode, limit, offset, ...(opts.offsetToken ? {offset_token:opts.offsetToken} : {}), include_serp_info:true, ...clauses};
+  let endpoint: "labsKeywordSuggestions" | "labsRelatedKeywords" | "labsRankedKeywords" = "labsKeywordSuggestions";
+  let task: Record<string, unknown>;
   if (opts.sourceType === "domain" || opts.sourceType === "competitor") {
-    let target = opts.seed.trim().toLowerCase();
-    try { target = new URL(target.includes("://") ? target : `https://${target}`).hostname; } catch { target = target.replace(/^https?:\/\//, "").split("/")[0] ?? target; }
-    if (!target || !target.includes(".")) throw new Error("Enter a valid domain or website URL for domain research.");
-    const { result } = await client.post(
-      "labsRankedKeywords",
-      ENDPOINTS.labsRankedKeywords,
-      [{ target, item_types: ["organic"], location_code: opts.locationCode, language_code: opts.languageCode, limit, offset, order_by: ["keyword_data.keyword_info.search_volume,desc"] }],
-      { domainSlug: opts.siteSlug ?? null },
-    );
-    const sourceRows = result as Record<string, unknown>[];
-    pagination(sourceRows);
-    const items = (sourceRows[0]?.items ?? sourceRows) as Record<string, unknown>[];
-    return normalizeKeywordIdeas([{ items: items.map((item) => item.keyword_data ?? item) }]);
+    let target: string;
+    try { target = new URL(opts.seed.includes("://") ? opts.seed : `https://${opts.seed}`).hostname; } catch { throw new Error("Enter a valid domain or website URL."); }
+    if (!target.includes(".")) throw new Error("Enter a valid domain or website URL.");
+    endpoint = "labsRankedKeywords";
+    task = {...common, target, item_types:["organic"]};
+  } else if (query.match === "related") {
+    endpoint = "labsRelatedKeywords";
+    task = {...common, keyword:opts.seed, depth:3};
+  } else {
+    task = {...common, keyword:opts.seed, include_seed_keyword:offset === 0, exact_match:query.match === "exact", ignore_synonyms:false};
   }
-  const { result } = await client.post(
-    "labsKeywordIdeas",
-    ENDPOINTS.labsKeywordIdeas,
-    [
-      {
-        keywords: [opts.seed],
-        include_serp_info: true,
-        location_code: opts.locationCode,
-        language_code: opts.languageCode,
-        limit,
-        offset,
-        order_by: ["keyword_info.search_volume,desc"],
-      },
-    ],
-    { domainSlug: opts.siteSlug ?? null },
-  );
-  pagination(result as Record<string,unknown>[]);
-  const rows = normalizeKeywordIdeas(result as Record<string, unknown>[]);
-  if (offset===0 && !rows.some(row => row.keyword.toLowerCase() === opts.seed.trim().toLowerCase())) {
-    try { const exact = await client.post("labsKeywordOverview", ENDPOINTS.labsKeywordOverview, [{ keywords:[opts.seed], location_code:opts.locationCode, language_code:opts.languageCode, include_serp_info:true }], {domainSlug:opts.siteSlug??null});
-    rows.unshift(...normalizeKeywordIdeas(exact.result as Record<string,unknown>[]));
-    } catch { opts.onWarning?.("Keyword ideas were collected, but exact seed metrics could not be refreshed. The collected results have been retained."); }
+  const {result} = await client.post<Record<string, unknown>>(endpoint, ENDPOINTS[endpoint], [task], {domainSlug:opts.siteSlug ?? null});
+  const root = result[0];
+  if (!root || (!Array.isArray(root.items) && root.total_count !== 0)) throw new Error("The provider did not return a valid keyword report. Your previous collection is still available.");
+  const items = (root.items ?? []) as Record<string, unknown>[];
+  const total = typeof root.total_count === "number" ? root.total_count : null;
+  opts.onPagination?.({nextOffset:offset + items.length, total, hasMore:items.length > 0 && (total == null ? items.length >= limit : offset + items.length < total), sourceType:opts.sourceType ?? "seed", ...(typeof root.offset_token === "string" ? {nextToken:root.offset_token} : {})});
+  if (root.seed_keyword_data) {
+    const primary = normalizeKeywordIdeas([{items:[root.seed_keyword_data]}])[0];
+    if (primary) opts.onPrimary?.(primary);
   }
-  if (opts.sourceType !== "questions") return rows;
-  const question = /^(who|what|when|where|why|how|which|can|could|should|is|are|do|does|will)\b/i;
-  return rows.slice().sort((left, right) => Number(question.test(right.keyword)) - Number(question.test(left.keyword)));
+  // The exact seed is report metadata, never an extra row inserted into a filtered page.
+  return normalizeKeywordIdeas([{items:items.map(item => nested ? item.keyword_data ?? item : item)}]).map(row => query.match === "related" ? {...row, relatedToSeed:true} : row);
+}
+
+export async function keywordMetrics(keywords: string[], locationCode: number, languageCode: string, siteSlug?: string | null) {
+  if (!keywords.length || keywords.length > 700) throw new Error("Analyze between 1 and 700 keywords at a time.");
+  const {result} = await getDataForSeoClient().post<Record<string, unknown>>("labsKeywordOverview", ENDPOINTS.labsKeywordOverview, [{keywords, location_code:locationCode, language_code:languageCode, include_serp_info:true}], {domainSlug:siteSlug ?? null});
+  if (!result.length) throw new Error("The provider did not return keyword metrics.");
+  return normalizeKeywordIdeas(result);
+}
+
+export async function keywordGlobalVolume(keyword: string, siteSlug?: string | null): Promise<NonNullable<NonNullable<KeywordResearchResult["report"]>["global"]>> {
+  const {result} = await getDataForSeoClient().post<Record<string, unknown>>("keywordGlobalVolume", ENDPOINTS.keywordGlobalVolume, [{keywords:[keyword]}], {domainSlug:siteSlug ?? null});
+  const items = (result[0]?.items ?? []) as Record<string, unknown>[];
+  const item = items.find(row => String(row.keyword).toLowerCase() === keyword.toLowerCase());
+  if (!item) throw new Error("Global search volume is not available for this keyword.");
+  const number = (value: unknown) => typeof value === "number" && Number.isFinite(value) ? value : null;
+  return {volume:number(item.search_volume), countries:((item.country_distribution ?? []) as Record<string, unknown>[]).map(row => ({code:String(row.country_iso_code), volume:number(row.search_volume), percentage:number(row.percentage)})).sort((a,b) => (b.volume ?? -1) - (a.volume ?? -1)), fetchedAt:new Date().toISOString(), source:"clickstream"};
 }
 
 /** domain_rank_overview once → visibility point + position buckets + est traffic. */

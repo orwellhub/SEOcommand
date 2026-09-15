@@ -2,8 +2,8 @@ import type { KeywordResearchRow } from "./types";
 
 export type WorkbenchKeyword = KeywordResearchRow & { marketCode: number; marketLabel: string; languageCode: string };
 export type KeywordMatch = "all" | "broad" | "phrase" | "exact" | "related";
-export type KeywordFilters = { match: KeywordMatch; questions: boolean; include: string; exclude: string; intent: string; minVolume: string; maxVolume: string; minDifficulty: string; maxDifficulty: string; minCpc: string; maxCpc: string; minWords: string; maxWords: string; market: string; group: string[] };
-export const EMPTY_KEYWORD_FILTERS: KeywordFilters = { match: "all", questions: false, include: "", exclude: "", intent: "", minVolume: "", maxVolume: "", minDifficulty: "", maxDifficulty: "", minCpc: "", maxCpc: "", minWords: "", maxWords: "", market: "", group: [] };
+export type KeywordFilters = { match: KeywordMatch; questions: boolean; include: string; exclude: string; intent: string; minVolume: string; maxVolume: string; minDifficulty: string; maxDifficulty: string; minCpc: string; maxCpc: string; minWords: string; maxWords: string; minCompetition: string; maxCompetition: string; serpFeature: string; market: string; group: string[] };
+export const EMPTY_KEYWORD_FILTERS: KeywordFilters = { match: "all", questions: false, include: "", exclude: "", intent: "", minVolume: "", maxVolume: "", minDifficulty: "", maxDifficulty: "", minCpc: "", maxCpc: "", minWords: "", maxWords: "", minCompetition: "", maxCompetition: "", serpFeature: "", market: "", group: [] };
 export const keywordKey = (row: WorkbenchKeyword) => `${row.marketCode}:${row.languageCode}:${row.keyword.toLocaleLowerCase()}`;
 export function keywordWords(text: string): string[] { return text.toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []; }
 const stop = new Set("a an and are as at be by for from how in is it of on or that the this to what when where which who why with you your".split(" "));
@@ -20,7 +20,7 @@ export function filterKeywords(rows: WorkbenchKeyword[], seed: string, filters: 
     if (source.length && (filters.match === "broad" && !broad || filters.match === "phrase" && !phrase || filters.match === "exact" && !(` ${text} `.includes(` ${source.join(" ")} `)) || filters.match === "related" && row.relatedToSeed!==true)) return false;
     if (filters.questions && !/^(how|what|when|where|which|who|why|can|could|does|do|is|are|should|will|would)\b/i.test(row.keyword) && !row.keyword.includes("?")) return false;
     if (includes.some(term => !row.keyword.toLocaleLowerCase().includes(term)) || excludes.some(term => row.keyword.toLocaleLowerCase().includes(term))) return false;
-    return (!filters.market || `${row.marketCode}:${row.languageCode}` === filters.market) && (!filters.intent || row.intent === filters.intent) && filters.group.every(term => words.includes(term)) && inRange(row.volume, filters.minVolume, filters.maxVolume) && inRange(row.difficulty, filters.minDifficulty, filters.maxDifficulty) && inRange(row.cpc, filters.minCpc, filters.maxCpc) && inRange(words.length, filters.minWords, filters.maxWords);
+    return (!filters.serpFeature || row.serpFeatures?.includes(filters.serpFeature)) && inRange(row.competition, filters.minCompetition, filters.maxCompetition) && (!filters.market || `${row.marketCode}:${row.languageCode}` === filters.market) && (!filters.intent || row.intent === filters.intent) && filters.group.every(term => words.includes(term)) && inRange(row.volume, filters.minVolume, filters.maxVolume) && inRange(row.difficulty, filters.minDifficulty, filters.maxDifficulty) && inRange(row.cpc, filters.minCpc, filters.maxCpc) && inRange(words.length, filters.minWords, filters.maxWords);
   });
 }
 export function keywordGroups(rows: WorkbenchKeyword[], seed: string, parents: string[] = []) {
