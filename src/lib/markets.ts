@@ -1,4 +1,4 @@
-import countryNames from "./dataforseo-country-names.json";
+import catalogue from "./dataforseo-keyword-databases.json";
 
 /**
  * SERP markets selectable for a keyword-research scan. Codes are DataForSEO
@@ -10,6 +10,29 @@ export interface Market {
   /** Default language for the market (ISO code DataForSEO expects). */
   language: string;
 }
+
+/** A DataForSEO Labs keyword database and the languages it can be scanned in. */
+export interface KeywordDatabase {
+  code: number;
+  name: string;
+  countryCode: string | null;
+  type: string;
+  languages: { code: string; name: string }[];
+}
+
+/**
+ * Every country database DataForSEO Labs exposes for keyword research, taken
+ * verbatim from the published catalogue and refreshed by
+ * `npm run sync:keyword-databases`. Labs rejects any other location, so this
+ * list is both the menu the Keyword Magic Tool offers and the validation gate.
+ */
+export const KEYWORD_DATABASES: KeywordDatabase[] = catalogue.databases;
+
+/** Catalogue release the bundled databases were generated from. */
+export const KEYWORD_DATABASE_VERSION: string = catalogue.version;
+
+const BY_CODE = new Map(KEYWORD_DATABASES.map((database) => [database.code, database]));
+const BY_ISO = new Map(KEYWORD_DATABASES.filter((database) => database.countryCode).map((database) => [database.countryCode!.toUpperCase(), database]));
 
 export const MARKETS: Market[] = [
   { code: 2784, label: "United Arab Emirates", language: "en" },
@@ -29,22 +52,39 @@ export function marketByCode(code: number): Market | undefined {
 }
 
 export function marketLabel(code: number): string {
-  // Official Labs catalogue: https://cdn.dataforseo.com/v3/locations/locations_and_languages_dataforseo_labs_2026_09_01.csv
-  return marketByCode(code)?.label ?? (countryNames as Record<string, string>)[String(code)] ?? `Location ${code}`;
+  return marketByCode(code)?.label ?? BY_CODE.get(code)?.name ?? `Location ${code}`;
+}
+
+/** The Labs database for a location code, when the code is a supported one. */
+export function keywordDatabase(code: number): KeywordDatabase | undefined {
+  return BY_CODE.get(code);
+}
+
+/** Languages DataForSEO Labs can scan a database in; empty when unsupported. */
+export function keywordDatabaseLanguages(code: number): { code: string; name: string }[] {
+  return BY_CODE.get(code)?.languages ?? [];
+}
+
+/**
+ * Language a scan should default to for a database. Most databases are not
+ * English, so defaulting every market to `en` returns an empty scan.
+ */
+export function defaultLanguageForMarket(code: number, preferred?: string): string {
+  const languages = keywordDatabaseLanguages(code);
+  if (!languages.length) return preferred ?? marketByCode(code)?.language ?? "en";
+  const supported = (value?: string) => (value && languages.some((language) => language.code === value) ? value : null);
+  return supported(preferred) ?? supported(marketByCode(code)?.language) ?? languages[0].code;
 }
 
 /** Resolve a clickstream country into the corresponding Labs country database. */
-export function marketForIsoCountry(iso: string): {code:number;label:string} | null {
-  try {
-    const label = new Intl.DisplayNames(["en"], {type:"region"}).of(iso.toUpperCase());
-    const aliases: Record<string,string> = {TR:"Turkey",CZ:"Czechia",KR:"South Korea",RU:"Russia",VN:"Vietnam"};
-    const target = aliases[iso.toUpperCase()] ?? label;
-    const entry = Object.entries(countryNames).find(([,name])=>name === target || name === label);
-    return entry ? {code:Number(entry[0]),label:entry[1]} : null;
-  } catch { return null; }
+export function marketForIsoCountry(iso: string): { code: number; label: string } | null {
+  const database = BY_ISO.get(iso.trim().toUpperCase());
+  return database ? { code: database.code, label: database.name } : null;
 }
 
-export function isKeywordDatabase(code: number): boolean { return Object.hasOwn(countryNames, String(code)); }
+export function isKeywordDatabase(code: number): boolean {
+  return BY_CODE.has(code);
+}
 
 /** Clickstream includes an unassigned-country bucket, represented as null. */
 export function keywordCountryCode(value: unknown): string {

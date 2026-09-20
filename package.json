@@ -18,7 +18,8 @@
     "qa:load": "node --import tsx scripts/qa-load.ts",
     "qa:migrate": "node --import tsx scripts/qa-migrate.ts",
     "jobs": "tsx scripts/jobs.ts",
-    "jobs:operations": "tsx scripts/crawler-jobs.ts"
+    "jobs:operations": "tsx scripts/crawler-jobs.ts",
+    "sync:keyword-databases": "tsx scripts/sync-keyword-databases.ts"
   },
   "dependencies": {
     "clsx": "2.1.1",
