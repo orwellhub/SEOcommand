@@ -30,4 +30,19 @@ describe("website workspace navigation", () => {
     expect(searchFeatures("customer reviews")[0]?.href).toBe("/local-seo?feature=reviews#research");
     expect(searchFeatures("people also ask")[0]?.href).toBe("/questions");
   });
+
+  it("reaches every health view from the sidebar, including AI readiness", () => {
+    // A view that exists only as an in-page tab is unreachable for anyone who
+    // does not already know its URL, so each one must be registered here.
+    const health = WORKSPACE_SECTIONS.find((section) => section.id === "health")!.items;
+    const views = health.map((entry) => new URL(entry.href, "https://x.test").searchParams.get("view")).filter((view): view is string => Boolean(view));
+    expect(views).toEqual(expect.arrayContaining(["issues", "speed", "indexing", "watchlist", "ai", "launch"]));
+    expect(activeNavigationItem(health, "/health", new URLSearchParams("view=ai"))?.label).toBe("AI readiness");
+  });
+
+  it("finds AI readiness by the names people actually search for", () => {
+    for (const term of ["ai readiness", "llms.txt", "gptbot", "ai crawler access", "nosnippet"]) {
+      expect(searchFeatures(term).map((entry) => entry.href), term).toContain("/health?view=ai");
+    }
+  });
 });

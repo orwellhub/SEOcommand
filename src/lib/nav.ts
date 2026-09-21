@@ -46,6 +46,7 @@ export const WORKSPACE_SECTIONS: WorkspaceSection[] = [
     item("/health?view=speed", "Speed tests", Gauge, ["pagespeed", "core web vitals", "lcp", "slow"]),
     item("/health?view=indexing", "Google indexing", Search, ["url inspection", "indexed"]),
     item("/health?view=watchlist", "Page watchlist", Radar, ["important pages", "page monitoring"]),
+    item("/health?view=ai", "AI readiness", Sparkles, ["ai crawler", "ai crawler access", "ai access", "llms.txt", "gptbot", "chatgpt crawler", "perplexity", "ai overviews", "ai mode", "nosnippet", "snippet", "robots ai", "ai bots"]),
     item("/health?view=launch", "Launch & migration", ShieldCheck, ["baseline", "redirects", "redesign"]),
     item("/site-audit", "Detailed audit", ListChecks, ["technical issues", "schema", "hreflang"]),
     item("/technical-crawler", "Browser crawl", Globe2, ["rendered crawler", "javascript"]),
