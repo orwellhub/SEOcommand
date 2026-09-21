@@ -6,6 +6,7 @@ import type { ManagedSite } from "./types";
 import { createNotification } from "./notifications";
 import { assertPublicHostname, fetchPublic, isObviouslyPublicHostname, readBoundedText } from "./public-network";
 import { excludedFromCrawl, internationalChecks, structuredDataIssues } from "./audit-depth";
+import { parseRobotsDirectives, snippetIssues } from "./discovery-files";
 
 import { CrawlBrowser } from "./crawl-browser";
 
@@ -142,6 +143,7 @@ async function inspectPage(page: Page, url: string, depth: number, host: string)
   const started = Date.now();
   let rawHtml = "";
   let rawStatus: number | null = null;
+  let rawXRobots: string | null = null;
   try {
     const response = await fetchPublic(url, {
       redirect: "follow",
@@ -149,6 +151,7 @@ async function inspectPage(page: Page, url: string, depth: number, host: string)
       signal: AbortSignal.timeout(20_000),
     });
     rawStatus = response.status;
+    rawXRobots = response.headers.get("x-robots-tag");
     const type = response.headers.get("content-type") ?? "";
     if (type.includes("text/html") || type.includes("xhtml")) rawHtml = await readBoundedText(response, 5_000_000);
   } catch {
@@ -167,6 +170,8 @@ async function inspectPage(page: Page, url: string, depth: number, host: string)
       const canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.href ?? null;
       const description = document.querySelector<HTMLMetaElement>('meta[name="description"]')?.content?.trim() ?? null;
       const robots = document.querySelector<HTMLMetaElement>('meta[name="robots"]')?.content?.toLowerCase() ?? "";
+      const googlebot = document.querySelector<HTMLMetaElement>('meta[name="googlebot"]')?.content?.toLowerCase() ?? "";
+      const dataNosnippet = document.querySelectorAll("[data-nosnippet]").length;
       const schemas: string[] = [];
       let invalidJsonLd = false;
       for (const node of Array.from(document.querySelectorAll<HTMLScriptElement>('script[type="application/ld+json"]'))) {
@@ -199,6 +204,8 @@ async function inspectPage(page: Page, url: string, depth: number, host: string)
         description,
         canonical,
         robots,
+        googlebot,
+        dataNosnippet,
         h1Count: document.querySelectorAll("h1").length,
         bodyText,
         schemas: [...new Set(schemas)],
@@ -217,7 +224,10 @@ async function inspectPage(page: Page, url: string, depth: number, host: string)
     const rawContentHash = rawText ? hash(rawText) : null;
     const renderedContentHash = data.bodyText ? hash(data.bodyText) : null;
     const jsDependent = Boolean(rawContentHash && renderedContentHash && rawContentHash !== renderedContentHash && data.bodyText.length > rawText.length * 1.25);
-    const indexable = !/\bnoindex\b/.test(data.robots) && (statusCode == null || statusCode < 400);
+    // Snippet directives arrive from the meta robots tag, the googlebot-specific
+    // tag and the X-Robots-Tag header; any of them can bar an AI answer.
+    const directives = parseRobotsDirectives(data.robots, data.googlebot, rawXRobots);
+    const indexable = !directives.noindex && !/\bnoindex\b/.test(data.robots) && (statusCode == null || statusCode < 400);
     if (statusCode != null && statusCode >= 400) issues.push("http_error");
     if (!data.title) issues.push("missing_title");
     if (!data.description) issues.push("missing_description");
@@ -228,6 +238,7 @@ async function inspectPage(page: Page, url: string, depth: number, host: string)
     if (data.invalidJsonLd) issues.push("invalid_json_ld");
     issues.push(...structuredDataIssues(data.jsonLd));
     if (jsDependent) issues.push("javascript_dependent_content");
+    issues.push(...snippetIssues(directives, data.dataNosnippet));
     if (Object.keys(data.hreflang).length && !Object.values(data.hreflang).some((value) => cleanUrl(value) === cleanUrl(finalUrl ?? url))) issues.push("hreflang_missing_self_reference");
     return {
       url,

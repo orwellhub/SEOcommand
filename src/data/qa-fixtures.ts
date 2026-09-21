@@ -1,6 +1,7 @@
 import type {KeywordResearchResult} from "@/lib/types";
 import { shiftDate } from "@/lib/dashboard-data";
 import type { DomainLiveBundle, PortfolioLive } from "@/lib/live";
+import type { AiReadiness } from "@/lib/command-model";
 import type { ManagedSite, PortfolioGroup } from "@/platform/types";
 import { DEFAULT_ALERT_CHANNELS } from "@/platform/notification-defaults";
 
@@ -186,7 +187,7 @@ export function qaSettings(siteSlug: string) {
     },
     connections: site.id === "mortgagecompare" ? [{ id: "qa-github", kind: "github", status: "connected", displayName: "SEOcommand", remoteUrl: "https://github.com/orwellhub/SEOcommand", config: { publishMode: "review_only" }, lastCheckedAt: "2026-08-26T08:00:00.000Z" }] : [],
     groupIds: QA_GROUPS.filter((group) => group.siteSlugs.includes(site.id)).map((group) => group.id),
-    groups: QA_GROUPS, notificationRule: { channels: [...DEFAULT_ALERT_CHANNELS], recipients: ["email:qa@example.test"], eventTypes: ["rank_drop", "technical_regression", "site_unavailable"], rankDropThreshold: 5, trafficDropPct: 20, enabled: true },
+    groups: QA_GROUPS, notificationRule: { channels: [...DEFAULT_ALERT_CHANNELS], recipients: ["email:qa@example.test"], eventTypes: ["rank_drop", "technical_regression", "site_unavailable", "ai_access_blocked"], rankDropThreshold: 5, trafficDropPct: 20, enabled: true },
     spend: { month: "2026-08", totalUsd: site.id === "mortgagecompare" ? 2.46 : 0.84, lines: [] },
     auditEvents: [{ id: "qa-audit", actorEmail: "qa@orwell.local", actorRole: "admin", action: "updated", area: "budget", summary: "Approved synthetic QA budget.", createdAt: "2026-08-26T08:00:00.000Z" }],
     credentialPolicy: "Synthetic QA: central connector mappings only; no credentials or provider calls are present.",
@@ -247,6 +248,35 @@ export function qaReliability(scope: string, allowedSiteSlugs?: string[] | null)
   return { summary: { monitored: sites.length, available: latest.filter((item) => item.available).length, incidents: latest.filter((item) => !item.available || item.tlsValid === false).length, avgResponseMs: latest.length ? Math.round(latest.reduce((sum, item) => sum + (item.responseTimeMs ?? 0), 0) / latest.length) : null, uptimePct: 99.82 }, latest, checks };
 }
 
+/** Every AI-readiness state the Health workspace renders, for synthetic QA. */
+export function qaAiReadiness(siteSlug: string): AiReadiness {
+  const host = QA_SITES.find((site) => site.id === siteSlug)?.host ?? "example.test";
+  return {
+    botAccess: {
+      capturedOn: "2026-08-26",
+      rows: [
+        { bot: "PerplexityBot", category: "search", access: "blocked", evidence: `The PerplexityBot group blocks the root with "Disallow: /".`, severity: "high", checkedPages: 13, blockedPages: 13, samples: [], governs: null },
+        { bot: "OAI-SearchBot", category: "search", access: "partial", evidence: `Root is accessible, but 2 of 12 sampled paths are disallowed, the first by "Disallow: /compare/".`, severity: "high", checkedPages: 13, blockedPages: 2, samples: [`https://${host}/compare/rates`, `https://${host}/compare/fees`], governs: null },
+        { bot: "Google-Extended", category: "training", access: "unknown", evidence: "robots.txt returned HTTP 503", severity: "medium", checkedPages: null, blockedPages: null, samples: [], governs: "Gemini training and grounding, not Google Search" },
+        { bot: "GPTBot", category: "training", access: "blocked", evidence: `The GPTBot group blocks the root with "Disallow: /".`, severity: "low", checkedPages: 13, blockedPages: 13, samples: [], governs: null },
+        { bot: "Googlebot", category: "search", access: "allowed", evidence: "Root is accessible through the wildcard group with no blocking rule. No sampled path of 12 is disallowed.", severity: null, checkedPages: 13, blockedPages: 0, samples: [], governs: "AI Overviews and AI Mode" },
+        { bot: "ChatGPT-User", category: "assistant", access: "allowed", evidence: "Root is accessible through the wildcard group with no blocking rule.", severity: null, checkedPages: 13, blockedPages: 0, samples: [], governs: null },
+      ],
+    },
+    discovery: {
+      checkedAt: "2026-08-26T08:00:00.000Z",
+      llms: { present: true, valid: false, problems: ["malformed_link"], linkCount: 4, sectionCount: 2 },
+      xRobotsTag: { raw: "googlebot: max-snippet:40", noindex: false, nosnippet: false, maxSnippet: 40 },
+      robotsSitemapDirective: true,
+    },
+    answers: {
+      capturedAt: "2026-08-26T07:30:00.000Z",
+      pages: 24,
+      counts: [{ id: "ai_snippet_limited", pages: 24 }, { id: "javascript_dependent_content", pages: 3 }, { id: "not_indexable", pages: 1 }],
+    },
+  };
+}
+
 export function qaLinkBuilding(siteSlug: string) {
   const prospects = Array.from({ length: 7 }, (_, index) => { const authority = 72 - index * 3; const relevance = 91 - index * 5; const eligible = relevance >= 60 && authority >= 20; const contacts = index < 2 ? [{ type: "email", value: `editor${index + 1}@publisher-${index + 1}.example` }] : []; return { id: `30000000-0000-4000-8000-00000000000${index + 1}`, sourceDomain: `publisher-${index + 1}.example`, sourceUrl: `https://publisher-${index + 1}.example/mortgage-guide`, authority, relevance, reason: `Links to two competitors but not ${siteSlug}; topical guide matches the site's comparison content.`, competitorHosts: ["competitor.example", "market-leader.example"], contacts, status: index === 6 ? "dismissed" : "new", traffic: null, quality: { state: eligible && relevance >= 70 && authority >= 40 ? "strong" : eligible ? "qualified" : "review", eligible, reasons: eligible ? [] : ["Below minimum quality threshold"] }, contactState: contacts.length ? "email_found" : "not_researched", outreachStatus: index === 6 ? "dismissed" : "new" }; });
   const drafts = [{ id: "31000000-0000-4000-8000-000000000001", prospectId: prospects[0]!.id, recipientEmail: "editor1@publisher-1.example", subject: "A current UAE mortgage comparison resource", body: "Synthetic QA outreach draft. Nothing is sent from staging.", status: "draft", approvedBy: null, approvedAt: null, sentAt: null }, { id: "31000000-0000-4000-8000-000000000002", prospectId: prospects[1]!.id, recipientEmail: "editor2@publisher-2.example", subject: "Additional data for your mortgage guide", body: "Synthetic QA approved message. Delivery remains disabled in staging.", status: "approved", approvedBy: "qa@orwell.local", approvedAt: "2026-08-25T10:00:00.000Z", sentAt: null }];
@@ -280,7 +310,14 @@ export function qaAiVisibility(scope: string, allowedSiteSlugs?: string[] | null
     sources: primary ? [{ domain: primary.host, citations: 9, owned: true, urls: [`https://${primary.host}/mortgages`], platforms: ["chatgpt", "perplexity", "google_ai_overview"], prompts: ["What is the best way to compare UAE mortgage rates?"] }, { domain: "centralbank.ae", citations: 7, owned: false, urls: ["https://centralbank.ae/consumer-guidance"], platforms: ["gemini", "google_ai_overview"], prompts: ["What is the best way to compare UAE mortgage rates?"] }] : [],
     competitors: primary ? [{ name: primary.name, host: primary.host, mentions: 18, owned: true, positive: 15, positions: [], shareOfVoice: 54, positiveRate: 83, avgPosition: 2.1 }, { name: "Competitor", host: "competitor.example", mentions: 10, owned: false, positive: 7, positions: [], shareOfVoice: 30, positiveRate: 70, avgPosition: 2.8 }] : [],
     opportunities: primary ? [{ id: "50000000-0000-4000-8000-000000000001", siteSlug: primary.id, prompt: "Which mortgage comparison site offers the clearest fee breakdown?", topic: "Fees", source: "gsc_question", priorityScore: 84, searchVolume: 880, aiSearchVolume: 340, intent: "commercial", status: "suggested", createdAt: "2026-08-26T08:00:00.000Z", updatedAt: "2026-08-26T08:00:00.000Z" }] : [],
-    crawlerAudit: primary ? platforms.slice(0, 6).map((platform, index) => ({ id: `qa-crawler-${index}`, siteSlug: primary.id, siteName: primary.name, bot: platform === "chatgpt" ? "GPTBot" : `${platform}-bot`, category: index < 4 ? "assistant" : "search", access: index === 5 ? "blocked" : "allowed", evidence: index === 5 ? "robots.txt contains a specific disallow rule." : "Root access is allowed by robots.txt.", robotsStatus: 200, capturedOn: "2026-08-26", createdAt: "2026-08-26T08:00:00.000Z" })) : [],
+    crawlerAudit: primary ? [
+      { bot: "Googlebot", category: "search" as const, access: "allowed" as const, evidence: "Root is accessible through the wildcard group with no blocking rule. No sampled path of 12 is disallowed.", checkedPages: 13, blockedPages: 0, details: { samples: [], rule: null, wildcardGroup: true, governs: "AI Overviews and AI Mode", robotsStatus: 200 } },
+      { bot: "OAI-SearchBot", category: "search" as const, access: "partial" as const, evidence: "Root is accessible, but 2 of 12 sampled paths are disallowed, the first by \"Disallow: /compare/\".", checkedPages: 13, blockedPages: 2, details: { samples: ["/compare/rates", "/compare/fees"], rule: "/compare/", wildcardGroup: false, robotsStatus: 200 } },
+      { bot: "PerplexityBot", category: "search" as const, access: "blocked" as const, evidence: "The PerplexityBot group blocks the root with \"Disallow: /\".", checkedPages: 13, blockedPages: 13, details: { samples: [], rule: "/", wildcardGroup: false, robotsStatus: 200 } },
+      { bot: "ChatGPT-User", category: "assistant" as const, access: "allowed" as const, evidence: "Root is accessible through the wildcard group with no blocking rule. No sampled path of 12 is disallowed.", checkedPages: 13, blockedPages: 0, details: { samples: [], rule: null, wildcardGroup: true, robotsStatus: 200 } },
+      { bot: "GPTBot", category: "training" as const, access: "blocked" as const, evidence: "The GPTBot group blocks the root with \"Disallow: /\".", checkedPages: 13, blockedPages: 13, details: { samples: [], rule: "/", wildcardGroup: false, robotsStatus: 200 } },
+      { bot: "Google-Extended", category: "training" as const, access: "unknown" as const, evidence: "robots.txt returned HTTP 503", checkedPages: null, blockedPages: null, details: { governs: "Gemini training and grounding, not Google Search", robotsStatus: null } },
+    ].map((row, index) => ({ id: `qa-crawler-${index}`, siteSlug: primary.id, siteName: primary.name, robotsUrl: `https://${primary.host}/robots.txt`, capturedOn: "2026-08-26", createdAt: "2026-08-26T08:00:00.000Z", ...row })) : [],
     trackedPrompts: primary ? [{ id: "51000000-0000-4000-8000-000000000001", siteSlug: primary.id, prompt: "What is the best way to compare UAE mortgage rates?", topic: "Mortgage comparison", platforms: ["chatgpt", "gemini", "google_ai_overview"], cadence: "weekly", priority: 90, sampleCount: 2, source: "manual", active: true, nextRunAt: "2026-08-27T08:00:00.000Z", createdAt: "2026-08-20T08:00:00.000Z", updatedAt: "2026-08-20T08:00:00.000Z", locationCode: 2784, languageCode: "en" }] : [],
     recommendations: primary ? [{ kind: "source_gap", title: "Strengthen evidence from authoritative UAE sources", detail: "Central Bank guidance appears repeatedly in measured answers. Add a reviewed citation and clearer factual sourcing.", priority: 88, reviewOnly: true }] : [],
   };

@@ -57,7 +57,7 @@ interface SettingsData {
 }
 interface SessionGrant { scopeType: "portfolio" | "group" | "site"; scopeId: string | null; permissions: string[]; }
 
-const DEFAULT_EVENTS = ["rank_drop", "technical_regression", "traffic_drop", "site_unavailable", "tls_risk", "lost_backlink", "local_rating_drop"];
+const DEFAULT_EVENTS = ["rank_drop", "technical_regression", "traffic_drop", "site_unavailable", "tls_risk", "lost_backlink", "local_rating_drop", "ai_access_blocked"];
 const BUDGET_CATEGORIES = [
   ["rankings", "Rankings"], ["crawling", "Technical crawling"], ["backlinks", "Backlinks"],
   ["competitors", "Competitors"], ["ai", "AI visibility"], ["local_seo", "Local SEO"],

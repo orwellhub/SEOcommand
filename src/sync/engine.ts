@@ -337,7 +337,7 @@ export async function syncDomain(
       collect("ai_crawler_audit", async () => {
         if (!tiers.ai) return "skip";
         const data = await auditAiCrawlerAccess(domain);
-        await persistAiCrawlerAudit(domainId, data);
+        await persistAiCrawlerAudit(domainId, data, domain.name);
         const p = prov("orwell-crawler", `robots.txt at ${domain.host}`);
         await write("ai_crawler_audit", data, p);
         return { payload: data, provenance: p };

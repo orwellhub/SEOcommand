@@ -1853,7 +1853,7 @@
         "Live navigation pass: 110 destinations checked; older backlink research and recovery shortcuts corrected after this pass."
       ],
       "remaining": [],
-      "implementation_summary": "Navigation renamed Crawler Access; saved robots/path-rule evidence retained."
+      "implementation_summary": "Navigation renamed Crawler Access; saved robots/path-rule evidence retained. September 2026: robots.txt is parsed to RFC 9309 across 21 tokens and evaluated against the root plus up to 200 sampled paths, adding a partial verdict, a tested severity policy and access-change alerts. Discovery files (llms.txt, X-Robots-Tag, sitemap directive) and per-page snippet eligibility are recorded, and a Health workspace AI readiness tab presents all three with explicit not-checked states. See docs/ai-readiness-checks-2026-09-21.md for criteria and limits."
     },
     {
       "id": 54,

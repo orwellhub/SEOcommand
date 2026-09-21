@@ -793,6 +793,9 @@ export const aiCrawlerAudits = pgTable(
     access: text("access").notNull(),
     evidence: text("evidence"),
     robotsUrl: text("robots_url").notNull(),
+    checkedPages: integer("checked_pages"),
+    blockedPages: integer("blocked_pages"),
+    details: jsonb("details").$type<Record<string, unknown>>().notNull().default({}),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => ({

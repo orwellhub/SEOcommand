@@ -229,6 +229,7 @@ export async function POST(request: Request) {
         "rank_drop", "technical_issue", "technical_regression", "traffic_drop",
         "new_backlink", "lost_backlink", "site_unavailable", "site_recovered",
         "tls_risk", "domain_expiry", "robots_changed", "sitemap_changed",
+        "ai_access_blocked", "ai_access_restored",
         "new_local_review", "local_rating_drop",
       ],
       channels: input.alertChannels,

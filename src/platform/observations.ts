@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
+import { hasDatabase } from "@/sync/store";
 import { isoDate } from "@/lib/dates";
 import type { Backlink, GscTotals, Keyword } from "@/lib/types";
 import type {
@@ -13,6 +14,7 @@ import type {
   TrackedRankingResult,
 } from "./types";
 import { createNotification } from "./notifications";
+import { aiAccessTransitions } from "./ai-crawler-audit";
 import type { OnPageResult } from "@/lib/live";
 import type { DiscoveredAiOpportunity } from "./ai-opportunities";
 
@@ -361,9 +363,28 @@ export async function persistAiObservations(site: ManagedSite, observations: AiO
   }
 }
 
-export async function persistAiCrawlerAudit(siteSlug: string, rows: AiCrawlerAuditRow[]) {
+/** Latest saved verdict per bot for one website, newest capture first. */
+export async function latestAiCrawlerAudit(siteSlug: string) {
+  if (!hasDatabase()) return [];
+  return db().selectDistinctOn([schema.aiCrawlerAudits.bot])
+    .from(schema.aiCrawlerAudits)
+    .where(eq(schema.aiCrawlerAudits.siteSlug, siteSlug))
+    .orderBy(schema.aiCrawlerAudits.bot, desc(schema.aiCrawlerAudits.capturedOn));
+}
+
+export async function persistAiCrawlerAudit(siteSlug: string, rows: AiCrawlerAuditRow[], siteName = siteSlug) {
   if (!rows.length) return;
   const today = isoDate(new Date());
+  // Read the prior verdict before writing so a same-day re-run still compares
+  // against the last different capture rather than against itself.
+  const previous = await db().selectDistinctOn([schema.aiCrawlerAudits.bot], {
+    bot: schema.aiCrawlerAudits.bot,
+    access: schema.aiCrawlerAudits.access,
+  })
+    .from(schema.aiCrawlerAudits)
+    .where(and(eq(schema.aiCrawlerAudits.siteSlug, siteSlug), lt(schema.aiCrawlerAudits.capturedOn, today)))
+    .orderBy(schema.aiCrawlerAudits.bot, desc(schema.aiCrawlerAudits.capturedOn));
+
   await db().insert(schema.aiCrawlerAudits).values(rows.map((row) => ({
     siteSlug,
     capturedOn: today,
@@ -372,10 +393,31 @@ export async function persistAiCrawlerAudit(siteSlug: string, rows: AiCrawlerAud
     access: row.access,
     evidence: row.evidence,
     robotsUrl: row.robotsUrl,
+    checkedPages: row.checkedPages,
+    blockedPages: row.blockedPages,
+    details: { ...row.details, robotsStatus: row.robotsStatus ?? null },
   }))).onConflictDoUpdate({
     target: [schema.aiCrawlerAudits.siteSlug, schema.aiCrawlerAudits.capturedOn, schema.aiCrawlerAudits.bot],
-    set: { access: sql`excluded.access`, evidence: sql`excluded.evidence`, category: sql`excluded.category` },
+    set: {
+      access: sql`excluded.access`, evidence: sql`excluded.evidence`, category: sql`excluded.category`,
+      checkedPages: sql`excluded.checked_pages`, blockedPages: sql`excluded.blocked_pages`, details: sql`excluded.details`,
+    },
   });
+
+  for (const change of aiAccessTransitions(previous as { bot: string; access: AiCrawlerAuditRow["access"] }[], rows)) {
+    const row = rows.find((item) => item.bot === change.bot);
+    await createNotification({
+      siteSlug,
+      eventType: change.kind === "blocked" ? "ai_access_blocked" : "ai_access_restored",
+      severity: change.kind === "blocked" ? "high" : "low",
+      title: change.kind === "blocked"
+        ? `${siteName} now blocks ${change.bot}`
+        : `${siteName} allows ${change.bot} again`,
+      detail: row?.evidence ?? "",
+      actionUrl: "/ai-visibility",
+      fingerprint: `ai-access-${change.kind}:${siteSlug}:${change.bot}:${today}`,
+    });
+  }
 }
 
 export async function persistAiPromptOpportunities(siteSlug: string, rows: DiscoveredAiOpportunity[]) {

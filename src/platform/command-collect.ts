@@ -1,5 +1,6 @@
 import { getDataForSeoClient } from "@/providers/dataforseo";
 import { createHash } from "node:crypto";
+import { parseRobotsDirectives, snippetIssues } from "./discovery-files";
 import { getGoogleAccessToken, googleConfigured } from "@/providers/google/auth";
 import { GA4_API, GA4_SCOPE, GSC_SCOPE } from "@/providers/google/config";
 import { assertPublicHostname, fetchPublic } from "./public-network";
@@ -77,8 +78,13 @@ export async function checkWatchedPage(site: ManagedSite, input: string): Promis
   const response = await fetchPublic(url, { headers: { "User-Agent": "SEOCommandPageWatch/1.0" }, signal: AbortSignal.timeout(30000), cache: "no-store" });
   const html = await boundedText(response);
   const tags = html.match(/<(?:meta|link)\b[^>]*>/gi) ?? [];
-  const robots = tags.filter((tag) => /^(robots|googlebot)$/i.test(attribute(tag, "name") ?? "")).map((tag) => attribute(tag, "content") ?? "").join(" ");
+  const robotsValues = tags.filter((tag) => /^(robots|googlebot)$/i.test(attribute(tag, "name") ?? "")).map((tag) => attribute(tag, "content") ?? "");
+  const robots = robotsValues.join(" ");
   const canonicalTag = tags.find((tag) => /canonical/i.test(attribute(tag, "rel") ?? ""));
+  // Each value is parsed separately: meta values are comma-delimited, so the
+  // joined string above cannot be split reliably.
+  const directives = parseRobotsDirectives(...robotsValues, response.headers.get("x-robots-tag"));
+  const issues = snippetIssues(directives, (html.match(/[\s"']data-nosnippet[\s=>"']/gi) ?? []).length);
   const text = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "").replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  return { url, finalUrl: response.url || url, title: html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() ?? null, statusCode: response.status, canonical: canonicalTag ? attribute(canonicalTag, "href") : null, indexable: response.ok && !/noindex|\bnone\b/i.test(`${robots} ${response.headers.get("x-robots-tag") ?? ""}`), hash: createHash("sha256").update(text).digest("hex"), tracking: [...new Set(html.match(/\b(?:G-[A-Z0-9]{5,20}|GTM-[A-Z0-9]{4,15}|UA-\d+-\d+)\b/g) ?? [])], capturedAt: new Date().toISOString(), issues: [] };
+  return { url, finalUrl: response.url || url, title: html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() ?? null, statusCode: response.status, canonical: canonicalTag ? attribute(canonicalTag, "href") : null, indexable: response.ok && !/noindex|\bnone\b/i.test(`${robots} ${response.headers.get("x-robots-tag") ?? ""}`), hash: createHash("sha256").update(text).digest("hex"), tracking: [...new Set(html.match(/\b(?:G-[A-Z0-9]{5,20}|GTM-[A-Z0-9]{4,15}|UA-\d+-\d+)\b/g) ?? [])], capturedAt: new Date().toISOString(), issues };
 }

@@ -1,5 +1,5 @@
 import type { DomainLiveBundle } from "./live";
-import type { TechnicalIssue, GscRow } from "./types";
+import type { TechnicalIssue, GscRow, Severity } from "./types";
 import type { PageCoverageSummary } from "./page-coverage";
 
 export type CommandRecord = { id: string; siteSlug: string; kind: string; recordKey: string; status: string; payload: Record<string, unknown>; nextRunAt: string | null; createdAt: string; updatedAt: string };
@@ -14,7 +14,32 @@ export type BusinessRow = { date: string; url: string; event: string; category: 
 export type BusinessResult = { collectedAt: string; start: string; end: string; rows: BusinessRow[]; mapping: Record<string, string>; rowCount: number; truncated: boolean; thresholded: boolean };
 export type TimelineEntry = { id: string; date: string; title: string; type: string; url: string | null; href: string };
 export type HealthRow = { lastAttemptAt?: string | null; lastAttemptStatus?: string | null; id: string; label: string; state: "ready" | "stale" | "missing" | "needs_connection" | "failed"; updatedAt: string | null; through: string | null; href: string; detail: string; nextRunAt?: string | null };
-export type SiteCommand = { connections?: { indexing: { configured: boolean; property: string | null } }; site: { id: string; name: string; host: string }; generatedAt: string; synthetic: boolean; storageAvailable: boolean; bundle: DomainLiveBundle; pages: PageSummary[]; pageCoverage: { saved: number; loaded: number }; pageStats: PageCoverageSummary; causes: CauseGroup[]; links: LinkSuggestion[]; records: CommandRecord[]; tasks: CommandTask[]; timeline: TimelineEntry[]; health: HealthRow[]; brandTerms: string[]; brand: ReturnType<typeof segmentBrand>; business: BusinessResult | null; permissions: { edit: boolean; scan: boolean; settings: boolean } };
+/** Whether AI systems may retrieve, and then quote, this website. */
+export type AiBotAccessRow = {
+  bot: string;
+  category: "training" | "search" | "assistant";
+  access: "allowed" | "partial" | "blocked" | "unknown";
+  evidence: string;
+  severity: Severity | null;
+  checkedPages: number | null;
+  blockedPages: number | null;
+  samples: string[];
+  /** What the token controls, where that is widely misread. */
+  governs: string | null;
+};
+
+export type AiReadiness = {
+  botAccess: { capturedOn: string | null; rows: AiBotAccessRow[] };
+  discovery: {
+    checkedAt: string | null;
+    llms: { present: boolean; valid: boolean; problems: string[]; linkCount: number; sectionCount: number } | null;
+    xRobotsTag: { raw: string | null; noindex: boolean; nosnippet: boolean; maxSnippet: number | null } | null;
+    robotsSitemapDirective: boolean | null;
+  };
+  answers: { capturedAt: string | null; pages: number; counts: { id: string; pages: number }[] };
+};
+
+export type SiteCommand = { connections?: { indexing: { configured: boolean; property: string | null } }; site: { id: string; name: string; host: string }; generatedAt: string; synthetic: boolean; storageAvailable: boolean; bundle: DomainLiveBundle; pages: PageSummary[]; pageCoverage: { saved: number; loaded: number }; pageStats: PageCoverageSummary; causes: CauseGroup[]; aiReadiness: AiReadiness; links: LinkSuggestion[]; records: CommandRecord[]; tasks: CommandTask[]; timeline: TimelineEntry[]; health: HealthRow[]; brandTerms: string[]; brand: ReturnType<typeof segmentBrand>; business: BusinessResult | null; permissions: { edit: boolean; scan: boolean; settings: boolean } };
 
 /** Preserve query strings and trailing slashes: they can represent distinct pages. */
 export function siteUrl(value: string, host: string): string | null {

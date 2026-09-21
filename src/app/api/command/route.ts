@@ -7,6 +7,9 @@ import { buildSiteCommand } from "@/platform/command-read";
 import { commandRecords, saveCommandRecord, saveCommandPlans } from "@/platform/command-store";
 import { processCommandChecks, queueCommandCheck } from "@/platform/command-jobs";
 import { getManagedSite } from "@/platform/site-store";
+import { auditAiCrawlerAccess } from "@/platform/ai-crawler-audit";
+import { persistAiCrawlerAudit } from "@/platform/observations";
+import { checkReliability } from "@/platform/reliability";
 import { migrationDiff, siteUrl, type PageEvidence } from "@/lib/command-model";
 import { SCAN_MODULES, estimateScanCost } from "@/platform/scan-policy";
 import type { ScanModule } from "@/platform/types";
@@ -33,7 +36,7 @@ export async function GET(request: Request) {
 }
 
 const schema = z.object({
-  action: z.enum(["brand", "business_settings", "crawl_settings", "speed", "indexing", "business", "watch_add", "watch_remove", "watch_check", "baseline", "compare", "timeline", "plan_preview", "plan_save", "plan_cancel"]),
+  action: z.enum(["brand", "business_settings", "crawl_settings", "speed", "indexing", "business", "watch_add", "watch_remove", "watch_check", "baseline", "compare", "timeline", "plan_preview", "plan_save", "plan_cancel", "ai_readiness"]),
   speedProvider: z.enum(["google", "dataforseo"]).optional(),
   crawlPageLimit: z.number().int().min(1).max(5000).optional(), crawlMaxDepth: z.number().int().min(0).max(30).optional(), crawlDelayMs: z.number().int().min(0).max(5000).optional(),
   exclusions: z.array(z.string().trim().min(2).max(200).regex(/^\/(?!\/)[^?#*]*$/, "Use a path prefix, e.g. /account; no wildcards." )).max(50).optional(),
@@ -66,10 +69,26 @@ export async function POST(request: Request) {
     }
     const site = input.site && await getManagedSite(input.site);
     if (!site || !await canAccessSite(request, site.id)) return NextResponse.json({ error: "Website access required." }, { status: 403 });
-    const permission = ["speed", "indexing", "business", "watch_check", "plan_cancel"].includes(input.action) ? "run_scans" : ["business_settings", "crawl_settings"].includes(input.action) ? "manage_connectors" : "manage_content";
+    const permission = ["speed", "indexing", "business", "watch_check", "plan_cancel", "ai_readiness"].includes(input.action) ? "run_scans" : ["business_settings", "crawl_settings"].includes(input.action) ? "manage_connectors" : "manage_content";
     if (!await hasPermission(request, permission, site.id)) return NextResponse.json({ error: "Your account cannot make this change for this website." }, { status: 403 });
     const url = input.url ? siteUrl(input.url, site.host) : null;
     if (["speed", "indexing", "watch_add", "watch_remove", "watch_check"].includes(input.action) && !url) return NextResponse.json({ error: "Enter a page URL on the selected website." }, { status: 400 });
+    if (input.action === "ai_readiness") {
+      // Both checks are plain HTTPS requests to the website itself, so this
+      // costs nothing with the provider and needs no spend approval.
+      if (process.env.QA_SYNTHETIC === "true") return NextResponse.json({ ok: true, message: "Synthetic mode returns the saved sample readiness evidence." });
+      const audit = await auditAiCrawlerAccess(site);
+      await persistAiCrawlerAudit(site.id, audit, site.name);
+      const reliability = await checkReliability(site).catch(() => null);
+      const blocked = audit.filter((row) => row.category !== "training" && (row.access === "blocked" || row.access === "partial")).length;
+      return NextResponse.json({
+        ok: true,
+        message: blocked
+          ? `${blocked} retrieval bot${blocked === 1 ? " is" : "s are"} blocked or partly blocked. Review the evidence below.`
+          : "No retrieval bot is blocked. Evidence saved.",
+        discoveryChecked: Boolean(reliability),
+      });
+    }
     const records = await commandRecords(site.id);
     if (input.action === "crawl_settings") {
       await saveCommandRecord(site.id, "settings", "preferences", {

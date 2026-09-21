@@ -5,6 +5,8 @@ import { db, schema } from "@/db";
 import type { ManagedSite } from "./types";
 import { createNotification } from "./notifications";
 import { assertPublicHostname, fetchPublic } from "./public-network";
+import { evaluateLlmsTxt, parseRobotsDirectives } from "./discovery-files";
+import { sitemapUrls } from "./robots-rules";
 
 const USER_AGENT = "OrwellSEOCommand/2.0 (+reliability monitoring)";
 
@@ -27,7 +29,7 @@ function digest(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-async function fetchEvidence(url: string, timeoutMs = 15_000) {
+async function fetchEvidence(url: string, timeoutMs = 15_000, limit = 2_000_000) {
   const started = Date.now();
   try {
     const response = await fetchPublic(url, {
@@ -36,10 +38,19 @@ async function fetchEvidence(url: string, timeoutMs = 15_000) {
       signal: AbortSignal.timeout(timeoutMs),
       cache: "no-store",
     });
-    const text = (await response.text()).slice(0, 2_000_000);
-    return { status: response.status, elapsed: Date.now() - started, text, finalUrl: response.url, error: null as string | null };
+    const text = (await response.text()).slice(0, limit);
+    return {
+      status: response.status, elapsed: Date.now() - started, text, finalUrl: response.url,
+      contentType: response.headers.get("content-type"),
+      xRobotsTag: response.headers.get("x-robots-tag"),
+      error: null as string | null,
+    };
   } catch (error) {
-    return { status: null, elapsed: Date.now() - started, text: "", finalUrl: url, error: error instanceof Error ? error.message : String(error) };
+    return {
+      status: null, elapsed: Date.now() - started, text: "", finalUrl: url,
+      contentType: null, xRobotsTag: null,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
 }
 
@@ -92,10 +103,11 @@ export async function checkReliability(site: ManagedSite, now = new Date()): Pro
   const [previous] = await db().select().from(schema.reliabilityChecks)
     .where(eq(schema.reliabilityChecks.siteSlug, site.id))
     .orderBy(desc(schema.reliabilityChecks.checkedAt)).limit(1);
-  const [home, robots, sitemap, tlsInfo] = await Promise.all([
+  const [home, robots, sitemap, llms, tlsInfo] = await Promise.all([
     fetchEvidence(`https://${site.host}/`),
     fetchEvidence(`https://${site.host}/robots.txt`, 10_000),
     fetchEvidence(`https://${site.host}/sitemap.xml`, 10_000),
+    fetchEvidence(`https://${site.host}/llms.txt`, 10_000, 1_000_000),
     tlsEvidence(site.host),
   ]);
   const shouldRefreshDomain = !previous?.domainExpiresAt || now.getTime() - previous.checkedAt.getTime() > 6 * 24 * 60 * 60 * 1_000;
@@ -112,7 +124,14 @@ export async function checkReliability(site: ManagedSite, now = new Date()): Pro
     sitemapStatus: sitemap.status,
     sitemapHash: sitemap.text ? digest(sitemap.text) : null,
     homepageHash: home.text ? digest(home.text) : null,
-    details: { finalUrl: home.finalUrl, homeError: home.error, tlsError: tlsInfo.error ?? null },
+    details: {
+      finalUrl: home.finalUrl, homeError: home.error, tlsError: tlsInfo.error ?? null,
+      // Discovery-file evidence. llms.txt is recorded for completeness only:
+      // Google states no AI-specific file is required, so it never alerts.
+      llms: evaluateLlmsTxt({ status: llms.status, contentType: llms.contentType, body: llms.text, hash: llms.text ? digest(llms.text) : null }),
+      xRobotsTag: { raw: home.xRobotsTag, ...parseRobotsDirectives(home.xRobotsTag) },
+      robotsSitemapDirective: robots.status === 200 ? sitemapUrls(robots.text).length > 0 : null,
+    },
   };
   await db().insert(schema.reliabilityChecks).values({ siteSlug: site.id, checkedAt: now, ...result });
 

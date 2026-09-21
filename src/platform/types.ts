@@ -266,10 +266,27 @@ export interface AiPromptOpportunity {
   evidence: Record<string, unknown>;
 }
 
+export interface AiCrawlerAuditDetails {
+  /** Up to five disallowed paths supporting a `partial` verdict. */
+  samples?: string[];
+  /** The robots.txt rule path that decided the verdict, when one applied. */
+  rule?: string | null;
+  /** True when the verdict came from the `*` group rather than a named one. */
+  wildcardGroup?: boolean;
+  /** What the token actually controls, where that is widely misunderstood. */
+  governs?: string;
+  robotsStatus?: number | null;
+}
+
 export interface AiCrawlerAuditRow {
   bot: string;
   category: "training" | "search" | "assistant";
-  access: "allowed" | "blocked" | "unknown";
+  /** `partial` means the root is reachable but sampled paths are disallowed. */
+  access: "allowed" | "partial" | "blocked" | "unknown";
   evidence: string;
   robotsUrl: string;
+  robotsStatus: number | null;
+  checkedPages: number | null;
+  blockedPages: number | null;
+  details: AiCrawlerAuditDetails;
 }

@@ -21,7 +21,7 @@ export function CommandWorkspace({ area }: { area: "pages" | "health" | "perform
 function SiteWorkspace({ site, area }: { site: string; area: "pages" | "health" | "performance" }) {
   const params = useSearchParams();
   const state = useJson<SiteCommand>(`/api/command?site=${encodeURIComponent(site)}`, 0);
-  const tabs = area === "health" ? [["issues", "Grouped issues"], ["indexing", "Google indexing"], ["speed", "Speed"], ["watchlist", "Watchlist"], ["launch", "Launch checks"]] : area === "performance" ? [["trends", "Trends & seasonality"], ["brand", "Brand & non-brand"], ["business", "Business results"], ["timeline", "Change timeline"], ["overlap", "Website overlap"]] : [];
+  const tabs = area === "health" ? [["issues", "Grouped issues"], ["indexing", "Google indexing"], ["speed", "Speed"], ["watchlist", "Watchlist"], ["ai", "AI readiness"], ["launch", "Launch checks"]] : area === "performance" ? [["trends", "Trends & seasonality"], ["brand", "Brand & non-brand"], ["business", "Business results"], ["timeline", "Change timeline"], ["overlap", "Website overlap"]] : [];
   const view = tabs.some(([id]) => id === params.get("view")) ? params.get("view")! : tabs[0]?.[0] ?? "pages";
   const pending = state.data?.records.some((row) => ["queued", "running"].includes(row.status));
   const refresh = state.refresh;
