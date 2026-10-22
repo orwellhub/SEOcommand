@@ -1,0 +1,21 @@
+# VPS (Coolify) variant of Dockerfile.operations.
+#
+# Identical image, but the container idles instead of running the job once and
+# exiting. Coolify restarts exited containers, which would turn the hourly
+# crawl into a continuous loop. The hourly run is a Coolify scheduled task:
+#   schedule: 0 * * * *    command: npm run jobs:operations
+FROM mcr.microsoft.com/playwright:v1.62.1-noble
+
+WORKDIR /app
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+COPY package.json package-lock.json ./
+RUN npm ci --include=dev --ignore-scripts
+
+COPY . .
+RUN node scripts/check-browser-runtime.mjs
+RUN npm run build
+
+ENV NODE_ENV=production
+
+CMD ["sleep", "infinity"]
