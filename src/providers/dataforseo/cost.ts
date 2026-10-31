@@ -1,5 +1,6 @@
 import { canSpend, crossedThresholds, remaining, type BudgetThreshold } from "@/lib/budget";
-import { BudgetExceededError } from "./errors";
+import { currentSpendActor, DEFAULT_SPEND_ACTOR } from "./actor";
+import { ActorBudgetExceededError, BudgetExceededError } from "./errors";
 
 /**
  * App-owned monthly spending guardrail for DataForSEO.
@@ -9,6 +10,11 @@ import { BudgetExceededError } from "./errors";
  * calendar month, blocks a call *before* it would breach the limit, records the
  * *actual* cost DataForSEO returns after each call, and reports how close spend
  * is to the ceiling so the UI can warn.
+ *
+ * Paid work started on behalf of a named actor (src/providers/dataforseo/actor.ts,
+ * e.g. the Claude MCP connector) is additionally capped by that actor's own
+ * monthly budget and recorded with the actor on the ledger. The actor cap only
+ * narrows spend; the overall limit above always applies.
  */
 
 export interface SpendRecord {
@@ -19,11 +25,15 @@ export interface SpendRecord {
   domainSlug?: string | null;
   costUsd: number;
   requests: number;
+  /** Who started the paid work. Defaults to "app" (scheduler and dashboard). */
+  actor?: string | null;
 }
 
 export interface SpendStore {
   reservedUsd?(month: string, excludeId?: string): Promise<number>;
   monthToDateUsd(provider: string, month: string): Promise<number>;
+  /** Month-to-date spend recorded for one actor. Required for actor caps. */
+  actorMonthToDateUsd?(provider: string, month: string, actor: string): Promise<number>;
   record(entry: SpendRecord): Promise<void>;
 }
 
@@ -35,15 +45,21 @@ export function currentMonth(now: Date = new Date()): string {
 /** Process-local store — used for tests and when no database is configured. */
 export class InMemorySpendStore implements SpendStore {
   private totals = new Map<string, number>();
+  private actorTotals = new Map<string, number>();
   private key(provider: string, month: string) {
     return `${provider}:${month}`;
   }
   async monthToDateUsd(provider: string, month: string): Promise<number> {
     return this.totals.get(this.key(provider, month)) ?? 0;
   }
+  async actorMonthToDateUsd(provider: string, month: string, actor: string): Promise<number> {
+    return this.actorTotals.get(`${this.key(provider, month)}:${actor}`) ?? 0;
+  }
   async record(entry: SpendRecord): Promise<void> {
     const k = this.key(entry.provider, entry.month);
     this.totals.set(k, (this.totals.get(k) ?? 0) + entry.costUsd);
+    const actorKey = `${k}:${entry.actor ?? DEFAULT_SPEND_ACTOR}`;
+    this.actorTotals.set(actorKey, (this.actorTotals.get(actorKey) ?? 0) + entry.costUsd);
   }
 }
 
@@ -106,7 +122,22 @@ export class SpendGuard {
       throw new BudgetExceededError(spent, this.limitUsd, opts.endpoint);
     }
 
+    // Actor budget: checked before every paid request made on an actor's
+    // behalf, so a multi-request run stops as soon as the next request would
+    // pass the cap. A store that cannot report actor spend fails closed.
+    const actor = currentSpendActor();
+    if (actor && actor.monthlyLimitUsd != null) {
+      if (!this.store.actorMonthToDateUsd) {
+        throw new ActorBudgetExceededError(actor.actor, 0, actor.monthlyLimitUsd, `${opts.endpoint} (actor spend unavailable)`, opts.estimateUsd);
+      }
+      const actorSpent = await this.store.actorMonthToDateUsd(this.provider, month, actor.actor);
+      if (!(actor.monthlyLimitUsd > 0) || actorSpent + opts.estimateUsd > actor.monthlyLimitUsd) {
+        throw new ActorBudgetExceededError(actor.actor, actorSpent, actor.monthlyLimitUsd, opts.endpoint, opts.estimateUsd);
+      }
+    }
+
     const { result, costUsd } = await fn();
+    const actualCostUsd = Number.isFinite(costUsd) ? costUsd : 0;
 
     await this.store.record({
       ...(opts.requestId ? { id: opts.requestId } : {}),
@@ -114,11 +145,15 @@ export class SpendGuard {
       month,
       endpoint: opts.endpoint,
       domainSlug: opts.domainSlug ?? null,
-      costUsd: Number.isFinite(costUsd) ? costUsd : 0,
+      costUsd: actualCostUsd,
       requests: opts.requests ?? 1,
+      actor: actor?.actor ?? DEFAULT_SPEND_ACTOR,
     });
+    if (actor) {
+      actor.spentUsd += actualCostUsd;
+      actor.requests += opts.requests ?? 1;
+    }
 
-    const actualCostUsd = Number.isFinite(costUsd) ? costUsd : 0;
     return { result, costUsd: actualCostUsd, guard: this.toResult(spent + actualCostUsd, reserved) };
   }
 }

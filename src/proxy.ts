@@ -10,6 +10,8 @@ const PUBLIC_PATHS = new Set([
   "/api/webhooks/whatsapp",
   "/api/healthz",
   "/api/sync",
+  // Own bearer boundary (SEOCOMMAND_MCP_TOKEN), like /api/sync.
+  "/api/mcp",
 ]);
 
 function encodeHeaderJson(value: unknown): string {

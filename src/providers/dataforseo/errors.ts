@@ -37,6 +37,28 @@ export class BudgetExceededError extends Error {
   }
 }
 
+/**
+ * Raised when a call made on behalf of a named spend actor (for example the
+ * Claude MCP connector) would pass that actor's own monthly budget. It extends
+ * BudgetExceededError so every existing handler treats it as a hard stop.
+ */
+export class ActorBudgetExceededError extends BudgetExceededError {
+  constructor(
+    readonly actor: string,
+    spentUsd: number,
+    limitUsd: number,
+    endpoint: string,
+    readonly estimateUsd: number,
+  ) {
+    super(spentUsd, limitUsd, endpoint);
+    this.name = "ActorBudgetExceededError";
+    this.message =
+      `Monthly budget for "${actor}" reached: $${spentUsd.toFixed(2)} of ` +
+      `$${limitUsd.toFixed(2)} spent and this call is estimated at $${estimateUsd.toFixed(2)}. ` +
+      `Call to "${endpoint}" blocked.`;
+  }
+}
+
 export class MissingCredentialsError extends Error {
   constructor() {
     super("DataForSEO credentials are not configured (DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD).");

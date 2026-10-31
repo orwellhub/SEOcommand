@@ -44,7 +44,7 @@ import {
   fetchRankedKeywordsBundle,
   fetchReferringDomains,
 } from "@/providers/dataforseo";
-import { BudgetExceededError, DailyLimitError } from "@/providers/dataforseo/errors";
+import { ActorBudgetExceededError, BudgetExceededError, DailyLimitError } from "@/providers/dataforseo/errors";
 import { locationForSite } from "@/providers/dataforseo/config";
 import { isoDate } from "@/lib/dates";
 import { readLatestSnapshots, writeSnapshot } from "./store";
@@ -104,6 +104,9 @@ async function collect(
     if (res === "pending") return { dataset, status: "pending", note: "crawl in progress" };
     return { dataset, status: "ok" };
   } catch (err) {
+    if (err instanceof ActorBudgetExceededError) {
+      return { dataset, status: "skipped", note: `${err.actor} monthly budget reached` };
+    }
     if (err instanceof BudgetExceededError) {
       return { dataset, status: "skipped", note: "monthly budget guardrail reached" };
     }

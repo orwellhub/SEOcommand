@@ -1623,6 +1623,10 @@ export const datasetSnapshots = pgTable(
  * Deliberately has NO foreign keys so the spend guard works even before the
  * rest of the schema is seeded. Month-to-date spend = SUM(cost_usd) for the
  * current `month` and provider. See src/providers/dataforseo/cost.ts.
+ *
+ * `actor` records who started the paid work: "app" for the scheduler and
+ * dashboard users (and every row written before the column existed), or a
+ * named machine actor such as "claude-mcp" with its own monthly cap.
  */
 export const providerSpend = pgTable(
   "provider_spend",
@@ -1635,9 +1639,11 @@ export const providerSpend = pgTable(
     costUsd: real("cost_usd").notNull().default(0),
     requests: integer("requests").notNull().default(1),
     occurredAt: timestamp("occurred_at").defaultNow().notNull(),
+    actor: text("actor").notNull().default("app"),
   },
   (t) => ({
     monthIdx: index("provider_spend_month_idx").on(t.provider, t.month),
+    actorMonthIdx: index("provider_spend_actor_month_idx").on(t.provider, t.month, t.actor),
   }),
 );
 

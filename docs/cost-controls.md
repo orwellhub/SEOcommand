@@ -19,5 +19,15 @@ when a full pull is unnecessary.
 `GET /api/usage` returns the guard status. `GET /api/usage/breakdown` groups actual spend
 by domain and endpoint. Both endpoints require an authenticated session.
 
+## Spend actors
+
+Every `provider_spend` row records an `actor`: `app` for the scheduler and dashboard users
+(and every row written before migration `0017`), or a named machine actor. The Claude MCP
+connector (`/api/mcp`, see `docs/mcp-connector.md`) spends as `claude-mcp`, capped by
+`SEOCOMMAND_MCP_MONTHLY_BUDGET_USD` (default `$50`). Its paid tools are refused before
+spending when their estimate would pass that cap, and `SpendGuard` re-checks the cap before
+every provider request made on its behalf. The actor cap only narrows spend: the overall
+monthly ceiling and per-site ceilings still apply.
+
 The application guard is a primary control, not a billing guarantee. Keep a provider-side
 spend alert as a second backstop and avoid overlapping manual full pulls with the cron.

@@ -72,6 +72,7 @@ npm run test         # vitest
 | Reports | `/reports` | Portfolio/folder/site/campaign previews, CSV/PDF export, email schedules and signed delivery webhook |
 | Website settings | `/sites/[siteId]/settings` | Per-site folders, budgets, connectors, prompts, monitoring, alerts and audited changes |
 | Settings | `/settings` | Provider health, users/scoped permissions, WhatsApp setup and portfolio controls |
+| MCP connector | `/api/mcp` | Remote MCP server for Claude (claude.ai custom connector or Claude Code): read stored data, manage tracked prompts and keywords, and run paid DataForSEO tools under a `claude-mcp` budget. Bearer `SEOCOMMAND_MCP_TOKEN`; see [`docs/mcp-connector.md`](docs/mcp-connector.md) |
 
 ## Architecture at a glance
 
@@ -103,7 +104,8 @@ Users & roles**. Roles are `admin`, `manager`, `seo_analyst` and `viewer`; expli
 permissions can be scoped to the whole portfolio, a nested folder or one website.
 Mutation APIs enforce the permission and website scope, not merely the visible role.
 All dashboard and live-data APIs are protected, while `/api/sync` keeps its independent
-`SYNC_TOKEN` bearer boundary for automation.
+`SYNC_TOKEN` bearer boundary for automation and `/api/mcp` its own `SEOCOMMAND_MCP_TOKEN`
+bearer boundary for the Claude connector.
 
 ## Operations
 
@@ -169,3 +171,4 @@ provisions everything; a step-by-step operator prompt is in
 - [`docs/browser-prompt-render.md`](docs/browser-prompt-render.md) — operator prompt to configure Render
 - [`docs/browser-prompt-dataforseo.md`](docs/browser-prompt-dataforseo.md) — operator prompt to configure DataForSEO
 - [`docs/repository-governance.md`](docs/repository-governance.md) — branch protection and review policy
+- [`docs/mcp-connector.md`](docs/mcp-connector.md): Claude MCP connector tools, budget rules and setup

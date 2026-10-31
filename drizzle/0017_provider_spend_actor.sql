@@ -1,0 +1,2 @@
+ALTER TABLE "provider_spend" ADD COLUMN "actor" text DEFAULT 'app' NOT NULL;--> statement-breakpoint
+CREATE INDEX "provider_spend_actor_month_idx" ON "provider_spend" USING btree ("provider","month","actor");
