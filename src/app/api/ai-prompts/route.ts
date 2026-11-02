@@ -12,7 +12,7 @@ const CreateSchema = z.object({
   prompt: z.string().trim().min(8).max(1000),
   topic: z.string().trim().min(2).max(100),
   platforms: z.array(Platform).min(1),
-  cadence: z.enum(["daily", "weekly", "monthly"]).default("weekly"),
+  cadence: z.enum(["daily", "weekly", "monthly"]).default("monthly"),
   priority: z.number().int().min(0).max(100).default(50),
   sampleCount: z.number().int().min(1).max(5).default(1),
   source: z.string().max(40).default("manual"),

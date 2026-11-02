@@ -8,7 +8,7 @@ import { canAccessSite, hasPermission } from "@/platform/access";
 
 const Schema = z.object({
   platforms: z.array(z.enum(["chatgpt", "claude", "gemini", "perplexity", "google_ai_overview", "google_ai_mode", "copilot"])).min(1),
-  cadence: z.enum(["daily", "weekly", "monthly"]).default("weekly"),
+  cadence: z.enum(["daily", "weekly", "monthly"]).default("monthly"),
 });
 
 export async function POST(request: Request, { params }: { params: Promise<{ opportunityId: string }> }) {

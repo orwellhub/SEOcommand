@@ -248,7 +248,7 @@ describe("manage tools", () => {
     expect(created.isError).toBe(false);
     const prompt = (created.structuredContent as { created: boolean; prompt: Record<string, unknown> });
     expect(prompt.created).toBe(true);
-    expect(prompt.prompt).toMatchObject({ sampleCount: 1, cadence: "weekly", active: true, source: "claude-mcp", languageCode: "en" });
+    expect(prompt.prompt).toMatchObject({ sampleCount: 1, cadence: "monthly", active: true, source: "claude-mcp", languageCode: "en" });
 
     const updated = await tool("upsert_ai_prompt", { site: SITE, prompt: "How much does it cost to fly a dog to Dubai?", topic: "Pricing", platforms: ["perplexity"], sampleCount: 3, cadence: "monthly", locationCode: 2784, languageCode: "EN" });
     expect(updated.structuredContent).toMatchObject({ created: false, prompt: { id: prompt.prompt.id, platforms: ["perplexity"], sampleCount: 3, cadence: "monthly", locationCode: 2784, languageCode: "en" } });

@@ -403,7 +403,7 @@ export async function fetchAiPromptResults(
           id: null,
           platforms: ["chatgpt"],
           sampleCount: 1,
-          cadence: "weekly",
+          cadence: "monthly",
           locationCode: site.dataForSeoLocationCode,
           languageCode: site.dataForSeoLanguageCode,
         }));

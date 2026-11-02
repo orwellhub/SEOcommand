@@ -202,7 +202,7 @@ export async function listDueAiTrackingPrompts(siteSlug: string, now = new Date(
 
 export function registryPromptRunTimes(lastRunAt: Date | null, now = new Date()) {
   const nextRunAt = lastRunAt ? new Date(lastRunAt) : new Date(now);
-  if (lastRunAt) nextRunAt.setUTCDate(nextRunAt.getUTCDate() + 7);
+  if (lastRunAt) nextRunAt.setUTCMonth(nextRunAt.getUTCMonth() + 1);
   return { lastRunAt, nextRunAt };
 }
 
@@ -234,7 +234,7 @@ export async function ensureRegistryAiTrackingPrompts(
       prompt: item.prompt,
       topic: item.topic,
       platforms: ["chatgpt"],
-      cadence: "weekly",
+      cadence: "monthly",
       priority: 60,
       sampleCount: 1,
       source: "registry",

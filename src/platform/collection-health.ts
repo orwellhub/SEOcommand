@@ -149,9 +149,9 @@ export function resolveAiCollectionSchedule(
   now = new Date(),
   registryLastObservedAt?: Date | string | null,
 ) {
-  const cadences = stored.length ? stored.map((row) => row.cadence) : registryPromptCount > 0 ? ["weekly"] : [];
+  const cadences = stored.length ? stored.map((row) => row.cadence) : registryPromptCount > 0 ? ["monthly"] : [];
   const registryNext = registryLastObservedAt ? new Date(registryLastObservedAt) : nextWeeklyCollection(now);
-  if (registryLastObservedAt) registryNext.setUTCDate(registryNext.getUTCDate() + 7);
+  if (registryLastObservedAt) registryNext.setUTCMonth(registryNext.getUTCMonth() + 1);
   return {
     configured: cadences.length > 0,
     cadences,

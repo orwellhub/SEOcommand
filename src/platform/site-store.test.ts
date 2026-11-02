@@ -7,8 +7,8 @@ describe("registry prompt scheduling", () => {
     expect(registryPromptRunTimes(null, now)).toEqual({ lastRunAt: null, nextRunAt: now });
   });
 
-  it("waits seven days after the latest legacy observation", () => {
+  it("waits a month after the latest legacy observation", () => {
     const last = new Date("2026-08-28T06:04:00Z");
-    expect(registryPromptRunTimes(last).nextRunAt).toEqual(new Date("2026-09-04T06:04:00Z"));
+    expect(registryPromptRunTimes(last).nextRunAt).toEqual(new Date("2026-09-28T06:04:00Z"));
   });
 });
