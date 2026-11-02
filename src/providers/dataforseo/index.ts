@@ -460,7 +460,10 @@ export async function fetchAiPromptResults(
                 device: "desktop",
                 depth: 20,
               }],
-              { domainSlug: domainId },
+              // Google AI Mode answers through DataForSEO often take over a minute; at the default 45 s
+              // every AI Mode call timed out and was retried four times (2 Nov 2026), so no AI Mode
+              // observation was stored. Allow 3 minutes and one retry.
+              { domainSlug: domainId, ...(platform === "google_ai_mode" ? { timeoutMs: 180_000, maxRetries: 1 } : {}) },
             );
             const { result } = call;
             costUsd = call.costUsd;

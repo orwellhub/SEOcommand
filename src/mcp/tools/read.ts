@@ -8,7 +8,7 @@ import type { DomainLiveBundle } from "@/lib/live";
 import { volumeKey } from "@/lib/rank-intelligence";
 import { loadCollectionHealth, type CollectionHealthItem } from "@/platform/collection-health";
 import { listManagedSites } from "@/platform/site-store";
-import { hasDatabase } from "@/sync/store";
+import { hasDatabase, readLatestSnapshots } from "@/sync/store";
 import { bySourceName, classifyTraffic, summariseByClass, TRAFFIC_CLASSES, TRAFFIC_CLASS_LABELS } from "@/lib/traffic-classes";
 import { mcpBudgetStatus, overallBudgetStatus, spendByActor } from "../budget";
 import { callRouteOrThrow, McpToolError } from "../internal";
@@ -303,6 +303,13 @@ export const getAiVisibility = defineTool({
       };
     });
     const latestCapturedAt = results.map((row) => row.capturedAt ?? row.capturedOn).sort().at(-1) ?? null;
+    // Engines the last run could not collect, with the provider's reason (2 Nov 2026: AI Mode failed
+    // silently and showed only as a missing platform).
+    let lastRunSkipped: { capturedOn: string; platforms: unknown } | null = null;
+    if (hasDatabase()) {
+      const meta = (await readLatestSnapshots(site).catch(() => [])).find((row) => row.dataset === "ai_visibility_meta");
+      if (meta) lastRunSkipped = { capturedOn: meta.capturedOn, platforms: (meta.payload as { skippedPlatforms?: unknown } | null)?.skippedPlatforms ?? [] };
+    }
     return {
       site,
       data: {
@@ -310,6 +317,7 @@ export const getAiVisibility = defineTool({
         days: body.scope?.days ?? days,
         platform: platform ?? null,
         latestCapturedAt,
+        lastRunSkipped,
         summary: body.summary ?? null,
         platforms: body.platforms ?? [],
         trackedPrompts: body.trackedPrompts?.length ?? 0,

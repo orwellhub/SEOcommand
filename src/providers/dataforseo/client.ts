@@ -52,10 +52,10 @@ export class DataForSeoClient {
     private guard: SpendGuard,
   ) {}
 
-  private async rawFetch(path: string, body: unknown, retry = true): Promise<Response> {
+  private async rawFetch(path: string, body: unknown, retry = true, timeoutMs = REQUEST_TIMEOUT_MS, maxRetries = MAX_RETRIES): Promise<Response> {
     const url = `${this.cfg.baseUrl}${path}`;
     let lastErr: unknown;
-    const retries = retry ? MAX_RETRIES : 0;
+    const retries = retry ? maxRetries : 0;
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
         const res = await fetch(url, {
@@ -66,7 +66,7 @@ export class DataForSeoClient {
           },
           body: body === undefined ? undefined : JSON.stringify(body),
           cache: "no-store",
-          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+          signal: AbortSignal.timeout(timeoutMs),
         });
         if (RETRYABLE.has(res.status) && attempt < retries) {
           await new Promise((r) => setTimeout(r, backoffMs(attempt)));
@@ -116,7 +116,7 @@ export class DataForSeoClient {
     endpointKey: keyof typeof COST_ESTIMATE_USD,
     path: string,
     body: unknown,
-    opts: { domainSlug?: string | null; critical?: boolean; estimateUsd?: number; retry?: boolean; requestId?: string } = {},
+    opts: { domainSlug?: string | null; critical?: boolean; estimateUsd?: number; retry?: boolean; requestId?: string; timeoutMs?: number; maxRetries?: number } = {},
   ): Promise<{ result: T[]; guard: GuardResult; costUsd: number }> {
     return withProviderSpendLock(async () => {
     const estimate = requestCostEstimate(endpointKey, body, opts.estimateUsd);
@@ -124,7 +124,7 @@ export class DataForSeoClient {
     const { result, guard, costUsd } = await this.guard.run<T[]>(
       { endpoint: endpointKey, estimateUsd: estimate, domainSlug: opts.domainSlug, critical: opts.critical, requestId: opts.requestId },
       async () => {
-        const res = await this.rawFetch(path, body, opts.retry);
+        const res = await this.rawFetch(path, body, opts.retry, opts.timeoutMs, opts.maxRetries);
         const json = (await res.json()) as DfsEnvelope<T>;
         const parsed = this.parse<T>(json, path);
         return { result: parsed.result, costUsd: parsed.cost };
