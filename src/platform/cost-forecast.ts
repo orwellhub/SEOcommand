@@ -20,7 +20,7 @@ function money(value: number): number {
  */
 export function forecastSiteCost(input: ForecastInput): SiteCostForecast {
   const devices = Math.max(1, input.devices.length);
-  const rankingUnits = Math.max(0, input.trackedKeywords) * devices * 30;
+  const rankingUnits = Math.max(0, input.trackedKeywords) * devices;
   const crawlUnits = Math.ceil(Math.max(0, input.crawlMaxPages) / 100);
   const backlinkUnits = Math.ceil(Math.max(0, input.backlinkLimit) / 1000);
   const aiPromptCount = Math.max(0, input.aiPrompts);
@@ -33,12 +33,12 @@ export function forecastSiteCost(input: ForecastInput): SiteCostForecast {
   const lines = [
     {
       key: "daily_rankings",
-      label: "Daily keyword rankings",
-      cadence: "daily",
+      label: "Monthly keyword rankings",
+      cadence: "monthly",
       units: rankingUnits,
       unitCostUsd: 0.003,
       monthlyUsd: money(rankingUnits * 0.003),
-      note: `${input.trackedKeywords} keywords × ${devices} device${devices === 1 ? "" : "s"} × 30 days`,
+      note: `${input.trackedKeywords} keywords × ${devices} device${devices === 1 ? "" : "s"}, checked monthly`,
     },
     {
       key: "technical_crawl",

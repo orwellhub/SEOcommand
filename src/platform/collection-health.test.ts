@@ -18,7 +18,7 @@ describe("collection health", () => {
     expect(assessCollection(policy, { configured: false, records: 0, distinctDates: 0, observedAt: null }, now).state).toBe("not_configured");
     expect(assessCollection(policy, { configured: true, records: 20, distinctDates: 1, observedAt: "2026-08-28" }, now).state).toBe("warming");
     expect(assessCollection(policy, { configured: true, records: 40, distinctDates: 2, observedAt: "2026-08-28" }, now).state).toBe("ready");
-    expect(assessCollection(policy, { configured: true, records: 40, distinctDates: 2, observedAt: "2026-08-24" }, now).state).toBe("stale");
+    expect(assessCollection(policy, { configured: true, records: 40, distinctDates: 2, observedAt: "2026-07-20" }, now).state).toBe("stale");
   });
 
   it("makes validation failure override apparently complete history", () => {

@@ -225,7 +225,7 @@ export const upsertRankKeywords = defineTool({
     locationCode: z.number().int().positive().optional().describe("DataForSEO location code (default: the site's market)."),
     languageCode: z.string().min(2).max(10).optional().describe("Default: the site's language."),
     device: z.enum(["desktop", "mobile"]).default("desktop"),
-    cadence: z.enum(["daily", "weekly"]).optional().describe("Default weekly for new keywords."),
+    cadence: z.enum(["daily", "weekly", "monthly"]).optional().describe("Default monthly for new keywords, to keep DataForSEO spend down."),
     active: z.boolean().optional(),
     campaignId: z.string().uuid().optional(),
     campaignName: z.string().trim().min(2).max(120).optional(),
@@ -252,7 +252,7 @@ export const upsertRankKeywords = defineTool({
         campaignId = campaign?.id ?? (await tx.insert(schema.rankTrackingCampaigns).values({
           siteSlug: site.id,
           name,
-          defaultCadence: args.cadence ?? "weekly",
+          defaultCadence: args.cadence ?? "monthly",
           createdBy: MCP_ACTOR,
           updatedAt: new Date(),
         }).returning({ id: schema.rankTrackingCampaigns.id }))[0]!.id;
@@ -275,7 +275,7 @@ export const upsertRankKeywords = defineTool({
         device: args.device,
         targetUrl: item.targetUrl ?? null,
         tags: item.tags ?? [],
-        cadence: args.cadence ?? "weekly",
+        cadence: args.cadence ?? "monthly",
         active: args.active ?? true,
       }))).onConflictDoNothing().returning() : [];
 

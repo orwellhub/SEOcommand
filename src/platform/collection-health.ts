@@ -23,7 +23,7 @@ export interface ValidationIssue {
 export interface CollectionPolicy {
   dataset: CollectionDataset;
   label: string;
-  cadence: "daily" | "weekly" | "prompt" | "continuous";
+  cadence: "daily" | "weekly" | "monthly" | "prompt" | "continuous";
   minimumDates: number;
   staleAfterDays: number | null;
   alert: boolean;
@@ -59,7 +59,7 @@ export interface CollectionHealthSummary {
 }
 
 export const COLLECTION_POLICIES: Record<CollectionDataset, CollectionPolicy> = {
-  rankings: { dataset: "rankings", label: "Rank history", cadence: "daily", minimumDates: 2, staleAfterDays: 2, alert: true },
+  rankings: { dataset: "rankings", label: "Rank history", cadence: "monthly", minimumDates: 2, staleAfterDays: 35, alert: true },
   competitors: { dataset: "competitors", label: "Competitor content", cadence: "weekly", minimumDates: 2, staleAfterDays: 9, alert: true },
   coverage: { dataset: "coverage", label: "Market coverage", cadence: "weekly", minimumDates: 2, staleAfterDays: 9, alert: true },
   links: { dataset: "links", label: "Link evidence", cadence: "weekly", minimumDates: 1, staleAfterDays: 9, alert: true },

@@ -14,7 +14,7 @@ const AddSchema = z.object({
   siteSlug: z.string().min(1).max(120),
   campaignId: z.string().uuid().nullable().optional(),
   campaignName: z.string().min(2).max(120).optional(),
-  cadence: z.enum(["daily", "weekly"]).default("weekly"),
+  cadence: z.enum(["daily", "weekly", "monthly"]).default("monthly"),
   searchEngine: z.literal("google").default("google"),
   locationCode: z.number().int().positive(),
   languageCode: z.string().min(2).max(10).default("en"),
@@ -62,8 +62,8 @@ export async function POST(request: Request) {
 }
 
 const EditSchema=z.discriminatedUnion("kind",[
- z.object({kind:z.literal("campaign"),siteSlug:z.string().min(1),id:z.string().uuid(),updatedAt:z.string().datetime(),name:z.string().trim().min(2).max(120),competitors:z.array(z.string().max(253)).max(20),alertThreshold:z.number().int().min(1).max(100),defaultCadence:z.enum(["daily","weekly"])}),
- z.object({kind:z.literal("keywords"),siteSlug:z.string().min(1),ids:z.array(z.string().uuid()).min(1).max(500),active:z.boolean().optional(),tags:z.array(z.string().trim().min(1).max(60)).max(30).optional(),cadence:z.enum(["daily","weekly"]).optional(),targetUrl:z.string().url().regex(/^https?:\/\//).max(2000).nullable().optional()})]);
+ z.object({kind:z.literal("campaign"),siteSlug:z.string().min(1),id:z.string().uuid(),updatedAt:z.string().datetime(),name:z.string().trim().min(2).max(120),competitors:z.array(z.string().max(253)).max(20),alertThreshold:z.number().int().min(1).max(100),defaultCadence:z.enum(["daily","weekly","monthly"])}),
+ z.object({kind:z.literal("keywords"),siteSlug:z.string().min(1),ids:z.array(z.string().uuid()).min(1).max(500),active:z.boolean().optional(),tags:z.array(z.string().trim().min(1).max(60)).max(30).optional(),cadence:z.enum(["daily","weekly","monthly"]).optional(),targetUrl:z.string().url().regex(/^https?:\/\//).max(2000).nullable().optional()})]);
 export async function PATCH(request:Request){
  const parsed=EditSchema.safeParse(await request.json().catch(()=>null));if(!parsed.success)return NextResponse.json({error:"Check the campaign or keyword changes."},{status:400});
  const input=parsed.data;if(!await canAccessSite(request,input.siteSlug)||!await hasPermission(request,"research",input.siteSlug))return NextResponse.json({error:"Research permission required."},{status:403});
