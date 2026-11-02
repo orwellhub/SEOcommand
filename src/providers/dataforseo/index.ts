@@ -458,7 +458,8 @@ export async function fetchAiPromptResults(
                 location_code: p.locationCode ?? site.dataForSeoLocationCode,
                 language_code: p.languageCode || site.dataForSeoLanguageCode,
                 device: "desktop",
-                depth: 20,
+                // The AI Mode endpoint rejects depth ("Invalid Field: 'depth'", 2 Nov 2026); it applies to organic SERPs only.
+                ...(platform === "google_ai_mode" ? {} : { depth: 20 }),
               }],
               // Google AI Mode answers through DataForSEO often take over a minute; at the default 45 s
               // every AI Mode call timed out and was retried four times (2 Nov 2026), so no AI Mode
