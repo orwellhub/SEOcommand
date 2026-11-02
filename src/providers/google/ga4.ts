@@ -1,4 +1,4 @@
-import type { DomainId, Ga4ChannelRow, Ga4LandingPage, Ga4Overview } from "@/lib/types";
+import type { DomainId, Ga4ChannelRow, Ga4LandingPage, Ga4Overview, Ga4SourceRow, Ga4Sources } from "@/lib/types";
 import { getGoogleAccessToken } from "./auth";
 import { GA4_API, GA4_SCOPE, GA4_DATA_LAG_DAYS } from "./config";
 import { getManagedSite } from "@/platform/site-store";
@@ -22,6 +22,9 @@ export class Ga4PropertyNotConfiguredError extends Error {
     this.name = "Ga4PropertyNotConfiguredError";
   }
 }
+
+/** The portfolio's lead event (every site fires generate_lead on a confirmed enquiry). */
+export const GA4_LEAD_EVENT = "generate_lead";
 
 const ORGANIC_FILTER = {
   filter: {
@@ -172,5 +175,51 @@ export async function ga4Dashboard(domainId: DomainId): Promise<import("@/lib/da
     }),
     countries: (countryReport?.rows ?? []).map((r: any) => ({ code: r.dimensionValues?.[0]?.value ?? "", country: r.dimensionValues?.[1]?.value ?? "Unknown", sessions: num(r.metricValues?.[0]?.value) })),
     pages: (pageReport?.rows ?? []).map((r: any) => ({ domainId, title: r.dimensionValues?.[0]?.value || "Untitled page", host: r.dimensionValues?.[1]?.value ?? "", path: r.dimensionValues?.[2]?.value ?? "/", views: num(r.metricValues?.[0]?.value) })),
+  };
+}
+
+/**
+ * Sessions by source/medium for two adjacent windows (2 Nov 2026). This is what separates traffic
+ * from AI assistants (chatgpt.com, perplexity.ai ...) and from search engines other than Google,
+ * which Search Console cannot see. No channel filter. The second report counts generate_lead
+ * events by the same dimensions; a site that names its lead event differently shows 0 leads and
+ * the payload says which event was counted.
+ */
+export async function ga4Sources(domainId: DomainId, days = 28): Promise<Ga4Sources> {
+  const property = await propertyFor(domainId);
+  const current = dateRange(days);
+  const prevEnd = new Date(Date.parse(current.startDate) - 86_400_000).toISOString().slice(0, 10);
+  const previous = { startDate: new Date(Date.parse(prevEnd) - (days - 1) * 86_400_000).toISOString().slice(0, 10), endDate: prevEnd };
+  const dimensions = ["sessionSource", "sessionMedium", "sessionDefaultChannelGroup"].map((name) => ({ name }));
+  const base = { dateRanges: [{ ...current, name: "current" }, { ...previous, name: "previous" }], dimensions, limit: 250 };
+  const [traffic, leads] = await Promise.all([
+    runReport(property, { ...base, metrics: ["sessions", "engagedSessions", "keyEvents"].map((name) => ({ name })), orderBys: [{ metric: { metricName: "sessions" }, desc: true }] }),
+    runReport(property, { ...base, metrics: [{ name: "eventCount" }], dimensionFilter: { filter: { fieldName: "eventName", stringFilter: { value: GA4_LEAD_EVENT } } } }).catch(() => null),
+  ]);
+  const key = (r: any) => (r.dimensionValues ?? []).slice(0, 3).map((d: any) => d?.value ?? "").join("\u0001");
+  const rangeOf = (r: any) => String(r.dimensionValues?.[3]?.value ?? "current");
+  const leadCount = new Map<string, number>();
+  for (const r of leads?.rows ?? []) leadCount.set(`${rangeOf(r)}\u0002${key(r)}`, num(r.metricValues?.[0]?.value));
+  const rows: Record<"current" | "previous", Ga4SourceRow[]> = { current: [], previous: [] };
+  for (const r of traffic?.rows ?? []) {
+    const range = rangeOf(r) === "previous" ? "previous" : "current";
+    const mv = r.metricValues ?? [];
+    rows[range].push({
+      source: r.dimensionValues?.[0]?.value ?? "",
+      medium: r.dimensionValues?.[1]?.value ?? "",
+      channel: r.dimensionValues?.[2]?.value ?? "",
+      sessions: num(mv[0]?.value),
+      engagedSessions: num(mv[1]?.value),
+      keyEvents: num(mv[2]?.value),
+      leads: leadCount.get(`${range}\u0002${key(r)}`) ?? 0,
+    });
+  }
+  return {
+    days,
+    current: { start: current.startDate, end: current.endDate, rows: rows.current },
+    previous: { start: previous.startDate, end: previous.endDate, rows: rows.previous },
+    leadEvent: GA4_LEAD_EVENT,
+    leadsCounted: leads !== null,
+    truncated: Number(traffic?.rowCount ?? 0) > 250,
   };
 }

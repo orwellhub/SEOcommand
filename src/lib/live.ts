@@ -5,6 +5,7 @@ import type {
   Competitor,
   CrawlRun,
   Ga4ChannelRow,
+  Ga4Sources,
   Ga4LandingPage,
   Ga4Overview,
   GscMover,
@@ -56,6 +57,7 @@ export const DATASETS = [
   "ga4_overview",
   "ga4_landing_pages",
   "ga4_channels",
+  "ga4_sources",
   "recommendations",
 ] as const;
 
@@ -128,6 +130,7 @@ export interface DomainLiveBundle {
     ga4_overview?: DS<Ga4Overview>;
     ga4_landing_pages?: DS<Ga4LandingPage[]>;
     ga4_channels?: DS<Ga4ChannelRow[]>;
+    ga4_sources?: DS<Ga4Sources>;
     recommendations?: DS<DerivedRecommendation[]>;
   };
 }

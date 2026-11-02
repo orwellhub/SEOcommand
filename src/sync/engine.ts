@@ -30,7 +30,7 @@ import {
   gscQueryPages,
   shareOfMarket,
 } from "@/providers/google/gsc";
-import { ga4Dashboard, ga4Channels, ga4LandingPages, ga4OrganicOverview } from "@/providers/google/ga4";
+import { ga4Dashboard, ga4Channels, ga4LandingPages, ga4OrganicOverview, ga4Sources } from "@/providers/google/ga4";
 import {
   dataForSeoConfigured,
   ensureOnPageCrawl,
@@ -442,6 +442,13 @@ export async function syncDomain(
         if (!googleOk || !domain.ga4PropertyId) return "skip";
         const p = prov("google-analytics", `GA4 ${domain.ga4PropertyId}`);
         await write("ga4_channels", await ga4Channels(domainId, 28), p);
+        return { payload: null, provenance: p };
+      }),
+    () =>
+      collect("ga4_sources", async () => {
+        if (!googleOk || !domain.ga4PropertyId) return "skip";
+        const p = prov("google-analytics", `GA4 ${domain.ga4PropertyId}`);
+        await write("ga4_sources", await ga4Sources(domainId, 28), p);
         return { payload: null, provenance: p };
       }),
   ];

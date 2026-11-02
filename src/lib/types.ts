@@ -499,6 +499,26 @@ export interface Ga4ChannelRow {
   conversions: number;
 }
 
+export interface Ga4SourceRow {
+  source: string;
+  medium: string;
+  channel: string;
+  sessions: number;
+  engagedSessions: number;
+  keyEvents: number;
+  /** generate_lead events (see Ga4Sources.leadEvent). */
+  leads: number;
+}
+
+export interface Ga4Sources {
+  days: number;
+  current: { start: string; end: string; rows: Ga4SourceRow[] };
+  previous: { start: string; end: string; rows: Ga4SourceRow[] };
+  leadEvent: string;
+  leadsCounted: boolean;
+  truncated: boolean;
+}
+
 /* ------------------------------- Alerts --------------------------------- */
 
 export interface AlertItem {

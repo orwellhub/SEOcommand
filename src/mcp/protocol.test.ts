@@ -122,7 +122,7 @@ describe("MCP protocol", () => {
     const { body } = await call("tools/list");
     const tools = (body.result?.tools ?? []) as Array<{ name: string; inputSchema: Record<string, unknown>; annotations: Record<string, unknown> }>;
     expect(tools.map((item) => item.name)).toEqual([
-      "list_sites", "get_site_live", "get_keyword_strategy", "get_market_intelligence", "get_ai_visibility", "get_rank_tracking", "get_collection_health", "get_spend",
+      "list_sites", "get_site_live", "get_keyword_strategy", "get_market_intelligence", "get_ai_visibility", "get_rank_tracking", "get_collection_health", "get_spend", "get_analytics",
       "list_ai_prompts", "upsert_ai_prompt", "delete_ai_prompt", "list_rank_keywords", "upsert_rank_keywords", "delete_rank_keywords",
       "keyword_research", "keyword_metrics", "keyword_gap", "run_ai_visibility_now", "refresh_site",
     ]);
@@ -188,6 +188,27 @@ describe("read tools", () => {
     expect(data.sections.query_movers).toMatchObject({ gains: { total: 1 }, losses: { total: 0 } });
     expect(data.sections.competitors).toEqual({ status: "awaiting_first_sync" });
     expect(JSON.parse(result.content[0]!.text)).toEqual(result.structuredContent);
+  });
+
+  it("get_analytics says when GA4 sources are not collected, then classifies them", async () => {
+    const before = await tool("get_analytics", { site: SITE });
+    expect(before.isError).toBe(false);
+    expect((before.structuredContent as { sources: { status: string } }).sources.status).toBe("not_collected_yet");
+    const provenance = { source: "google-analytics", collectedAt: "2026-10-30T06:00:00.000Z", location: "GA4 1", freshness: "fresh", mode: "live" };
+    const r = (source: string, medium: string, channel: string, sessions: number, keyEvents = 0, leads = 0) => ({ source, medium, channel, sessions, engagedSessions: sessions, keyEvents, leads });
+    await testDb.insert(schema.datasetSnapshots).values([{ domainSlug: SITE, dataset: "ga4_sources", capturedOn: "2026-10-30", provenance, payload: {
+      days: 28, leadEvent: "generate_lead", leadsCounted: true, truncated: false,
+      current: { start: "2026-10-01", end: "2026-10-28", rows: [r("google", "organic", "Organic Search", 100, 5, 2), r("bing", "organic", "Organic Search", 20, 1, 1), r("chatgpt.com", "referral", "Referral", 12, 2, 1), r("(direct)", "(none)", "Direct", 40)] },
+      previous: { start: "2026-09-03", end: "2026-09-30", rows: [r("google", "organic", "Organic Search", 80), r("chatgpt.com", "referral", "Referral", 6)] },
+    } }]);
+    const after = await tool("get_analytics", { site: SITE });
+    const data = after.structuredContent as { sources: Record<string, any> };
+    expect(data.sources.status).toBe("ok");
+    expect(data.sources.classes.ai_assistants.sessions).toMatchObject({ now: 12, before: 6, delta: 6, pct: 100 });
+    expect(data.sources.classes.other_search.sessions).toMatchObject({ now: 20, before: 0, pct: null });
+    expect(data.sources.nonGoogleShareOfOrganic.now).toBeCloseTo(20 / 120, 3);
+    expect(data.sources.aiAssistants[0]).toMatchObject({ name: "ChatGPT", leads: { now: 1 } });
+    expect(data.sources.rows.rows.map((x: { class: string }) => x.class)).toEqual(["google_organic", "other_search", "ai_assistants", "direct"]);
   });
 
   it("audits each tool call without recording secrets", async () => {

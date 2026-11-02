@@ -9,6 +9,7 @@ import { volumeKey } from "@/lib/rank-intelligence";
 import { loadCollectionHealth, type CollectionHealthItem } from "@/platform/collection-health";
 import { listManagedSites } from "@/platform/site-store";
 import { hasDatabase } from "@/sync/store";
+import { bySourceName, classifyTraffic, summariseByClass, TRAFFIC_CLASSES, TRAFFIC_CLASS_LABELS } from "@/lib/traffic-classes";
 import { mcpBudgetStatus, overallBudgetStatus, spendByActor } from "../budget";
 import { callRouteOrThrow, McpToolError } from "../internal";
 import { defineTool, freshness, iso, limitArg, offsetArg, page, requireSite, round, siteArg } from "./shared";
@@ -510,4 +511,70 @@ export const getSpend = defineTool({
   },
 });
 
-export const READ_TOOLS = [listSites, getSiteLive, getKeywordStrategy, getMarketIntelligence, getAiVisibility, getRankTracking, getCollectionHealth, getSpend];
+/* ------------------------------ get_analytics ----------------------------- */
+
+function change(now: number, before: number) {
+  return { now, before, delta: now - before, pct: before > 0 ? round(((now - before) / before) * 100, 1) : null };
+}
+
+export const getAnalytics = defineTool({
+  name: "get_analytics",
+  title: "Get GA4 analytics",
+  description: "Latest stored GA4 data for one site: sessions by traffic class (Google organic, other search engines, AI assistants, paid, social, email, referral, direct) for the latest 28 days and the 28 before, AI assistants and other search engines by name, the raw source/medium rows, all-channel totals, organic overview and top landing pages. Search Console sees only Google; this is the view of AI and non-Google search traffic. Free; reads stored snapshots only.",
+  kind: "read",
+  input: z.object({ site: siteArg, limit: limitArg(50, 250) }),
+  annotations: READ,
+  async run({ site, limit }) {
+    const bundle = await callRouteOrThrow<DomainLiveBundle, { domainId: string }>(getLiveDomain, { path: `/api/live/${encodeURIComponent(site)}`, params: { domainId: site } });
+    const d = bundle.datasets;
+    const src = d.ga4_sources;
+    let sources: Record<string, unknown>;
+    if (!src?.data?.current) {
+      sources = { status: "not_collected_yet", note: "No ga4_sources snapshot yet. It is written by the daily Google sync once this version is deployed." };
+    } else {
+      const now = summariseByClass(src.data.current.rows ?? []);
+      const before = summariseByClass(src.data.previous?.rows ?? []);
+      const classes = Object.fromEntries(TRAFFIC_CLASSES.map((k) => [k, {
+        label: TRAFFIC_CLASS_LABELS[k],
+        sessions: change(now[k].sessions, before[k].sessions),
+        engagedSessions: change(now[k].engagedSessions, before[k].engagedSessions),
+        keyEvents: change(now[k].keyEvents, before[k].keyEvents),
+        leads: change(now[k].leads, before[k].leads),
+      }]));
+      const organicNow = now.google_organic.sessions + now.other_search.sessions;
+      const organicBefore = before.google_organic.sessions + before.other_search.sessions;
+      const named = (cls: "ai_assistants" | "other_search") => {
+        const prev = new Map(bySourceName(src.data.previous?.rows ?? [], cls).map((r) => [r.name, r]));
+        return bySourceName(src.data.current.rows ?? [], cls).map((r) => ({ name: r.name, sessions: change(r.sessions, prev.get(r.name)?.sessions ?? 0), keyEvents: change(r.keyEvents, prev.get(r.name)?.keyEvents ?? 0), leads: change(r.leads, prev.get(r.name)?.leads ?? 0) }));
+      };
+      sources = {
+        status: "ok",
+        freshness: freshness(src),
+        windows: { current: { start: src.data.current.start, end: src.data.current.end }, previous: { start: src.data.previous?.start ?? null, end: src.data.previous?.end ?? null }, days: src.data.days },
+        leadEvent: src.data.leadEvent,
+        leadsCounted: src.data.leadsCounted,
+        truncated: src.data.truncated,
+        classes,
+        nonGoogleShareOfOrganic: { now: organicNow ? round(now.other_search.sessions / organicNow, 4) : null, before: organicBefore ? round(before.other_search.sessions / organicBefore, 4) : null },
+        aiAssistants: named("ai_assistants"),
+        otherSearch: named("other_search"),
+        rows: page((src.data.current.rows ?? []).map((r) => ({ ...r, class: classifyTraffic(r) })), limit, 0),
+      };
+    }
+    const listOrAwait = <T,>(ds: { data: T[] | null | undefined; capturedOn: string } | undefined, n: number) => ds ? { freshness: freshness(ds as Parameters<typeof freshness>[0]), rows: (ds.data ?? []).slice(0, n) } : { status: "awaiting_first_sync" };
+    return {
+      site,
+      data: {
+        site,
+        lastSync: bundle.lastSync,
+        sources,
+        channels: listOrAwait(d.ga4_channels, 25),
+        organicOverview: d.ga4_overview ? { ...d.ga4_overview.data, freshness: freshness(d.ga4_overview) } : { status: "awaiting_first_sync" },
+        landingPages: listOrAwait(d.ga4_landing_pages, Math.min(limit, 50)),
+        generatedAt: new Date().toISOString(),
+      },
+    };
+  },
+});
+
+export const READ_TOOLS = [listSites, getSiteLive, getKeywordStrategy, getMarketIntelligence, getAiVisibility, getRankTracking, getCollectionHealth, getSpend, getAnalytics];

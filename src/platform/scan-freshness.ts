@@ -7,7 +7,7 @@ import type { ScanModule } from "./types";
 export type ScanFreshness = { lastUpdatedAt: string | null; lastUpdatedDate: string | null };
 
 const DATASETS: Record<ScanModule, string[]> = {
-  google: ["gsc_totals", "gsc_timeseries", "gsc_queries", "gsc_pages", "gsc_query_pages", "gsc_movers", "gsc_page_movers", "striking_distance", "share_of_market", "ga4_overview", "ga4_landing_pages", "ga4_dashboard", "ga4_channels"],
+  google: ["gsc_totals", "gsc_timeseries", "gsc_queries", "gsc_pages", "gsc_query_pages", "gsc_movers", "gsc_page_movers", "striking_distance", "share_of_market", "ga4_overview", "ga4_landing_pages", "ga4_dashboard", "ga4_channels", "ga4_sources"],
   rankings: ["daily_rankings"],
   keywords: ["keywords", "position_buckets", "visibility_point"],
   competitors: ["competitors", "keyword_gaps", "competitor_content_history"],
