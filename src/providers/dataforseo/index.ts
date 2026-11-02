@@ -19,7 +19,7 @@ import { analyseAiResponse } from "@/platform/ai-analysis";
 import { ensureRegistryAiTrackingPrompts, getManagedSite, listAiTrackingPrompts, listDueAiTrackingPrompts, listRankTrackingKeywords, markAiPromptRun } from "@/platform/site-store";
 import { isoDate } from "@/lib/dates";
 import { ENDPOINTS, locationFor, locationForSite, readConfig } from "./config";
-import { MissingCredentialsError } from "./errors";
+import { BudgetExceededError, DailyLimitError, MissingCredentialsError } from "./errors";
 import { DataForSeoClient } from "./client";
 import { InMemorySpendStore, SpendGuard, type SpendStore } from "./cost";
 import { PgSpendStore } from "./store-db";
@@ -344,6 +344,36 @@ export async function ensureOnPageCrawl(
  * real mention/citation. Only domains present in TRACKED_AI_PROMPTS run (cost
  * control); returns null for others.
  */
+/**
+ * Pick a ChatGPT model DataForSEO currently accepts (2 Nov 2026). The hard-coded default
+ * "gpt-4o" was refused with "Invalid Field: 'model_name'" and every scheduled and manual AI run
+ * failed from about 1 Nov 2026. The models endpoint is free, so the run asks for the current list
+ * and uses the configured model only if it is listed with web search; otherwise the first
+ * preferred family that is, otherwise the first web-search model. With no list, the configured name.
+ */
+const PREFERRED_CHATGPT_MODELS = ["gpt-4.1", "gpt-4o", "gpt-5-mini", "gpt-4.1-mini", "gpt-4o-mini", "gpt-5"];
+export function chooseWebSearchModel(configured: string | undefined, models: Array<{ model_name?: string; web_search_supported?: boolean }>, preferred: string[] = PREFERRED_CHATGPT_MODELS): string {
+  const want = (configured ?? "").trim();
+  const usable = models.filter((m) => m && typeof m.model_name === "string" && m.web_search_supported !== false).map((m) => m.model_name as string);
+  if (!usable.length) return want || preferred[0];
+  if (want && usable.includes(want)) return want;
+  for (const name of preferred) if (usable.includes(name)) return name;
+  return usable[0];
+}
+let chatGptModelCache: { at: number; model: string } | null = null;
+async function resolveChatGptModel(client: ReturnType<typeof getDataForSeoClient>): Promise<string> {
+  const configured = process.env.DATAFORSEO_AI_MODEL_CHATGPT;
+  if (chatGptModelCache && Date.now() - chatGptModelCache.at < 6 * 3600 * 1000) return chatGptModelCache.model;
+  try {
+    const models = await client.getMeta<{ model_name?: string; web_search_supported?: boolean }>(ENDPOINTS.aiLlmModels("chat_gpt"));
+    const model = chooseWebSearchModel(configured, models);
+    chatGptModelCache = { at: Date.now(), model };
+    return model;
+  } catch {
+    return (configured ?? "").trim() || PREFERRED_CHATGPT_MODELS[0];
+  }
+}
+
 export async function fetchAiPromptResults(
   domainId: DomainId,
   competitors: { name?: string; host: string }[] = [],
@@ -383,7 +413,7 @@ export async function fetchAiPromptResults(
   const observations: AiObservationInput[] = [];
   const skippedPlatforms: AiVisibilityRun["skippedPlatforms"] = [];
   const platformConfig = {
-    chatgpt: { path: "chat_gpt" as const, model: process.env.DATAFORSEO_AI_MODEL_CHATGPT ?? "gpt-4o" },
+    chatgpt: { path: "chat_gpt" as const, model: await resolveChatGptModel(client) },
     claude: { path: "claude" as const, model: process.env.DATAFORSEO_AI_MODEL_CLAUDE ?? "claude-sonnet-4-0" },
     gemini: { path: "gemini" as const, model: process.env.DATAFORSEO_AI_MODEL_GEMINI ?? "gemini-2.5-flash" },
     perplexity: { path: "perplexity" as const, model: process.env.DATAFORSEO_AI_MODEL_PERPLEXITY ?? "sonar" },
@@ -396,44 +426,57 @@ export async function fetchAiPromptResults(
         let raw: unknown;
         let modelName: string = platform;
         let costUsd = 0;
-        if (platform in platformConfig) {
-          const key = platform as keyof typeof platformConfig;
-          const cfg = platformConfig[key];
-          modelName = cfg.model;
-          const call = await client.post<Record<string, any>>(
-            "aiLlmResponses",
-            ENDPOINTS.aiLlmResponses(cfg.path),
-            [{
-              user_prompt: p.prompt,
-              model_name: cfg.model,
-              max_output_tokens: 1200,
-              web_search: true,
-              force_web_search: true,
-            }],
-            { domainSlug: domainId },
-          );
-          const { result } = call;
-          costUsd = call.costUsd;
-          raw = result?.[0] ?? result ?? {};
-        } else if (platform === "google_ai_overview" || platform === "google_ai_mode") {
-          const endpointKey = platform === "google_ai_mode" ? "googleAiModeLive" : "serpOrganicLive";
-          const endpoint = platform === "google_ai_mode" ? ENDPOINTS.googleAiModeLive : ENDPOINTS.serpOrganicLive;
-          const call = await client.post<Record<string, any>>(
-            endpointKey,
-            endpoint,
-            [{
-              keyword: p.prompt,
-              location_code: p.locationCode ?? site.dataForSeoLocationCode,
-              language_code: p.languageCode || site.dataForSeoLanguageCode,
-              device: "desktop",
-              depth: 20,
-            }],
-            { domainSlug: domainId },
-          );
-          const { result } = call;
-          costUsd = call.costUsd;
-          raw = result?.[0] ?? result ?? {};
-          modelName = platform === "google_ai_mode" ? "Google AI Mode" : "Google AI Overview";
+        if (platform in platformConfig || platform === "google_ai_overview" || platform === "google_ai_mode") {
+          try {
+          if (platform in platformConfig) {
+            const key = platform as keyof typeof platformConfig;
+            const cfg = platformConfig[key];
+            modelName = cfg.model;
+            const call = await client.post<Record<string, any>>(
+              "aiLlmResponses",
+              ENDPOINTS.aiLlmResponses(cfg.path),
+              [{
+                user_prompt: p.prompt,
+                model_name: cfg.model,
+                max_output_tokens: 1200,
+                web_search: true,
+                force_web_search: true,
+              }],
+              { domainSlug: domainId },
+            );
+            const { result } = call;
+            costUsd = call.costUsd;
+            raw = result?.[0] ?? result ?? {};
+          } else if (platform === "google_ai_overview" || platform === "google_ai_mode") {
+            const endpointKey = platform === "google_ai_mode" ? "googleAiModeLive" : "serpOrganicLive";
+            const endpoint = platform === "google_ai_mode" ? ENDPOINTS.googleAiModeLive : ENDPOINTS.serpOrganicLive;
+            const call = await client.post<Record<string, any>>(
+              endpointKey,
+              endpoint,
+              [{
+                keyword: p.prompt,
+                location_code: p.locationCode ?? site.dataForSeoLocationCode,
+                language_code: p.languageCode || site.dataForSeoLanguageCode,
+                device: "desktop",
+                depth: 20,
+              }],
+              { domainSlug: domainId },
+            );
+            const { result } = call;
+            costUsd = call.costUsd;
+            raw = result?.[0] ?? result ?? {};
+            modelName = platform === "google_ai_mode" ? "Google AI Mode" : "Google AI Overview";
+            }
+          } catch (error) {
+            // One refused platform must not void the whole run (2 Nov 2026: a refused ChatGPT model
+            // stopped AI Overviews and AI Mode from being collected too). Budget, limit and credential
+            // refusals still stop the run.
+            if (error instanceof BudgetExceededError || error instanceof DailyLimitError || error instanceof MissingCredentialsError) throw error;
+            if (!skippedPlatforms.some((item) => item.platform === platform)) {
+              skippedPlatforms.push({ platform, reason: error instanceof Error ? error.message : String(error) });
+            }
+            break;
+          }
         } else if (platform === "copilot") {
           const webhook = process.env.AI_COPILOT_WEBHOOK_URL;
           if (!webhook) {
