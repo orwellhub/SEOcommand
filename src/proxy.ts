@@ -64,6 +64,8 @@ export async function proxy(request: NextRequest) {
   return NextResponse.next({ request: { headers } });
 }
 
+// The app icons stay public: a phone or tablet fetches the home screen icon
+// without the session, and a sign-in redirect there leaves a plain letter.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png).*)"],
 };

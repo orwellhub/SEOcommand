@@ -12,6 +12,8 @@ export const metadata: Metadata = {
   title: "SEO Command",
   description:
     "Multi-brand SEO intelligence platform — portfolio-first rankings, audits, backlinks and AI visibility.",
+  // The name under the icon when SEO Command is added to a home screen.
+  appleWebApp: { title: "SEO Command" },
 };
 
 /**
