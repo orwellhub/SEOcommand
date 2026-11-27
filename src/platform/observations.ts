@@ -56,7 +56,9 @@ export async function persistDailyRankings(site: ManagedSite, rows: TrackedRanki
     .from(schema.dailyRankHistory)
     .where(and(inArray(schema.dailyRankHistory.trackedKeywordId, ids),eq(schema.dailyRankHistory.siteSlug,site.id),lt(schema.dailyRankHistory.capturedOn,today)))
     .orderBy(schema.dailyRankHistory.trackedKeywordId, desc(schema.dailyRankHistory.capturedOn));
-  const prior = new Map(previous.map((row) => [row.trackedKeywordId, row.position]));
+  // Rows saved before the organic-position fix may hold SERP-wide ranks above
+  // 100; never carry those forward as a "previous position".
+  const prior = new Map(previous.map((row) => [row.trackedKeywordId, row.position != null && row.position >= 1 && row.position <= 100 ? row.position : null]));
   const priorDetail = new Map(previous.map((row) => [row.trackedKeywordId, row]));
   const campaigns=await db().select().from(schema.rankTrackingCampaigns).where(eq(schema.rankTrackingCampaigns.siteSlug,site.id));
   const tracked=await db().select({id:schema.rankTrackingKeywords.id,campaignId:schema.rankTrackingKeywords.campaignId}).from(schema.rankTrackingKeywords).where(inArray(schema.rankTrackingKeywords.id,ids));
