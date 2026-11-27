@@ -76,6 +76,19 @@ describe("collection health", () => {
     ]);
   });
 
+  it("judges rank positions on the latest collection, not legacy history", () => {
+    const base = { competitors: [] as Array<{ position?: number }>, previousPosition: null };
+    const legacy = { ...base, trackedKeywordId: "one", capturedOn: "2026-11-02", position: 112 };
+    expect(validateCollectionEvidence({
+      rankings: [{ ...base, trackedKeywordId: "one", capturedOn: "2026-11-30", position: 9 }, legacy],
+      competitors: [], gaps: [], links: [], ai: [],
+    })).toEqual([]);
+    expect(validateCollectionEvidence({
+      rankings: [{ ...base, trackedKeywordId: "one", capturedOn: "2026-11-30", position: 9, competitors: [{ position: 104 }] }, legacy],
+      competitors: [], gaps: [], links: [], ai: [],
+    }).map((item) => item.code)).toEqual(["invalid_position"]);
+  });
+
   it("accepts well-formed stored evidence", () => {
     expect(validateCollectionEvidence({
       rankings: [{ trackedKeywordId: "one", capturedOn: "2026-08-28", position: null, previousPosition: 12, competitors: [{ position: 3 }] }],

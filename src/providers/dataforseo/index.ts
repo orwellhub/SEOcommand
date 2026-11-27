@@ -548,6 +548,17 @@ export async function fetchAiPromptResults(
   return { prompts: out, observations, skippedPlatforms };
 }
 
+/**
+ * Organic position (1–100) of a SERP item. DataForSEO's `rank_absolute` counts
+ * every SERP element (ads, People Also Ask, map packs, videos…), so on a
+ * 100-deep organic SERP it regularly exceeds 100 and is not an organic rank.
+ * `rank_group` is the position among organic results only.
+ */
+export function organicPosition(item: Record<string, unknown> | null | undefined): number | null {
+  const raw = Number(item?.rank_group ?? item?.rank_absolute);
+  return Number.isInteger(raw) && raw >= 1 && raw <= 100 ? raw : null;
+}
+
 /** Daily exact SERP checks for approved, explicitly tracked keywords. */
 export async function fetchDailyTrackedRankings(domainId: DomainId,onBatch?:(rows:TrackedRankingResult[])=>Promise<void>): Promise<TrackedRankingResult[]> {
   const site = await siteFor(domainId);
@@ -571,9 +582,9 @@ export async function fetchDailyTrackedRankings(domainId: DomainId,onBatch?:(row
         const candidate = String(item?.domain ?? item?.url ?? "").toLowerCase();
         return item?.type === "organic" && belongsToHost(candidate, site.host);
       });
-      const organic = items.filter((item) => item?.type === "organic" && item?.rank_absolute);
+      const organic = items.filter((item) => item?.type === "organic" && organicPosition(item) != null);
       const hosts = organic.map((item) => { try { return new URL(String(item?.url ?? "")).hostname.replace(/^www\./, ""); } catch { return String(item?.domain ?? "").replace(/^www\./, ""); } });
-      const topCompetitors = organic.map((item, index) => ({ host: hosts[index]!, position: Number(item.rank_absolute), url: item?.url ? String(item.url) : null })).filter((item) => item.host && !belongsToHost(item.host,site.host));
+      const topCompetitors = organic.map((item, index) => ({ host: hosts[index]!, position: organicPosition(item)!, url: item?.url ? String(item.url) : null })).filter((item) => item.host && !belongsToHost(item.host,site.host));
       const keywordText = keyword.keyword.toLowerCase();
       const featureTypes = new Set(items.map((item) => String(item?.type ?? "")));
       const inferredIntent = [...featureTypes].some((type) => /shopping|local_pack|maps|paid/.test(type)) ? "transactional" : [...featureTypes].some((type) => /knowledge|people_also_ask|featured_snippet/.test(type)) && !/\b(buy|price|quote|book|hire|near me)\b/.test(keywordText) ? "informational" : /\b(buy|price|quote|book|hire|near me)\b/.test(keywordText) ? "transactional" : /\b(best|compare|review|vs|top)\b/.test(keywordText) ? "commercial" : /\b(how|what|why|guide|can|does)\b/.test(keywordText) ? "informational" : "mixed";
@@ -582,7 +593,7 @@ export async function fetchDailyTrackedRankings(domainId: DomainId,onBatch?:(row
         keyword: keyword.keyword,
         device: keyword.device,
         locationCode: keyword.locationCode,
-        position: owned?.rank_absolute ?? null,
+        position: organicPosition(owned),
         previousPosition: null,
         url: owned?.url ?? null,
         serpFeatures: [...new Set(items.map((item) => String(item?.type ?? "")).filter(Boolean))],

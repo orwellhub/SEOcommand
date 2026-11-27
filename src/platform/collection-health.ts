@@ -181,14 +181,18 @@ export function validateCollectionEvidence(input: {
   ai: Array<{ confidence: number; recommendationPosition: number | null; costUsd: number; responseHash: string }>;
 }): ValidationIssue[] {
   const duplicateRanks = input.rankings.length - new Set(input.rankings.map((row) => `${row.trackedKeywordId}:${row.capturedOn}`)).size;
-  const badRanks = input.rankings.filter((row) => !validPosition(row.position) || !validPosition(row.previousPosition) || row.competitors.some((item) => !validPosition(item.position))).length;
+  // Judge rank positions on the latest collection only. Rows saved before the
+  // organic-position fix stored SERP-wide ranks (>100); they are kept as
+  // history but must not mark every later, valid collection as failed.
+  const latestRankDate = input.rankings.reduce<string | null>((max, row) => (max == null || String(row.capturedOn) > max ? String(row.capturedOn) : max), null);
+  const badRanks = input.rankings.filter((row) => String(row.capturedOn) === latestRankDate && (!validPosition(row.position) || !validPosition(row.previousPosition) || row.competitors.some((item) => !validPosition(item.position)))).length;
   const badPages = input.competitors.flatMap((run) => run.pages).filter((page) => !validUrl(page.url) || [page.keywords, page.traffic, page.trafficCost].some((value) => value != null && (!Number.isFinite(Number(value)) || Number(value) < 0))).length;
   const badGaps = input.gaps.filter((row) => !validPosition(row.sitePosition) || !validPosition(row.competitorPosition) || [row.volume, row.difficulty, row.trafficPotential].some((value) => value != null && (!Number.isFinite(value) || value < 0)) || (row.difficulty != null && row.difficulty > 100)).length;
   const badLinks = input.links.filter((row) => !row.sourceDomain.trim() || row.relevance < 0 || row.relevance > 100 || (row.authority != null && (row.authority < 0 || row.authority > 100))).length;
   const badAi = input.ai.filter((row) => row.confidence < 0 || row.confidence > 1 || row.costUsd < 0 || !row.responseHash || (row.recommendationPosition != null && row.recommendationPosition < 1)).length;
   return [
     ...issue("rankings", "duplicate_observation", duplicateRanks, "Duplicate keyword/date observations were found."),
-    ...issue("rankings", "invalid_position", badRanks, "Rank positions must be null or between 1 and 100."),
+    ...issue("rankings", "invalid_position", badRanks, "Rank positions in the latest collection must be null or between 1 and 100."),
     ...issue("competitors", "invalid_page", badPages, "Competitor pages must have a web URL and non-negative metrics."),
     ...issue("coverage", "invalid_gap", badGaps, "Keyword-gap positions and metrics are outside provider bounds."),
     ...issue("links", "invalid_link", badLinks, "Link authority or relevance evidence is outside expected bounds."),
